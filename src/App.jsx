@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from 'react'
 import './App.css'
 
-const DATA_ENDPOINT =
-  'https://doughmonster-worker.thedoughmonster.workers.dev/api/orders-detailed'
+const ORDERS_ENDPOINT =
+  'https://doughmonster-worker.thedoughmonster.workers.dev/api/orders/latest'
+const MENUS_ENDPOINT = 'https://doughmonster-worker.thedoughmonster.workers.dev/api/menus'
 
 const ensureArray = (value) => {
   if (Array.isArray(value)) {
@@ -106,6 +107,190 @@ const parseDateLike = (value) => {
   return undefined
 }
 
+const isLikelyGuid = (value) => {
+  if (typeof value !== 'string') {
+    return false
+  }
+
+  const trimmed = value.trim()
+  if (trimmed.length < 8) {
+    return false
+  }
+
+  if (!/^[0-9a-f-]+$/i.test(trimmed)) {
+    return false
+  }
+
+  return trimmed.includes('-') || /[a-f]/i.test(trimmed)
+}
+
+const ORDER_GUID_KEYS = [
+  'guid',
+  'orderGuid',
+  'order_guid',
+  'orderId',
+  'order_id',
+  'uuid',
+  'id',
+  'ticketGuid',
+  'ticket_guid',
+]
+
+const extractOrderGuid = (order) => {
+  if (!order || typeof order !== 'object') {
+    return undefined
+  }
+
+  for (const key of ORDER_GUID_KEYS) {
+    const candidate = toStringValue(pickValue(order, [key]))
+    if (candidate && isLikelyGuid(candidate)) {
+      return candidate
+    }
+  }
+
+  return undefined
+}
+
+const MENU_ITEM_ID_KEYS = ['guid', 'id', 'sku', 'code', 'itemGuid', 'item_guid', 'itemId', 'item_id']
+
+const buildMenuItemLookup = (menuPayload) => {
+  const lookup = new Map()
+
+  const visit = (node) => {
+    if (!node) {
+      return
+    }
+
+    if (Array.isArray(node)) {
+      node.forEach(visit)
+      return
+    }
+
+    if (typeof node !== 'object') {
+      return
+    }
+
+    let identifier
+    for (const key of MENU_ITEM_ID_KEYS) {
+      const candidate = toStringValue(pickValue(node, [key]))
+      if (candidate) {
+        identifier = candidate
+        break
+      }
+    }
+
+    const name = toStringValue(pickValue(node, ['name', 'title', 'label', 'description']))
+    if (identifier && name) {
+      lookup.set(identifier, name)
+    }
+
+    Object.values(node).forEach(visit)
+  }
+
+  visit(menuPayload)
+
+  return lookup
+}
+
+const ORDER_CONTEXT_REGEX = /(order|ticket)/i
+const OUTSTANDING_KEY_HINTS = [
+  'unfulfilled',
+  'outstanding',
+  'open',
+  'pending',
+  'awaiting',
+  'queue',
+  'inprogress',
+  'in_progress',
+  'prep',
+]
+
+const keyIndicatesOutstanding = (key) => {
+  if (!key) {
+    return false
+  }
+
+  const normalized = key.toLowerCase()
+  const hasFragment = OUTSTANDING_KEY_HINTS.some((fragment) => normalized.includes(fragment))
+  if (!hasFragment) {
+    return false
+  }
+
+  return ['order', 'ticket', 'guid', 'queue'].some((hint) => normalized.includes(hint))
+}
+
+const pathContainsOrderHint = (keyPath) =>
+  keyPath.some((key) => (key ? ORDER_CONTEXT_REGEX.test(key) : false))
+
+const extractUnfulfilledOrderGuids = (menuPayload) => {
+  const unfulfilled = new Set()
+
+  const visit = (node, keyPath = []) => {
+    if (!node) {
+      return
+    }
+
+    if (Array.isArray(node)) {
+      const lastKey = keyPath[keyPath.length - 1] ?? ''
+      const contextHasOrder = pathContainsOrderHint(keyPath)
+      const contextIndicatesOutstanding = contextHasOrder && keyIndicatesOutstanding(lastKey)
+
+      node.forEach((item) => {
+        if (typeof item === 'string') {
+          if (contextIndicatesOutstanding && isLikelyGuid(item)) {
+            unfulfilled.add(item.trim())
+          }
+        } else {
+          visit(item, keyPath)
+        }
+      })
+
+      return
+    }
+
+    if (typeof node !== 'object') {
+      return
+    }
+
+    const pathHasOrder = pathContainsOrderHint(keyPath)
+    const pathHasOutstanding = keyPath.some((key) => keyIndicatesOutstanding(key))
+
+    const guid = extractOrderGuid(node)
+    if (guid && (pathHasOrder || pathHasOutstanding)) {
+      const fulfilledFlag = pickValue(node, ['fulfilled', 'isFulfilled', 'is_fulfilled'])
+      let include = false
+
+      if (fulfilledFlag !== undefined && fulfilledFlag !== null) {
+        const normalizedFlag =
+          typeof fulfilledFlag === 'string'
+            ? fulfilledFlag.toLowerCase() === 'true'
+            : !!fulfilledFlag
+        include = !normalizedFlag
+      } else {
+        const status = toStringValue(
+          pickValue(node, ['status', 'fulfillmentStatus', 'fulfillment_status', 'state', 'stage']),
+        )
+
+        if (status) {
+          include = !status.toLowerCase().includes('fulfill')
+        } else if (pathHasOutstanding) {
+          include = true
+        }
+      }
+
+      if (include) {
+        unfulfilled.add(guid)
+      }
+    }
+
+    Object.entries(node).forEach(([key, value]) => visit(value, [...keyPath, key]))
+  }
+
+  visit(menuPayload, [])
+
+  return unfulfilled
+}
+
 const normalizeItemModifiers = (item) => {
   const modifierKeys = ['modifiers', 'options', 'toppings', 'customizations', 'addOns', 'add_ons']
   for (const key of modifierKeys) {
@@ -179,7 +364,21 @@ const normalizeItemModifiers = (item) => {
   return []
 }
 
-const normalizeOrderItems = (order) => {
+const ORDER_ITEM_IDENTIFIER_KEYS = [
+  'id',
+  'uuid',
+  'guid',
+  'sku',
+  'code',
+  'itemGuid',
+  'item_guid',
+  'itemId',
+  'item_id',
+  'line_id',
+  'lineId',
+]
+
+const normalizeOrderItems = (order, menuLookup) => {
   const itemKeys = ['items', 'line_items', 'lineItems', 'products', 'order_items', 'entries', 'cartItems']
   let rawItems
 
@@ -204,15 +403,34 @@ const normalizeOrderItems = (order) => {
   }
 
   return rawItems.map((item, index) => {
-    const name = toStringValue(pickValue(item, ['name', 'title', 'item', 'product', 'description'])) ?? `Item ${index + 1}`
+    const fallbackName = `Item ${index + 1}`
+    const baseName = toStringValue(pickValue(item, ['name', 'title', 'item', 'product', 'description']))
     const quantity = toNumber(pickValue(item, ['quantity', 'qty', 'count', 'amount'])) ?? 1
     const price = toNumber(pickValue(item, ['price', 'unit_price', 'price_total', 'total', 'cost']))
     const currency = toStringValue(pickValue(item, ['currency', 'currencyCode']))
     const notes = toStringValue(pickValue(item, ['notes', 'note', 'specialInstructions', 'instructions']))
     const modifiers = normalizeItemModifiers(item)
 
-    const identifier =
-      toStringValue(pickValue(item, ['id', 'uuid', 'sku', 'code', 'line_id', 'lineId'])) ?? `${index}`
+    let rawIdentifier
+    for (const key of ORDER_ITEM_IDENTIFIER_KEYS) {
+      const candidate = toStringValue(pickValue(item, [key]))
+      if (candidate) {
+        rawIdentifier = candidate
+        break
+      }
+    }
+
+    const identifier = rawIdentifier ?? `${index}`
+    const menuName = rawIdentifier && menuLookup ? menuLookup.get(rawIdentifier) : undefined
+    let name = baseName
+
+    if ((!name || name === fallbackName) && menuName) {
+      name = menuName
+    }
+
+    if (!name) {
+      name = fallbackName
+    }
 
     return {
       id: identifier,
@@ -226,7 +444,7 @@ const normalizeOrderItems = (order) => {
   })
 }
 
-const normalizeOrders = (rawOrders) => {
+const normalizeOrders = (rawOrders, menuLookup = new Map()) => {
   const collection = ensureArray(rawOrders)
 
   return collection.map((order, index) => {
@@ -234,6 +452,7 @@ const normalizeOrders = (rawOrders) => {
       return null
     }
 
+    const guid = extractOrderGuid(order)
     const displayId = toStringValue(
       pickValue(order, [
         'displayId',
@@ -271,8 +490,9 @@ const normalizeOrders = (rawOrders) => {
     const notes = toStringValue(pickValue(order, ['notes', 'note', 'specialInstructions', 'instructions']))
 
     return {
-      id: displayId ?? `order-${index}`,
+      id: guid ?? displayId ?? `order-${index}`,
       displayId: displayId ?? `#${index + 1}`,
+      guid,
       status,
       createdAt,
       createdAtRaw: createdAtRaw ? toStringValue(createdAtRaw) : undefined,
@@ -280,7 +500,7 @@ const normalizeOrders = (rawOrders) => {
       currency,
       customerName,
       notes,
-      items: normalizeOrderItems(order),
+      items: normalizeOrderItems(order, menuLookup),
     }
   }).filter(Boolean)
 }
@@ -387,7 +607,7 @@ const normalizeModifiersFromPayload = (payload) => {
 
     if (candidate && typeof candidate === 'object') {
       const normalized = Object.entries(candidate)
-        .map(([name, qty], index) => {
+        .map(([name, qty]) => {
           const parsedQty = toNumber(qty)
           return {
             name,
@@ -437,7 +657,7 @@ const formatCurrency = (value, currency = 'USD') => {
       currency,
       minimumFractionDigits: 2,
     }).format(value)
-  } catch (_error) {
+  } catch {
     return value.toString()
   }
 }
@@ -452,7 +672,7 @@ const formatTimestamp = (date, fallback) => {
       dateStyle: 'medium',
       timeStyle: 'short',
     }).format(date)
-  } catch (_error) {
+  } catch {
     return fallback ?? date.toString()
   }
 }
@@ -480,20 +700,41 @@ function App() {
       setError(null)
 
       try {
-        const response = await fetch(DATA_ENDPOINT, { signal: controller.signal })
+        const [ordersResponse, menusResponse] = await Promise.all([
+          fetch(ORDERS_ENDPOINT, { signal: controller.signal }),
+          fetch(MENUS_ENDPOINT, { signal: controller.signal }),
+        ])
 
-        if (!response.ok) {
-          throw new Error(`Request failed with status ${response.status}`)
+        if (!ordersResponse.ok) {
+          throw new Error(`Orders request failed with status ${ordersResponse.status}`)
         }
 
-        const payload = await response.json()
+        if (!menusResponse.ok) {
+          throw new Error(`Menus request failed with status ${menusResponse.status}`)
+        }
+
+        const [ordersPayload, menusPayload] = await Promise.all([
+          ordersResponse.json(),
+          menusResponse.json(),
+        ])
+
         if (!isSubscribed) {
           return
         }
 
-        const rawOrders = extractOrdersFromPayload(payload)
-        const normalizedOrders = normalizeOrders(rawOrders)
-        const payloadModifiers = normalizeModifiersFromPayload(payload)
+        const rawOrders = extractOrdersFromPayload(ordersPayload)
+        const menuLookup = buildMenuItemLookup(menusPayload)
+        const outstandingGuids = extractUnfulfilledOrderGuids(menusPayload)
+        const filteredOrders =
+          outstandingGuids.size > 0
+            ? rawOrders.filter((order) => {
+                const guid = extractOrderGuid(order)
+                return guid ? outstandingGuids.has(guid) : false
+              })
+            : rawOrders
+
+        const normalizedOrders = normalizeOrders(filteredOrders, menuLookup)
+        const payloadModifiers = normalizeModifiersFromPayload(ordersPayload)
         const aggregatedModifiers = payloadModifiers.length > 0
           ? payloadModifiers
           : deriveModifiersFromOrders(normalizedOrders)
