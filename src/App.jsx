@@ -17,6 +17,130 @@ const ensureArray = (value) => {
   return []
 }
 
+const ORDER_ITEM_COLLECTION_KEYS = [
+  'items',
+  'line_items',
+  'lineItems',
+  'products',
+  'order_items',
+  'entries',
+  'cartItems',
+]
+
+const ORDER_PRIMARY_HINT_KEYS = [
+  'displayId',
+  'display_id',
+  'orderNumber',
+  'order_number',
+  'ticket',
+  'number',
+  'id',
+  'reference',
+  'name',
+  'orderId',
+  'order_id',
+  'guid',
+  'uuid',
+]
+
+const ORDER_SECONDARY_HINT_KEYS = [
+  'status',
+  'orderStatus',
+  'state',
+  'stage',
+  'fulfillment_status',
+  'createdAt',
+  'created_at',
+  'placedAt',
+  'placed_at',
+  'timestamp',
+  'time',
+  'submitted_at',
+  'total',
+  'totalPrice',
+  'total_price',
+  'amount',
+  'amount_total',
+  'order_total',
+  'currency',
+  'currencyCode',
+  'customer',
+  'customerName',
+  'customer_name',
+  'guest',
+  'client',
+  'user',
+  'notes',
+  'note',
+  'specialInstructions',
+  'instructions',
+]
+
+const looksLikeOrderRecord = (value) => {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return false
+  }
+
+  const hasItems = ORDER_ITEM_COLLECTION_KEYS.some((key) => Array.isArray(value[key]) && value[key].length > 0)
+  if (hasItems) {
+    return true
+  }
+
+  const hasPrimaryHint = ORDER_PRIMARY_HINT_KEYS.some((key) => key in value)
+  if (!hasPrimaryHint) {
+    return false
+  }
+
+  return ORDER_SECONDARY_HINT_KEYS.some((key) => key in value)
+}
+
+const collectOrdersFromCandidate = (candidate) => {
+  const queue = []
+
+  if (candidate !== undefined && candidate !== null) {
+    if (Array.isArray(candidate)) {
+      queue.push(...candidate)
+    } else {
+      queue.push(candidate)
+    }
+  }
+
+  const orders = []
+  const seen = new WeakSet()
+
+  while (queue.length > 0) {
+    const value = queue.shift()
+
+    if (Array.isArray(value)) {
+      queue.push(...value)
+      continue
+    }
+
+    if (!value || typeof value !== 'object') {
+      continue
+    }
+
+    if (seen.has(value)) {
+      continue
+    }
+
+    seen.add(value)
+
+    if (looksLikeOrderRecord(value)) {
+      orders.push(value)
+      continue
+    }
+
+    for (const nested of Object.values(value)) {
+      if (nested && (typeof nested === 'object' || Array.isArray(nested))) {
+        queue.push(nested)
+      }
+    }
+  }
+
+  return orders
+}
+
 const pickValue = (source, keys) => {
   if (!source) {
     return undefined
@@ -65,15 +189,101 @@ const toNumber = (value) => {
 }
 
 const toStringValue = (value) => {
-  if (value === undefined || value === null) {
-    return undefined
+  const visit = (input, seen = new Set()) => {
+    if (input === undefined || input === null) {
+      return undefined
+    }
+
+    if (typeof input === 'string') {
+      return input
+    }
+
+    if (typeof input === 'number' && Number.isFinite(input)) {
+      return String(input)
+    }
+
+    if (typeof input === 'bigint') {
+      return input.toString()
+    }
+
+    if (typeof input === 'boolean') {
+      return input ? 'true' : 'false'
+    }
+
+    if (input instanceof Date && !Number.isNaN(input.getTime())) {
+      return input.toISOString()
+    }
+
+    if (Array.isArray(input)) {
+      const parts = input.map((entry) => visit(entry, seen)).filter(Boolean)
+      return parts.length > 0 ? parts.join(', ') : undefined
+    }
+
+    if (typeof input === 'object') {
+      if (seen.has(input)) {
+        return undefined
+      }
+
+      seen.add(input)
+
+      if (typeof input.toString === 'function' && input.toString !== Object.prototype.toString) {
+        const fromToString = input.toString()
+        if (fromToString && fromToString !== '[object Object]') {
+          return fromToString
+        }
+      }
+
+      const preferredKeys = [
+        'display',
+        'displayId',
+        'display_id',
+        'formatted',
+        'short',
+        'value',
+        'text',
+        'label',
+        'name',
+        'title',
+        'id',
+        'number',
+        'code',
+        'guid',
+        'uuid',
+      ]
+
+      for (const key of preferredKeys) {
+        if (key in input) {
+          const nested = visit(input[key], seen)
+          if (nested) {
+            return nested
+          }
+        }
+      }
+
+      for (const nested of Object.values(input)) {
+        const converted = visit(nested, seen)
+        if (converted) {
+          return converted
+        }
+      }
+
+      return undefined
+    }
+
+    try {
+      return String(input)
+    } catch {
+      return undefined
+    }
   }
 
-  if (typeof value === 'string') {
-    return value
+  const result = visit(value)
+  if (typeof result === 'string') {
+    const trimmed = result.trim()
+    return trimmed.length > 0 ? trimmed : undefined
   }
 
-  return String(value)
+  return result
 }
 
 const parseDateLike = (value) => {
@@ -379,10 +589,9 @@ const ORDER_ITEM_IDENTIFIER_KEYS = [
 ]
 
 const normalizeOrderItems = (order, menuLookup) => {
-  const itemKeys = ['items', 'line_items', 'lineItems', 'products', 'order_items', 'entries', 'cartItems']
   let rawItems
 
-  for (const key of itemKeys) {
+  for (const key of ORDER_ITEM_COLLECTION_KEYS) {
     const candidate = order?.[key]
     if (Array.isArray(candidate) && candidate.length > 0) {
       rawItems = candidate
@@ -511,7 +720,8 @@ const extractOrdersFromPayload = (payload) => {
   }
 
   if (Array.isArray(payload)) {
-    return payload
+    const flattened = collectOrdersFromCandidate(payload)
+    return flattened.length > 0 ? flattened : ensureArray(payload)
   }
 
   const candidateKeys = [
@@ -525,10 +735,15 @@ const extractOrdersFromPayload = (payload) => {
 
   for (const key of candidateKeys) {
     const candidate = pickValue(payload, [key])
-    const asArray = ensureArray(candidate)
-    if (asArray.length > 0) {
-      return asArray
+    const orders = collectOrdersFromCandidate(candidate)
+    if (orders.length > 0) {
+      return orders
     }
+  }
+
+  const deepOrders = collectOrdersFromCandidate(payload)
+  if (deepOrders.length > 0) {
+    return deepOrders
   }
 
   return []
