@@ -527,7 +527,28 @@ const extractOrderGuid = (order) => {
   return undefined
 }
 
-const MENU_ITEM_ID_KEYS = ['guid', 'id', 'sku', 'code', 'itemGuid', 'item_guid', 'itemId', 'item_id']
+const MENU_ITEM_ID_KEYS = [
+  'guid',
+  'id',
+  'sku',
+  'code',
+  'itemGuid',
+  'item_guid',
+  'itemId',
+  'item_id',
+  'menuItemGuid',
+  'menu_item_guid',
+  'menuItemId',
+  'menu_item_id',
+  'modifierGuid',
+  'modifier_guid',
+  'modifierId',
+  'modifier_id',
+]
+
+const MENU_KITCHEN_NAME_KEYS = ['kitchenName', 'kitchen_name']
+const MENU_POS_NAME_KEYS = ['posName', 'pos_name', 'posDisplayName', 'pos_display_name']
+const MENU_DISPLAY_NAME_KEYS = ['displayName', 'display_name', 'label', 'title']
 
 const buildMenuItemLookup = (menuPayload) => {
   const lookup = new Map()
@@ -555,9 +576,23 @@ const buildMenuItemLookup = (menuPayload) => {
       }
     }
 
-    const name = toStringValue(pickValue(node, ['name', 'title', 'label', 'description']))
-    if (identifier && name) {
-      lookup.set(identifier, name)
+    const kitchenName = toStringValue(pickValue(node, MENU_KITCHEN_NAME_KEYS))
+    const posName = toStringValue(pickValue(node, MENU_POS_NAME_KEYS))
+    const displayName = toStringValue(pickValue(node, MENU_DISPLAY_NAME_KEYS))
+    const fallbackName =
+      toStringValue(pickValue(node, ['name', 'description'])) ?? displayName ?? posName ?? kitchenName
+
+    if (identifier && (kitchenName || posName || displayName || fallbackName)) {
+      const existing = lookup.get(identifier) ?? {}
+
+      const nextValue = {
+        kitchenName: existing.kitchenName ?? kitchenName ?? undefined,
+        posName: existing.posName ?? posName ?? undefined,
+        displayName: existing.displayName ?? displayName ?? undefined,
+        fallbackName: existing.fallbackName ?? fallbackName ?? undefined,
+      }
+
+      lookup.set(identifier, nextValue)
     }
 
     Object.values(node).forEach(visit)
@@ -667,7 +702,21 @@ const extractUnfulfilledOrderGuids = (menuPayload) => {
   return unfulfilled
 }
 
-const normalizeItemModifiers = (item) => {
+const MODIFIER_IDENTIFIER_KEYS = [
+  ...MENU_ITEM_ID_KEYS,
+  'modifierCode',
+  'modifier_code',
+  'optionGuid',
+  'option_guid',
+  'optionId',
+  'option_id',
+  'choiceGuid',
+  'choice_guid',
+  'choiceId',
+  'choice_id',
+]
+
+const normalizeItemModifiers = (item, menuLookup) => {
   if (!item || typeof item !== 'object') {
     return []
   }
@@ -764,6 +813,12 @@ const normalizeItemModifiers = (item) => {
 
     let name = toStringValue(
       pickValue(candidate, [
+        'kitchenName',
+        'kitchen_name',
+        'posName',
+        'pos_name',
+        'displayName',
+        'display_name',
         'name',
         'title',
         'label',
@@ -779,9 +834,14 @@ const normalizeItemModifiers = (item) => {
         'menuItem',
         'menu_item',
         'itemName',
-        'displayName',
       ]),
     )
+
+    const modifierIdentifier = toStringValue(pickValue(candidate, MODIFIER_IDENTIFIER_KEYS))
+    if (modifierIdentifier && menuLookup?.has(modifierIdentifier)) {
+      const entry = menuLookup.get(modifierIdentifier)
+      name = entry?.kitchenName ?? entry?.posName ?? entry?.displayName ?? entry?.fallbackName ?? name
+    }
 
     if (!name && entries.length === 1) {
       const [singleKey, singleValue] = entries[0]
@@ -1073,12 +1133,22 @@ const normalizeOrderItems = (order, menuLookup) => {
 
   return candidateItems.map((item, index) => {
     const fallbackName = `Item ${index + 1}`
+    const orderDisplayName = toStringValue(
+      pickValue(item, [
+        'kitchenName',
+        'kitchen_name',
+        'posName',
+        'pos_name',
+        'displayName',
+        'display_name',
+      ]),
+    )
     const baseName = toStringValue(pickValue(item, ORDER_ITEM_NAME_KEYS))
     const quantity = toNumber(pickValue(item, ORDER_ITEM_QUANTITY_KEYS)) ?? 1
     const price = toNumber(pickValue(item, ORDER_ITEM_PRICE_KEYS))
     const currency = toStringValue(pickValue(item, ['currency', 'currencyCode']))
     const notes = toStringValue(pickValue(item, ['notes', 'note', 'specialInstructions', 'instructions']))
-    const modifiers = normalizeItemModifiers(item)
+    const modifiers = normalizeItemModifiers(item, menuLookup)
 
     let rawIdentifier
     for (const key of ORDER_ITEM_IDENTIFIER_KEYS) {
@@ -1090,12 +1160,14 @@ const normalizeOrderItems = (order, menuLookup) => {
     }
 
     const identifier = rawIdentifier ?? `${index}`
-    const menuName = rawIdentifier && menuLookup ? menuLookup.get(rawIdentifier) : undefined
-    let name = baseName
-
-    if ((!name || name === fallbackName) && menuName) {
-      name = menuName
-    }
+    const menuEntry = rawIdentifier && menuLookup ? menuLookup.get(rawIdentifier) : undefined
+    let name =
+      menuEntry?.kitchenName ??
+      menuEntry?.posName ??
+      orderDisplayName ??
+      menuEntry?.displayName ??
+      baseName ??
+      menuEntry?.fallbackName
 
     if (!name) {
       name = fallbackName
@@ -1122,21 +1194,36 @@ const normalizeOrders = (rawOrders, menuLookup = new Map()) => {
     }
 
     const guid = extractOrderGuid(order)
-    const displayId = toStringValue(
-      pickValue(order, [
-        'displayId',
-        'display_id',
-        'orderNumber',
-        'order_number',
-        'ticket',
-        'number',
-        'id',
-        'reference',
-        'name',
-      ]),
-    )
+    const displayNumber = toStringValue(pickValue(order, ['displayNumber', 'display_number']))
+    const displayId =
+      displayNumber ??
+      toStringValue(
+        pickValue(order, [
+          'displayId',
+          'display_id',
+          'orderNumber',
+          'order_number',
+          'ticket',
+          'number',
+          'id',
+          'reference',
+          'name',
+        ]),
+      )
 
-    const status = toStringValue(pickValue(order, ['status', 'orderStatus', 'state', 'stage', 'fulfillment_status']))
+    const rawStatus = pickValue(order, [
+      'normalizedFulfillmentStatus',
+      'normalized_fulfillment_status',
+      'normalizedFulfilmentStatus',
+      'normalized_fulfilment_status',
+      'status',
+      'orderStatus',
+      'state',
+      'stage',
+      'fulfillment_status',
+    ])
+    const statusValue = toStringValue(rawStatus)
+    const status = statusValue ? statusValue.replace(/[_\s]+/g, ' ').trim() : undefined
     const createdAtRaw =
       pickValue(order, ['createdAt', 'created_at', 'placedAt', 'placed_at', 'timestamp', 'time', 'submitted_at']) ??
       pickValue(order, ['timing.createdAt', 'timing.created_at'])
@@ -1158,9 +1245,12 @@ const normalizeOrders = (rawOrders, menuLookup = new Map()) => {
     )
     const notes = toStringValue(pickValue(order, ['notes', 'note', 'specialInstructions', 'instructions']))
 
+    const tabName = toStringValue(pickValue(order, ['tabName', 'tab_name']))
+
     return {
       id: guid ?? displayId ?? `order-${index}`,
       displayId: displayId ?? `#${index + 1}`,
+      displayNumber,
       guid,
       status,
       createdAt,
@@ -1169,6 +1259,7 @@ const normalizeOrders = (rawOrders, menuLookup = new Map()) => {
       currency,
       customerName,
       notes,
+      tabName,
       items: normalizeOrderItems(order, menuLookup),
     }
   }).filter(Boolean)
@@ -1352,6 +1443,41 @@ const formatTimestamp = (date, fallback) => {
   }
 }
 
+const formatElapsedDuration = (startDate, currentTimeMs) => {
+  if (!startDate) {
+    return undefined
+  }
+
+  const startMs = startDate instanceof Date ? startDate.getTime() : Number(startDate)
+  if (!Number.isFinite(startMs) || !Number.isFinite(currentTimeMs)) {
+    return undefined
+  }
+
+  const diffMs = Math.max(0, currentTimeMs - startMs)
+  const totalSeconds = Math.floor(diffMs / 1000)
+  const days = Math.floor(totalSeconds / 86400)
+  const hours = Math.floor((totalSeconds % 86400) / 3600)
+  const minutes = Math.floor((totalSeconds % 3600) / 60)
+  const seconds = totalSeconds % 60
+
+  const parts = []
+  if (days > 0) {
+    parts.push(`${days}d`)
+  }
+
+  if (hours > 0 || days > 0) {
+    parts.push(`${hours}h`)
+  }
+
+  if (minutes > 0 || hours > 0 || days > 0) {
+    parts.push(`${minutes}m`)
+  }
+
+  parts.push(`${seconds}s`)
+
+  return parts.join(' ')
+}
+
 const statusToClassName = (status) => {
   if (!status) {
     return ''
@@ -1365,6 +1491,17 @@ function App() {
   const [modifiers, setModifiers] = useState([])
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState(null)
+  const [now, setNow] = useState(() => Date.now())
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setNow(Date.now())
+    }, 1000)
+
+    return () => {
+      clearInterval(interval)
+    }
+  }, [])
 
   useEffect(() => {
     let isSubscribed = true
@@ -1566,27 +1703,44 @@ function App() {
                 const formattedTotal = formatCurrency(order.total, order.currency ?? 'USD')
                 const statusClass = statusToClassName(order.status)
                 const timeLabel = formatTimestamp(order.createdAt, order.createdAtRaw)
+                const elapsedLabel = order.createdAt ? formatElapsedDuration(order.createdAt, now) : undefined
+                const displayOrderNumber = order.displayNumber ?? order.displayId
 
                 return (
                   <article className="order-card" key={order.id}>
                     <header className="order-card-header">
-                      <div className="order-card-heading">
-                        <h2 className="order-card-title">Order {order.displayId}</h2>
-                        {order.customerName ? (
-                          <p className="order-card-subtitle">for {order.customerName}</p>
-                        ) : null}
-                      </div>
-                      <div className="order-card-meta">
-                        {order.status ? (
-                          <span className={`order-status-badge ${statusClass}`}>{order.status}</span>
-                        ) : null}
-                        {timeLabel ? (
-                          <time className="order-card-time" dateTime={order.createdAt?.toISOString() ?? undefined}>
-                            {timeLabel}
-                          </time>
-                        ) : null}
+                      {order.tabName ? (
+                        <div className="order-card-tab" title={`Tab: ${order.tabName}`}>
+                          {order.tabName}
+                        </div>
+                      ) : null}
+                      <div className="order-card-header-row">
+                        <div className="order-card-heading">
+                          <h2 className="order-card-title">Order {displayOrderNumber}</h2>
+                          {order.customerName ? (
+                            <p className="order-card-subtitle">for {order.customerName}</p>
+                          ) : null}
+                        </div>
+                        <div className="order-card-meta">
+                          {order.status ? (
+                            <span className={`order-status-badge ${statusClass}`}>{order.status}</span>
+                          ) : null}
+                          {timeLabel ? (
+                            <time
+                              className="order-card-time"
+                              dateTime={order.createdAt?.toISOString() ?? undefined}
+                            >
+                              {timeLabel}
+                            </time>
+                          ) : null}
+                        </div>
                       </div>
                     </header>
+                    {elapsedLabel ? (
+                      <p className="order-card-elapsed">
+                        In queue for <span className="order-card-elapsed-value">{elapsedLabel}</span>
+                      </p>
+                    ) : null}
                     {order.items.length > 0 ? (
                       <ul className="order-items">
                         {order.items.map((item) => (
