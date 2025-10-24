@@ -811,17 +811,50 @@ const normalizeItemModifiers = (item, menuLookup) => {
 
     const entries = Object.entries(candidate)
 
-    let name = toStringValue(
+    const modifierIdentifier = toStringValue(pickValue(candidate, MODIFIER_IDENTIFIER_KEYS))
+    const menuEntry = modifierIdentifier && menuLookup?.has(modifierIdentifier)
+      ? menuLookup.get(modifierIdentifier)
+      : undefined
+
+    let name
+    let namePriority = Number.POSITIVE_INFINITY
+
+    const applyName = (value, priority) => {
+      const normalized = toStringValue(value)
+      if (!normalized) {
+        return
+      }
+
+      if (!name || priority < namePriority) {
+        name = normalized
+        namePriority = priority
+      }
+    }
+
+    if (menuEntry) {
+      applyName(menuEntry.kitchenName, 0)
+    }
+
+    applyName(pickValue(candidate, ['kitchenName', 'kitchen_name']), 1)
+
+    if (menuEntry) {
+      applyName(menuEntry.posName, 2)
+    }
+
+    applyName(pickValue(candidate, ['posName', 'pos_name', 'posDisplayName', 'pos_display_name']), 3)
+
+    if (menuEntry) {
+      applyName(menuEntry.displayName, 4)
+    }
+
+    applyName(pickValue(candidate, ['displayName', 'display_name', 'label', 'title', 'name']), 5)
+
+    if (menuEntry) {
+      applyName(menuEntry.fallbackName, 6)
+    }
+
+    applyName(
       pickValue(candidate, [
-        'kitchenName',
-        'kitchen_name',
-        'posName',
-        'pos_name',
-        'displayName',
-        'display_name',
-        'name',
-        'title',
-        'label',
         'modifier',
         'value',
         'description',
@@ -835,32 +868,8 @@ const normalizeItemModifiers = (item, menuLookup) => {
         'menu_item',
         'itemName',
       ]),
+      7,
     )
-
-    const modifierIdentifier = toStringValue(pickValue(candidate, MODIFIER_IDENTIFIER_KEYS))
-    if (modifierIdentifier && menuLookup?.has(modifierIdentifier)) {
-      const entry = menuLookup.get(modifierIdentifier)
-      name = entry?.kitchenName ?? entry?.posName ?? entry?.displayName ?? entry?.fallbackName ?? name
-    }
-
-    if (!name && entries.length === 1) {
-      const [singleKey, singleValue] = entries[0]
-      const keyName = toStringValue(singleKey)
-      if (keyName) {
-        if (typeof singleValue === 'number' || typeof singleValue === 'string') {
-          const quantity = toNumber(singleValue)
-          if (quantity && quantity > 0) {
-            collected.push({ name: keyName, quantity })
-            continue
-          }
-        }
-
-        if (singleValue && typeof singleValue === 'object') {
-          pushCandidate({ ...singleValue, name: singleValue.name ?? keyName })
-          continue
-        }
-      }
-    }
 
     const quantityRaw = toNumber(
       pickValue(candidate, [
@@ -917,7 +926,12 @@ const normalizeItemModifiers = (item, menuLookup) => {
     if (name) {
       const shouldAdd = !forwarded || quantityRaw || priceValue !== undefined || selectionFlag
       if (shouldAdd) {
-        collected.push({ name, quantity: normalizedQuantity })
+        collected.push({
+          name,
+          quantity: normalizedQuantity,
+          priority: namePriority,
+          identifier: modifierIdentifier ?? undefined,
+        })
       }
     }
   }
@@ -928,22 +942,32 @@ const normalizeItemModifiers = (item, menuLookup) => {
 
   const aggregated = new Map()
 
-  collected.forEach(({ name, quantity }) => {
+  collected.forEach(({ name, quantity, priority, identifier }) => {
     if (!name) {
       return
     }
 
     const normalizedQuantity = quantity && quantity > 0 ? quantity : 1
-    if (!aggregated.has(name)) {
-      aggregated.set(name, { name, quantity: normalizedQuantity })
+    const key = identifier ?? name.trim().toLowerCase()
+
+    if (!aggregated.has(key)) {
+      aggregated.set(key, {
+        name,
+        quantity: normalizedQuantity,
+        priority: priority ?? Number.POSITIVE_INFINITY,
+      })
       return
     }
 
-    const existing = aggregated.get(name)
+    const existing = aggregated.get(key)
     existing.quantity += normalizedQuantity
+    if ((priority ?? Number.POSITIVE_INFINITY) < existing.priority && name) {
+      existing.name = name
+      existing.priority = priority ?? Number.POSITIVE_INFINITY
+    }
   })
 
-  return Array.from(aggregated.values())
+  return Array.from(aggregated.values()).map(({ name, quantity }) => ({ name, quantity }))
 }
 
 const ORDER_ITEM_IDENTIFIER_KEYS = [
