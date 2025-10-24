@@ -251,6 +251,33 @@
   color: #bfdbfe;
 }
 
+.order-fulfillment-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.2rem 0.55rem;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  background: rgba(45, 212, 191, 0.2);
+  color: #99f6e4;
+}
+
+.order-card-dining {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.15rem 0.4rem;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: #c7d2fe;
+  background: rgba(99, 102, 241, 0.18);
+}
+
 .order-status--completed,
 .order-status--complete,
 .order-status--fulfilled {
@@ -275,6 +302,13 @@
 .order-card-time {
   font-size: 0.8rem;
   color: #94a3b8;
+}
+
+.order-card-timer {
+  font-size: 0.8rem;
+  color: #fef3c7;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
 }
 
 .order-items {
