@@ -907,9 +907,24 @@ const normalizeItemModifiers = (item, menuLookup) => {
 
     let forwarded = false
     for (const key of containerKeys) {
-      if (key in candidate && candidate[key] !== undefined && candidate[key] !== null) {
+      if (!(key in candidate)) {
+        continue
+      }
+
+      const value = candidate[key]
+      if (value === undefined || value === null) {
+        continue
+      }
+
+      const hasChildren = Array.isArray(value)
+        ? value.some((entry) => entry !== undefined && entry !== null)
+        : typeof value === 'object'
+          ? Object.keys(value).length > 0
+          : false
+
+      if (hasChildren) {
         forwarded = true
-        pushCandidate(candidate[key])
+        pushCandidate(value)
       }
     }
 
@@ -925,8 +940,10 @@ const normalizeItemModifiers = (item, menuLookup) => {
       const hasExplicitQuantity = quantityRaw !== undefined && quantityRaw > 0
       const hasExplicitPrice = priceValue !== undefined
       const hasExplicitSelection = selectionFlag === true
+      const hasExplicitDeselection = selectionFlag === false || quantityRaw === 0
       const shouldAdd =
-        !forwarded && (hasExplicitSelection || hasExplicitQuantity || hasExplicitPrice)
+        !hasExplicitDeselection &&
+        (!forwarded || hasExplicitSelection || hasExplicitQuantity || hasExplicitPrice)
       if (shouldAdd) {
         collected.push({
           name,
