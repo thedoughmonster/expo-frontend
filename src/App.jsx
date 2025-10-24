@@ -844,13 +844,13 @@ const normalizeItemModifiers = (item, menuLookup) => {
     applyName(pickValue(candidate, ['posName', 'pos_name', 'posDisplayName', 'pos_display_name']), 3)
 
     if (menuEntry) {
-      applyName(menuEntry.displayName, 4)
+      applyName(menuEntry.displayName, 5)
     }
 
-    applyName(pickValue(candidate, ['displayName', 'display_name', 'label', 'title', 'name']), 5)
+    applyName(pickValue(candidate, ['displayName', 'display_name', 'label', 'title', 'name']), 6)
 
     if (menuEntry) {
-      applyName(menuEntry.fallbackName, 6)
+      applyName(menuEntry.fallbackName, 7)
     }
 
     applyName(
@@ -895,8 +895,6 @@ const normalizeItemModifiers = (item, menuLookup) => {
       'isApplied',
       'chosen',
       'isChosen',
-      'enabled',
-      'isEnabled',
     ])
     const selectionFlag =
       selectionFlagRaw !== undefined
@@ -924,7 +922,11 @@ const normalizeItemModifiers = (item, menuLookup) => {
     }
 
     if (name) {
-      const shouldAdd = !forwarded || quantityRaw || priceValue !== undefined || selectionFlag
+      const hasExplicitQuantity = quantityRaw !== undefined && quantityRaw > 0
+      const hasExplicitPrice = priceValue !== undefined
+      const hasExplicitSelection = selectionFlag === true
+      const shouldAdd =
+        !forwarded && (hasExplicitSelection || hasExplicitQuantity || hasExplicitPrice)
       if (shouldAdd) {
         collected.push({
           name,
@@ -1157,16 +1159,9 @@ const normalizeOrderItems = (order, menuLookup) => {
 
   return candidateItems.map((item, index) => {
     const fallbackName = `Item ${index + 1}`
-    const orderDisplayName = toStringValue(
-      pickValue(item, [
-        'kitchenName',
-        'kitchen_name',
-        'posName',
-        'pos_name',
-        'displayName',
-        'display_name',
-      ]),
-    )
+    const orderKitchenName = toStringValue(pickValue(item, ['kitchenName', 'kitchen_name']))
+    const orderPosName = toStringValue(pickValue(item, ['posName', 'pos_name']))
+    const orderDisplayName = toStringValue(pickValue(item, ['displayName', 'display_name']))
     const baseName = toStringValue(pickValue(item, ORDER_ITEM_NAME_KEYS))
     const quantity = toNumber(pickValue(item, ORDER_ITEM_QUANTITY_KEYS)) ?? 1
     const price = toNumber(pickValue(item, ORDER_ITEM_PRICE_KEYS))
@@ -1187,9 +1182,11 @@ const normalizeOrderItems = (order, menuLookup) => {
     const menuEntry = rawIdentifier && menuLookup ? menuLookup.get(rawIdentifier) : undefined
     let name =
       menuEntry?.kitchenName ??
+      orderKitchenName ??
       menuEntry?.posName ??
-      orderDisplayName ??
+      orderPosName ??
       menuEntry?.displayName ??
+      orderDisplayName ??
       baseName ??
       menuEntry?.fallbackName
 
