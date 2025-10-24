@@ -25,7 +25,164 @@ const ORDER_ITEM_COLLECTION_KEYS = [
   'order_items',
   'entries',
   'cartItems',
+  'details.items',
+  'summary.items',
+  'cart.items',
+  'cart.lineItems',
+  'cart.selections',
+  'cart.items.nodes',
+  'cart.items.edges[].node',
+  'items.nodes',
+  'items.edges',
+  'items.edges[].node',
+  'items.values',
+  'checks[].items',
+  'checks[].items.nodes',
+  'checks[].items.edges',
+  'checks[].items.edges[].node',
+  'checks[].selections',
+  'checks[].selections.nodes',
+  'checks[].selections.edges',
+  'checks[].selections.edges[].node',
+  'checks[].entries',
+  'checks[].lineItems',
+  'checks[].line_items',
+  'checks[].menuItems',
+  'checks[].choices',
 ]
+
+const ORDER_ITEM_MODIFIER_COLLECTION_KEYS = [
+  'modifiers',
+  'modifier',
+  'modifierItems',
+  'modifier_items',
+  'modifierList',
+  'modifierGroups',
+  'modifierGroups[].modifiers',
+  'modifierGroups[].items',
+  'modifierGroups[].options',
+  'modifier_groups',
+  'modifier_groups[].modifiers',
+  'modifier_groups[].items',
+  'modifier_groups[].options',
+  'options',
+  'options.items',
+  'options.nodes',
+  'options.edges',
+  'options.edges[].node',
+  'selectedOptions',
+  'selectedOptions.nodes',
+  'selectedOptions.edges',
+  'selectedOptions.edges[].node',
+  'selectedModifiers',
+  'selectedModifiers.nodes',
+  'selectedModifiers.edges',
+  'selectedModifiers.edges[].node',
+  'appliedModifiers',
+  'appliedModifiers.nodes',
+  'appliedModifiers.edges',
+  'appliedModifiers.edges[].node',
+  'selections',
+  'selections.items',
+  'selections.nodes',
+  'selections.edges',
+  'selections.edges[].node',
+  'choice',
+  'choices',
+  'choices.nodes',
+  'choices.edges',
+  'choices.edges[].node',
+  'choiceGroups',
+  'choiceGroups[].choices',
+  'customizations',
+  'customizations.nodes',
+  'customizations.edges',
+  'customizations.edges[].node',
+  'addOns',
+  'addOns.nodes',
+  'addOns.edges',
+  'addOns.edges[].node',
+  'add_ons',
+  'add_ons.nodes',
+  'add_ons.edges',
+  'add_ons.edges[].node',
+  'extras',
+  'extras.nodes',
+  'extras.edges',
+  'extras.edges[].node',
+  'toppings',
+  'ingredients',
+  'ingredients.nodes',
+  'ingredients.edges',
+  'ingredients.edges[].node',
+  'modifications',
+  'modificationsList',
+  'modifications.nodes',
+  'modifications.edges',
+  'modifications.edges[].node',
+]
+
+const splitKeyPathSegments = (key) =>
+  key
+    .split('.')
+    .flatMap((segment) => {
+      if (!segment) {
+        return []
+      }
+
+      if (segment === '*') {
+        return ['*']
+      }
+
+      if (segment.endsWith('[]')) {
+        const base = segment.slice(0, -2)
+        return base ? [base, '*'] : ['*']
+      }
+
+      return [segment]
+    })
+
+const collectValuesAtKeyPath = (source, key) => {
+  if (!source) {
+    return []
+  }
+
+  const segments = splitKeyPathSegments(key)
+  let current = [source]
+
+  for (const segment of segments) {
+    const next = []
+
+    for (const value of current) {
+      if (value === undefined || value === null) {
+        continue
+      }
+
+      if (segment === '*') {
+        if (Array.isArray(value)) {
+          next.push(...value)
+        } else if (typeof value === 'object') {
+          next.push(...Object.values(value))
+        }
+        continue
+      }
+
+      if (Array.isArray(value)) {
+        for (const entry of value) {
+          if (entry && typeof entry === 'object') {
+            next.push(entry[segment])
+          }
+        }
+      } else if (typeof value === 'object') {
+        next.push(value[segment])
+      }
+    }
+
+    current = next
+  }
+
+  return current.filter((value) => value !== undefined && value !== null)
+}
 
 const ORDER_PRIMARY_HINT_KEYS = [
   'displayId',
@@ -81,7 +238,16 @@ const looksLikeOrderRecord = (value) => {
     return false
   }
 
-  const hasItems = ORDER_ITEM_COLLECTION_KEYS.some((key) => Array.isArray(value[key]) && value[key].length > 0)
+  const hasItems = ORDER_ITEM_COLLECTION_KEYS.some((key) => {
+    const candidates = collectValuesAtKeyPath(value, key)
+    return candidates.some((candidate) => {
+      if (Array.isArray(candidate)) {
+        return candidate.length > 0
+      }
+
+      return candidate && typeof candidate === 'object'
+    })
+  })
   if (hasItems) {
     return true
   }
@@ -502,76 +668,222 @@ const extractUnfulfilledOrderGuids = (menuPayload) => {
 }
 
 const normalizeItemModifiers = (item) => {
-  const modifierKeys = ['modifiers', 'options', 'toppings', 'customizations', 'addOns', 'add_ons']
-  for (const key of modifierKeys) {
-    const candidate = item?.[key]
+  if (!item || typeof item !== 'object') {
+    return []
+  }
+
+  const queue = []
+  const seenArrays = new WeakSet()
+  const seenObjects = new WeakSet()
+  const collected = []
+
+  const pushCandidate = (candidate) => {
+    if (candidate === undefined || candidate === null) {
+      return
+    }
+
+    queue.push(candidate)
+  }
+
+  ORDER_ITEM_MODIFIER_COLLECTION_KEYS.forEach((key) => {
+    const values = collectValuesAtKeyPath(item, key)
+    values.forEach(pushCandidate)
+  })
+
+  const containerKeys = [
+    'modifiers',
+    'modifier',
+    'modifierItems',
+    'modifier_items',
+    'modifierList',
+    'modifierGroups',
+    'modifier_groups',
+    'groupModifiers',
+    'group_modifiers',
+    'options',
+    'selectedOptions',
+    'selectedModifiers',
+    'appliedModifiers',
+    'selections',
+    'choice',
+    'choices',
+    'choiceGroups',
+    'customizations',
+    'modifications',
+    'modificationsList',
+    'addOns',
+    'add_ons',
+    'extras',
+    'toppings',
+    'ingredients',
+    'children',
+    'childItems',
+    'components',
+    'items',
+    'entries',
+    'values',
+    'nodes',
+    'edges',
+    'menuItems',
+    'menu_items',
+  ]
+
+  while (queue.length > 0) {
+    const candidate = queue.shift()
+
     if (!candidate) {
       continue
     }
 
-    const modifierArray = ensureArray(candidate)
-    const normalized = modifierArray
-      .map((modifier) => {
-        if (!modifier) {
-          return null
-        }
+    if (Array.isArray(candidate)) {
+      if (candidate.length === 0 || seenArrays.has(candidate)) {
+        continue
+      }
 
-        if (typeof modifier === 'string') {
-          return { name: modifier, quantity: 1 }
-        }
+      seenArrays.add(candidate)
+      candidate.forEach(pushCandidate)
+      continue
+    }
 
-        if (Array.isArray(modifier)) {
-          return modifier
-            .map((nested) => {
-              if (!nested) {
-                return null
-              }
+    if (typeof candidate === 'string') {
+      collected.push({ name: candidate, quantity: 1 })
+      continue
+    }
 
-              if (typeof nested === 'string') {
-                return { name: nested, quantity: 1 }
-              }
+    if (typeof candidate !== 'object') {
+      continue
+    }
 
-              if (typeof nested === 'object') {
-                const nestedName = toStringValue(
-                  pickValue(nested, ['name', 'title', 'label', 'modifier', 'value', 'description']),
-                )
-                if (!nestedName) {
-                  return null
-                }
+    if (seenObjects.has(candidate)) {
+      continue
+    }
 
-                const nestedQuantity = toNumber(pickValue(nested, ['quantity', 'qty', 'count', 'amount']))
-                return {
-                  name: nestedName,
-                  quantity: nestedQuantity && nestedQuantity > 0 ? nestedQuantity : 1,
-                }
-              }
+    seenObjects.add(candidate)
 
-              return null
-            })
-            .filter(Boolean)
-        }
+    const entries = Object.entries(candidate)
 
-        if (typeof modifier === 'object') {
-          const name = toStringValue(pickValue(modifier, ['name', 'title', 'label', 'modifier', 'value', 'description']))
-          if (!name) {
-            return null
+    let name = toStringValue(
+      pickValue(candidate, [
+        'name',
+        'title',
+        'label',
+        'modifier',
+        'value',
+        'description',
+        'option',
+        'optionName',
+        'choice',
+        'choiceName',
+        'selection',
+        'selectionName',
+        'menuItem',
+        'menu_item',
+        'itemName',
+        'displayName',
+      ]),
+    )
+
+    if (!name && entries.length === 1) {
+      const [singleKey, singleValue] = entries[0]
+      const keyName = toStringValue(singleKey)
+      if (keyName) {
+        if (typeof singleValue === 'number' || typeof singleValue === 'string') {
+          const quantity = toNumber(singleValue)
+          if (quantity && quantity > 0) {
+            collected.push({ name: keyName, quantity })
+            continue
           }
-
-          const quantity = toNumber(pickValue(modifier, ['quantity', 'qty', 'count', 'amount']))
-          return { name, quantity: quantity && quantity > 0 ? quantity : 1 }
         }
 
-        return null
-      })
-      .flat()
-      .filter(Boolean)
+        if (singleValue && typeof singleValue === 'object') {
+          pushCandidate({ ...singleValue, name: singleValue.name ?? keyName })
+          continue
+        }
+      }
+    }
 
-    if (normalized.length > 0) {
-      return normalized
+    const quantityRaw = toNumber(
+      pickValue(candidate, [
+        'quantity',
+        'qty',
+        'count',
+        'amount',
+        'total',
+        'value',
+        'number',
+        'quantity.value',
+        'count.value',
+        'quantity.amount',
+        'quantity.count',
+      ]),
+    )
+    const normalizedQuantity = quantityRaw && quantityRaw > 0 ? quantityRaw : 1
+
+    const selectionFlagRaw = pickValue(candidate, [
+      'selected',
+      'isSelected',
+      'applied',
+      'isApplied',
+      'chosen',
+      'isChosen',
+      'enabled',
+      'isEnabled',
+    ])
+    const selectionFlag =
+      selectionFlagRaw !== undefined
+        ? typeof selectionFlagRaw === 'string'
+          ? selectionFlagRaw.toLowerCase() === 'true'
+          : !!selectionFlagRaw
+        : undefined
+
+    const priceValue = toNumber(pickValue(candidate, ['price', 'unitPrice', 'price.value', 'price.amount']))
+
+    let forwarded = false
+    for (const key of containerKeys) {
+      if (key in candidate && candidate[key] !== undefined && candidate[key] !== null) {
+        forwarded = true
+        pushCandidate(candidate[key])
+      }
+    }
+
+    for (const value of entries.map(([, entryValue]) => entryValue)) {
+      if (value !== undefined && value !== null) {
+        if (typeof value === 'object' || Array.isArray(value)) {
+          pushCandidate(value)
+        }
+      }
+    }
+
+    if (name) {
+      const shouldAdd = !forwarded || quantityRaw || priceValue !== undefined || selectionFlag
+      if (shouldAdd) {
+        collected.push({ name, quantity: normalizedQuantity })
+      }
     }
   }
 
-  return []
+  if (collected.length === 0) {
+    return []
+  }
+
+  const aggregated = new Map()
+
+  collected.forEach(({ name, quantity }) => {
+    if (!name) {
+      return
+    }
+
+    const normalizedQuantity = quantity && quantity > 0 ? quantity : 1
+    if (!aggregated.has(name)) {
+      aggregated.set(name, { name, quantity: normalizedQuantity })
+      return
+    }
+
+    const existing = aggregated.get(name)
+    existing.quantity += normalizedQuantity
+  })
+
+  return Array.from(aggregated.values())
 }
 
 const ORDER_ITEM_IDENTIFIER_KEYS = [
@@ -586,36 +898,184 @@ const ORDER_ITEM_IDENTIFIER_KEYS = [
   'item_id',
   'line_id',
   'lineId',
+  'menuItemGuid',
+  'menu_item_guid',
+  'menuItemId',
+  'menu_item_id',
+  'selectionGuid',
+  'selection_guid',
+  'selectionId',
+  'selection_id',
+  'checkItemId',
+  'check_item_id',
+  'item.guid',
+  'item.id',
+  'menuItem.guid',
+  'menuItem.id',
+  'menu_item.guid',
+  'menu_item.id',
 ]
 
-const normalizeOrderItems = (order, menuLookup) => {
-  let rawItems
+const ORDER_ITEM_NAME_KEYS = [
+  'name',
+  'title',
+  'displayName',
+  'display_name',
+  'itemName',
+  'item_name',
+  'productName',
+  'product_name',
+  'menuItemName',
+  'menu_item_name',
+  'description',
+  'menuItem.name',
+  'menu_item.name',
+  'item.name',
+  'product.name',
+  'selection.name',
+]
 
-  for (const key of ORDER_ITEM_COLLECTION_KEYS) {
-    const candidate = order?.[key]
-    if (Array.isArray(candidate) && candidate.length > 0) {
-      rawItems = candidate
-      break
+const ORDER_ITEM_QUANTITY_KEYS = [
+  'quantity.value',
+  'quantity.count',
+  'count.value',
+  'quantity',
+  'qty',
+  'count',
+  'quantityOrdered',
+  'quantity_ordered',
+  'amount',
+]
+
+const ORDER_ITEM_PRICE_KEYS = [
+  'price.amount',
+  'price.value',
+  'unitPrice.amount',
+  'unit_price.amount',
+  'total.amount',
+  'totals.total',
+  'amount_total',
+  'price_total',
+  'priceTotal',
+  'unitPrice',
+  'unit_price',
+  'price',
+  'total',
+  'cost',
+  'basePrice',
+  'base_price',
+  'menuItem.price.amount',
+  'menuItem.price',
+  'menu_item.price.amount',
+  'menu_item.price',
+  'item.price.amount',
+  'item.price',
+]
+
+const ORDER_ITEM_HINT_KEYS = [
+  ...ORDER_ITEM_NAME_KEYS,
+  ...ORDER_ITEM_QUANTITY_KEYS,
+  ...ORDER_ITEM_PRICE_KEYS,
+  'currency',
+  'currencyCode',
+  'notes',
+  'note',
+  'specialInstructions',
+  'instructions',
+]
+
+const hasItemHints = (value) => {
+  if (!value || typeof value !== 'object') {
+    return false
+  }
+
+  return ORDER_ITEM_HINT_KEYS.some((key) => {
+    const candidate = pickValue(value, [key])
+
+    if (candidate === undefined || candidate === null) {
+      return false
     }
-  }
 
-  if (!rawItems && Array.isArray(order?.details?.items)) {
-    rawItems = order.details.items
-  }
+    if (Array.isArray(candidate)) {
+      return candidate.length > 0
+    }
 
-  if (!rawItems && Array.isArray(order?.summary?.items)) {
-    rawItems = order.summary.items
-  }
+    if (typeof candidate === 'object') {
+      return false
+    }
 
-  if (!rawItems) {
+    if (typeof candidate === 'string') {
+      return candidate.trim().length > 0
+    }
+
+    if (typeof candidate === 'number') {
+      return Number.isFinite(candidate)
+    }
+
+    if (typeof candidate === 'boolean') {
+      return true
+    }
+
+    return true
+  })
+}
+
+const normalizeOrderItems = (order, menuLookup) => {
+  if (!order || typeof order !== 'object') {
     return []
   }
 
-  return rawItems.map((item, index) => {
+  const candidateItems = []
+  const seenObjects = new WeakSet()
+  const seenArrays = new WeakSet()
+
+  const processValue = (value) => {
+    if (!value) {
+      return
+    }
+
+    if (Array.isArray(value)) {
+      if (value.length === 0 || seenArrays.has(value)) {
+        return
+      }
+
+      seenArrays.add(value)
+      value.forEach(processValue)
+      return
+    }
+
+    if (typeof value !== 'object') {
+      return
+    }
+
+    if (seenObjects.has(value)) {
+      return
+    }
+
+    if (hasItemHints(value)) {
+      seenObjects.add(value)
+      candidateItems.push(value)
+      return
+    }
+
+    seenObjects.add(value)
+    Object.values(value).forEach(processValue)
+  }
+
+  for (const key of ORDER_ITEM_COLLECTION_KEYS) {
+    const values = collectValuesAtKeyPath(order, key)
+    values.forEach(processValue)
+  }
+
+  if (candidateItems.length === 0) {
+    return []
+  }
+
+  return candidateItems.map((item, index) => {
     const fallbackName = `Item ${index + 1}`
-    const baseName = toStringValue(pickValue(item, ['name', 'title', 'item', 'product', 'description']))
-    const quantity = toNumber(pickValue(item, ['quantity', 'qty', 'count', 'amount'])) ?? 1
-    const price = toNumber(pickValue(item, ['price', 'unit_price', 'price_total', 'total', 'cost']))
+    const baseName = toStringValue(pickValue(item, ORDER_ITEM_NAME_KEYS))
+    const quantity = toNumber(pickValue(item, ORDER_ITEM_QUANTITY_KEYS)) ?? 1
+    const price = toNumber(pickValue(item, ORDER_ITEM_PRICE_KEYS))
     const currency = toStringValue(pickValue(item, ['currency', 'currencyCode']))
     const notes = toStringValue(pickValue(item, ['notes', 'note', 'specialInstructions', 'instructions']))
     const modifiers = normalizeItemModifiers(item)
@@ -1146,15 +1606,36 @@ function App() {
                               ) : null}
                             </div>
                             {item.modifiers.length > 0 ? (
-                              <ul className="order-item-modifiers">
-                                {item.modifiers.map((modifier, modifierIndex) => (
-                                  <li className="order-item-modifier" key={`${item.id}-modifier-${modifierIndex}`}>
-                                    {modifier.quantity && modifier.quantity > 1
-                                      ? `${modifier.quantity} × ${modifier.name}`
-                                      : modifier.name}
-                                  </li>
-                                ))}
-                              </ul>
+                              <div className="order-item-modifiers-card">
+                                <p className="order-item-modifiers-title">Modifiers</p>
+                                <ul className="order-item-modifiers">
+                                  {item.modifiers.map((modifier, modifierIndex) => {
+                                    const rawQuantity = Number(modifier.quantity)
+                                    const quantity =
+                                      Number.isFinite(rawQuantity) && rawQuantity > 0
+                                        ? rawQuantity
+                                        : 1
+
+                                    return (
+                                      <li
+                                        className="order-item-modifier"
+                                        key={`${item.id}-modifier-${modifierIndex}`}
+                                      >
+                                        <span
+                                          className="order-item-modifier-qty"
+                                          aria-label={`Quantity ${quantity}`}
+                                        >
+                                          {quantity}
+                                          <span aria-hidden="true">×</span>
+                                        </span>
+                                        <span className="order-item-modifier-name">
+                                          {modifier.name}
+                                        </span>
+                                      </li>
+                                    )
+                                  })}
+                                </ul>
+                              </div>
                             ) : null}
                             {item.notes ? <p className="order-item-notes">{item.notes}</p> : null}
                           </li>
