@@ -1580,6 +1580,54 @@ const formatElapsedDuration = (start, end = new Date()) => {
   return `${pad(minutes)}:${pad(seconds)}`
 }
 
+const formatElapsedLabel = (start, end = new Date()) => {
+  if (!(start instanceof Date) || Number.isNaN(start.getTime())) {
+    return undefined
+  }
+
+  const target = end instanceof Date && !Number.isNaN(end.getTime()) ? end : new Date()
+  const diffMs = Math.max(0, target.getTime() - start.getTime())
+
+  const totalSeconds = Math.floor(diffMs / 1000)
+  const totalMinutes = Math.floor(totalSeconds / 60)
+  const totalHours = Math.floor(totalMinutes / 60)
+  const totalDays = Math.floor(totalHours / 24)
+
+  const seconds = totalSeconds % 60
+  const minutes = totalMinutes % 60
+  const hours = totalHours % 24
+
+  const parts = []
+
+  if (totalDays > 0) {
+    parts.push(`${totalDays} day${totalDays === 1 ? '' : 's'}`)
+  }
+
+  if (totalHours > 0) {
+    const hoursToInclude = totalDays > 0 ? hours : totalHours
+    if (hoursToInclude > 0) {
+      parts.push(`${hoursToInclude} hour${hoursToInclude === 1 ? '' : 's'}`)
+    }
+  }
+
+  if (totalMinutes > 0 && parts.length < 2) {
+    const minutesToInclude = parts.length > 0 ? minutes : totalMinutes
+    if (minutesToInclude > 0) {
+      parts.push(`${minutesToInclude} minute${minutesToInclude === 1 ? '' : 's'}`)
+    }
+  }
+
+  if (parts.length === 0) {
+    if (seconds > 0) {
+      parts.push(`${seconds} second${seconds === 1 ? '' : 's'}`)
+    } else {
+      parts.push('moments')
+    }
+  }
+
+  return parts.slice(0, 2).join(' ')
+}
+
 const useNow = (intervalMs = 1000) => {
   const [now, setNow] = useState(() => new Date())
 
@@ -1947,6 +1995,7 @@ function App() {
                 const statusClass = statusToClassName(order.status)
                 const timeLabel = formatTimestamp(order.createdAt, order.createdAtRaw)
                 const elapsedDuration = formatElapsedDuration(order.createdAt, now)
+                const elapsedLabel = formatElapsedLabel(order.createdAt, now)
                 const shouldShowFulfillmentStatus = Boolean(order.fulfillmentStatus)
 
                 return (
