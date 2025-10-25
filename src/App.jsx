@@ -4,6 +4,8 @@ import './App.css'
 const ORDERS_ENDPOINT =
   'https://doughmonster-worker.thedoughmonster.workers.dev/api/orders/latest'
 const MENUS_ENDPOINT = 'https://doughmonster-worker.thedoughmonster.workers.dev/api/menus'
+const CONFIG_SNAPSHOT_ENDPOINT =
+  'https://doughmonster-worker.thedoughmonster.workers.dev/api/config/snapshot'
 
 const ensureArray = (value) => {
   if (Array.isArray(value)) {
@@ -183,6 +185,7 @@ const collectValuesAtKeyPath = (source, key) => {
 
   return current.filter((value) => value !== undefined && value !== null)
 }
+
 
 const ORDER_PRIMARY_HINT_KEYS = [
   'displayId',
@@ -462,6 +465,20 @@ const toStringValue = (value) => {
   return result
 }
 
+const normalizeLookupKey = (value) => {
+  const stringValue = toStringValue(value)
+  if (!stringValue) {
+    return undefined
+  }
+
+  const trimmed = stringValue.trim()
+  if (!trimmed) {
+    return undefined
+  }
+
+  return trimmed.toLowerCase()
+}
+
 const parseDateLike = (value) => {
   if (!value) {
     return undefined
@@ -535,6 +552,219 @@ const extractOrderGuid = (order) => {
   }
 
   return undefined
+}
+
+const DINING_OPTION_COLLECTION_PATHS = [
+  'data.diningOptions',
+  'data.dining_options',
+  'diningOptions',
+  'dining_options',
+]
+
+const DINING_OPTION_IDENTIFIER_PATHS = [
+  'guid',
+  'id',
+  'uuid',
+  'externalId',
+  'external_id',
+  'value',
+  'code',
+  'optionGuid',
+  'optionId',
+  'option.guid',
+  'option.id',
+  'diningOptionGuid',
+  'diningOptionId',
+  'dining_option_guid',
+  'dining_option_id',
+  'diningOption.guid',
+  'diningOption.id',
+  'dining_option.guid',
+  'dining_option.id',
+  'dining.optionGuid',
+  'dining.optionId',
+  'serviceTypeGuid',
+  'serviceTypeId',
+  'service_type_guid',
+  'service_type_id',
+  'service.typeGuid',
+  'service.typeId',
+  'orderTypeGuid',
+  'orderTypeId',
+  'order_type_guid',
+  'order_type_id',
+  'order.typeGuid',
+  'order.typeId',
+  'fulfillmentTypeGuid',
+  'fulfillmentTypeId',
+  'fulfillment_type_guid',
+  'fulfillment_type_id',
+  'fulfillment.typeGuid',
+  'fulfillment.typeId',
+  'channelGuid',
+  'channelId',
+  'channel.guid',
+  'channel.id',
+  'modeGuid',
+  'modeId',
+  'mode.guid',
+  'mode.id',
+]
+
+const DINING_OPTION_LABEL_PATHS = [
+  'name',
+  'displayName',
+  'display_name',
+  'label',
+  'title',
+  'description',
+  'posName',
+  'pos_name',
+  'webDisplayName',
+  'web_display_name',
+  'shortName',
+  'short_name',
+  'defaultName',
+  'default_name',
+  'externalName',
+  'external_name',
+  'diningOptionName',
+  'dining_option_name',
+  'serviceTypeName',
+  'service_type_name',
+  'orderTypeName',
+  'order_type_name',
+  'modeName',
+  'mode_name',
+  'channelName',
+  'channel_name',
+  'names.*',
+  'displayNames.*',
+  'labels.*',
+  'descriptions.*',
+]
+
+const collectStringValuesAtPaths = (source, paths) => {
+  if (!source) {
+    return []
+  }
+
+  const values = []
+  const seen = new Set()
+
+  for (const path of paths) {
+    const candidates = collectValuesAtKeyPath(source, path)
+    for (const candidate of candidates) {
+      const stringValue = toStringValue(candidate)
+      if (!stringValue) {
+        continue
+      }
+
+      const trimmed = stringValue.trim()
+      if (!trimmed) {
+        continue
+      }
+
+      const dedupeKey = normalizeLookupKey(trimmed) ?? trimmed
+      if (seen.has(dedupeKey)) {
+        continue
+      }
+
+      seen.add(dedupeKey)
+      values.push(trimmed)
+    }
+  }
+
+  return values
+}
+
+const buildDiningOptionLookup = (configPayload) => {
+  const lookup = new Map()
+
+  if (!configPayload) {
+    return lookup
+  }
+
+  const addMapping = (keyValue, displayValue) => {
+    const normalizedKey = normalizeLookupKey(keyValue)
+    if (!normalizedKey) {
+      return
+    }
+
+    const display = displayValue ?? toStringValue(keyValue)
+    if (!display) {
+      return
+    }
+
+    if (!lookup.has(normalizedKey)) {
+      lookup.set(normalizedKey, display)
+    }
+  }
+
+  const rootCandidates = DINING_OPTION_COLLECTION_PATHS.map((path) => pickValue(configPayload, [path])).filter(
+    (value) => value !== undefined && value !== null,
+  )
+
+  const processEntry = (entry) => {
+    if (entry === undefined || entry === null) {
+      return
+    }
+
+    if (Array.isArray(entry)) {
+      entry.forEach(processEntry)
+      return
+    }
+
+    if (typeof entry !== 'object') {
+      const asString = toStringValue(entry)
+      if (asString) {
+        addMapping(asString, asString)
+      }
+      return
+    }
+
+    const identifiers = collectStringValuesAtPaths(entry, DINING_OPTION_IDENTIFIER_PATHS)
+    const labels = collectStringValuesAtPaths(entry, DINING_OPTION_LABEL_PATHS)
+    const primaryLabel = labels[0] ?? identifiers[0]
+
+    if (labels.length > 0) {
+      for (const label of labels) {
+        addMapping(label, primaryLabel ?? label)
+      }
+    }
+
+    for (const identifier of identifiers) {
+      addMapping(identifier, primaryLabel ?? identifier)
+    }
+
+    if (identifiers.length === 0 && labels.length === 0) {
+      const fallback = toStringValue(entry)
+      if (fallback) {
+        addMapping(fallback, fallback)
+      }
+    }
+  }
+
+  if (rootCandidates.length === 0) {
+    processEntry(pickValue(configPayload, ['diningOptions']))
+  } else {
+    rootCandidates.forEach((candidate) => {
+      const collection = ensureArray(candidate)
+      if (collection.length === 0 && candidate && typeof candidate === 'object' && !Array.isArray(candidate)) {
+        processEntry(candidate)
+        return
+      }
+
+      if (collection.length === 0) {
+        processEntry(candidate)
+        return
+      }
+
+      collection.forEach(processEntry)
+    })
+  }
+
+  return lookup
 }
 
 const MENU_ITEM_ID_KEYS = [
@@ -1273,6 +1503,132 @@ const ORDER_DINING_OPTION_KEYS = [
   'mode',
 ]
 
+const ORDER_DINING_OPTION_IDENTIFIER_PATHS = [
+  'diningOptionGuid',
+  'dining_option_guid',
+  'diningOptionId',
+  'dining_option_id',
+  'diningOption.guid',
+  'diningOption.id',
+  'dining_option.guid',
+  'dining_option.id',
+  'dining.optionGuid',
+  'dining.optionId',
+  'dining.guid',
+  'dining.id',
+  'serviceTypeGuid',
+  'serviceTypeId',
+  'service_type_guid',
+  'service_type_id',
+  'serviceType.guid',
+  'serviceType.id',
+  'service.typeGuid',
+  'service.typeId',
+  'orderTypeGuid',
+  'orderTypeId',
+  'order_type_guid',
+  'order_type_id',
+  'orderType.guid',
+  'orderType.id',
+  'order.typeGuid',
+  'order.typeId',
+  'fulfillmentTypeGuid',
+  'fulfillmentTypeId',
+  'fulfillment_type_guid',
+  'fulfillment_type_id',
+  'fulfillmentType.guid',
+  'fulfillmentType.id',
+  'fulfillment.typeGuid',
+  'fulfillment.typeId',
+  'channelGuid',
+  'channelId',
+  'channel.guid',
+  'channel.id',
+  'serviceModeGuid',
+  'serviceModeId',
+  'serviceMode.guid',
+  'serviceMode.id',
+  'service_mode_guid',
+  'service_mode_id',
+  'modeGuid',
+  'modeId',
+  'mode.guid',
+  'mode.id',
+]
+
+const ORDER_DINING_OPTION_LABEL_PATHS = [
+  'diningOption.name',
+  'diningOption.displayName',
+  'diningOption.display_name',
+  'diningOption.label',
+  'diningOption.description',
+  'diningOption.title',
+  'diningOption.names.*',
+  'diningOption.labels.*',
+  'diningOption.descriptions.*',
+  'dining.option',
+  'dining.optionName',
+  'dining.option_name',
+  'dining.name',
+  'dining.displayName',
+  'dining.display_name',
+  'dining.label',
+  'dining.description',
+  'dining.names.*',
+  'serviceType.name',
+  'serviceType.displayName',
+  'serviceType.display_name',
+  'serviceType.label',
+  'serviceType.description',
+  'serviceType.names.*',
+  'service.type',
+  'serviceMode',
+  'service_mode',
+  'serviceMode.name',
+  'serviceMode.displayName',
+  'serviceMode.display_name',
+  'serviceMode.label',
+  'serviceMode.description',
+  'serviceMode.names.*',
+  'orderType.name',
+  'orderType.displayName',
+  'orderType.display_name',
+  'orderType.label',
+  'orderType.description',
+  'orderType.names.*',
+  'order.type',
+  'fulfillmentType.name',
+  'fulfillmentType.displayName',
+  'fulfillmentType.display_name',
+  'fulfillmentType.label',
+  'fulfillmentType.description',
+  'fulfillmentType.names.*',
+  'fulfillment.type',
+  'channel.name',
+  'channel.displayName',
+  'channel.display_name',
+  'channel.label',
+  'channel.description',
+  'channel.names.*',
+  'mode.name',
+  'mode.displayName',
+  'mode.display_name',
+  'mode.label',
+  'mode.description',
+  'mode.names.*',
+  'fulfillment.channel',
+  'fulfillment.serviceType',
+  'fulfillment.service_type',
+  'fulfillment.orderType',
+  'fulfillment.order_type',
+  'context.serviceType',
+  'context.service_type',
+  'context.orderType',
+  'context.order_type',
+  'context.channel',
+  'context.mode',
+]
+
 const ORDER_FULFILLMENT_STATUS_KEYS = [
   'fulfillmentStatus',
   'fulfillment_status',
@@ -1305,7 +1661,36 @@ const pickStringFromPaths = (source, keys) => {
   return undefined
 }
 
-const normalizeOrders = (rawOrders, menuLookup = new Map()) => {
+const resolveOrderDiningOption = (order, diningOptionLookup = new Map()) => {
+  if (!order || typeof order !== 'object') {
+    return undefined
+  }
+
+  const identifierCandidates = collectStringValuesAtPaths(order, ORDER_DINING_OPTION_IDENTIFIER_PATHS)
+  const labelCandidates = collectStringValuesAtPaths(order, ORDER_DINING_OPTION_LABEL_PATHS)
+  const fallbackCandidates = collectStringValuesAtPaths(order, ORDER_DINING_OPTION_KEYS)
+
+  const candidateOrder = [...identifierCandidates, ...labelCandidates, ...fallbackCandidates]
+
+  for (const candidate of candidateOrder) {
+    const normalized = normalizeLookupKey(candidate)
+    if (normalized && diningOptionLookup.has(normalized)) {
+      return diningOptionLookup.get(normalized)
+    }
+  }
+
+  if (labelCandidates.length > 0) {
+    return labelCandidates[0]
+  }
+
+  if (fallbackCandidates.length > 0) {
+    return fallbackCandidates[0]
+  }
+
+  return undefined
+}
+
+const normalizeOrders = (rawOrders, menuLookup = new Map(), diningOptionLookup = new Map()) => {
   const collection = ensureArray(rawOrders)
 
   const normalizedWithIndex = collection.map((order, index) => {
@@ -1338,7 +1723,7 @@ const normalizeOrders = (rawOrders, menuLookup = new Map()) => {
     const customerName = toStringValue(
       pickValue(order, ['customer', 'customerName', 'customer_name', 'guest', 'client', 'user']),
     )
-    const diningOption = toStringValue(pickValue(order, ORDER_DINING_OPTION_KEYS))
+    const diningOption = resolveOrderDiningOption(order, diningOptionLookup)
     const fulfillmentStatus = toStringValue(pickValue(order, ORDER_FULFILLMENT_STATUS_KEYS))
     const notes = toStringValue(pickValue(order, ['notes', 'note', 'specialInstructions', 'instructions']))
 
@@ -1378,7 +1763,10 @@ const normalizeOrders = (rawOrders, menuLookup = new Map()) => {
     return aTime === null ? 1 : -1
   })
 
-  return normalizedWithIndex.map(({ originalIndex, ...order }) => order)
+  return normalizedWithIndex.map(({ originalIndex, ...order }) => {
+    void originalIndex
+    return order
+  })
 }
 
 const extractOrdersFromPayload = (payload) => {
@@ -1688,6 +2076,23 @@ function App() {
       setError(null)
 
       try {
+        const configPromise = (async () => {
+          try {
+            const response = await fetch(CONFIG_SNAPSHOT_ENDPOINT, { signal })
+            if (!response.ok) {
+              return null
+            }
+
+            return await response.json()
+          } catch (configError) {
+            if (configError?.name === 'AbortError') {
+              return null
+            }
+
+            return null
+          }
+        })()
+
         const [ordersResponse, menusResponse] = await Promise.all([
           fetch(ORDERS_ENDPOINT, { signal }),
           fetch(MENUS_ENDPOINT, { signal }),
@@ -1701,9 +2106,10 @@ function App() {
           throw new Error(`Menus request failed with status ${menusResponse.status}`)
         }
 
-        const [ordersPayload, menusPayload] = await Promise.all([
+        const [ordersPayload, menusPayload, configPayload] = await Promise.all([
           ordersResponse.json(),
           menusResponse.json(),
+          configPromise,
         ])
 
         if (signal?.aborted || !isMountedRef.current) {
@@ -1712,6 +2118,7 @@ function App() {
 
         const rawOrders = extractOrdersFromPayload(ordersPayload)
         const menuLookup = buildMenuItemLookup(menusPayload)
+        const diningOptionLookup = buildDiningOptionLookup(configPayload)
         const outstandingGuids = extractUnfulfilledOrderGuids(menusPayload)
         const filteredOrders =
           outstandingGuids.size > 0
@@ -1721,7 +2128,7 @@ function App() {
               })
             : rawOrders
 
-        const normalizedOrders = normalizeOrders(filteredOrders, menuLookup)
+        const normalizedOrders = normalizeOrders(filteredOrders, menuLookup, diningOptionLookup)
         const payloadModifiers = normalizeModifiersFromPayload(ordersPayload)
         const aggregatedModifiers =
           payloadModifiers.length > 0 ? payloadModifiers : deriveModifiersFromOrders(normalizedOrders)
@@ -1744,15 +2151,13 @@ function App() {
           setModifiers([])
         }
       } finally {
-        if (!isMountedRef.current) {
-          return
-        }
-
-        if (silent) {
-          setIsRefreshing(false)
-        } else {
-          setIsLoading(false)
-          setIsRefreshing(false)
+        if (isMountedRef.current) {
+          if (silent) {
+            setIsRefreshing(false)
+          } else {
+            setIsLoading(false)
+            setIsRefreshing(false)
+          }
         }
       }
     },
