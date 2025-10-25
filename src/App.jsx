@@ -206,6 +206,8 @@ const ORDER_SECONDARY_HINT_KEYS = [
   'state',
   'stage',
   'fulfillment_status',
+  'fulfillmentStatus',
+  'fulfillment.status',
   'createdAt',
   'created_at',
   'placedAt',
@@ -227,6 +229,12 @@ const ORDER_SECONDARY_HINT_KEYS = [
   'guest',
   'client',
   'user',
+  'diningOption',
+  'dining_option',
+  'serviceType',
+  'service_type',
+  'orderType',
+  'order_type',
   'notes',
   'note',
   'specialInstructions',
@@ -527,7 +535,28 @@ const extractOrderGuid = (order) => {
   return undefined
 }
 
-const MENU_ITEM_ID_KEYS = ['guid', 'id', 'sku', 'code', 'itemGuid', 'item_guid', 'itemId', 'item_id']
+const MENU_ITEM_ID_KEYS = [
+  'guid',
+  'id',
+  'sku',
+  'code',
+  'itemGuid',
+  'item_guid',
+  'itemId',
+  'item_id',
+  'menuItemGuid',
+  'menu_item_guid',
+  'menuItemId',
+  'menu_item_id',
+  'modifierGuid',
+  'modifier_guid',
+  'modifierId',
+  'modifier_id',
+]
+
+const MENU_KITCHEN_NAME_KEYS = ['kitchenName', 'kitchen_name']
+const MENU_POS_NAME_KEYS = ['posName', 'pos_name', 'posDisplayName', 'pos_display_name']
+const MENU_DISPLAY_NAME_KEYS = ['displayName', 'display_name', 'label', 'title']
 
 const buildMenuItemLookup = (menuPayload) => {
   const lookup = new Map()
@@ -555,9 +584,23 @@ const buildMenuItemLookup = (menuPayload) => {
       }
     }
 
-    const name = toStringValue(pickValue(node, ['name', 'title', 'label', 'description']))
-    if (identifier && name) {
-      lookup.set(identifier, name)
+    const kitchenName = toStringValue(pickValue(node, MENU_KITCHEN_NAME_KEYS))
+    const posName = toStringValue(pickValue(node, MENU_POS_NAME_KEYS))
+    const displayName = toStringValue(pickValue(node, MENU_DISPLAY_NAME_KEYS))
+    const fallbackName =
+      toStringValue(pickValue(node, ['name', 'description'])) ?? displayName ?? posName ?? kitchenName
+
+    if (identifier && (kitchenName || posName || displayName || fallbackName)) {
+      const existing = lookup.get(identifier) ?? {}
+
+      const nextValue = {
+        kitchenName: existing.kitchenName ?? kitchenName ?? undefined,
+        posName: existing.posName ?? posName ?? undefined,
+        displayName: existing.displayName ?? displayName ?? undefined,
+        fallbackName: existing.fallbackName ?? fallbackName ?? undefined,
+      }
+
+      lookup.set(identifier, nextValue)
     }
 
     Object.values(node).forEach(visit)
@@ -667,7 +710,21 @@ const extractUnfulfilledOrderGuids = (menuPayload) => {
   return unfulfilled
 }
 
-const normalizeItemModifiers = (item) => {
+const MODIFIER_IDENTIFIER_KEYS = [
+  ...MENU_ITEM_ID_KEYS,
+  'modifierCode',
+  'modifier_code',
+  'optionGuid',
+  'option_guid',
+  'optionId',
+  'option_id',
+  'choiceGuid',
+  'choice_guid',
+  'choiceId',
+  'choice_id',
+]
+
+const normalizeItemModifiers = (item, menuLookup) => {
   if (!item || typeof item !== 'object') {
     return []
   }
@@ -762,45 +819,31 @@ const normalizeItemModifiers = (item) => {
 
     const entries = Object.entries(candidate)
 
-    let name = toStringValue(
-      pickValue(candidate, [
-        'name',
-        'title',
-        'label',
-        'modifier',
-        'value',
-        'description',
-        'option',
-        'optionName',
-        'choice',
-        'choiceName',
-        'selection',
-        'selectionName',
-        'menuItem',
-        'menu_item',
-        'itemName',
-        'displayName',
-      ]),
-    )
+    const modifierIdentifier = toStringValue(pickValue(candidate, MODIFIER_IDENTIFIER_KEYS))
+    const menuEntry = modifierIdentifier && menuLookup?.has(modifierIdentifier)
+      ? menuLookup.get(modifierIdentifier)
+      : undefined
 
-    if (!name && entries.length === 1) {
-      const [singleKey, singleValue] = entries[0]
-      const keyName = toStringValue(singleKey)
-      if (keyName) {
-        if (typeof singleValue === 'number' || typeof singleValue === 'string') {
-          const quantity = toNumber(singleValue)
-          if (quantity && quantity > 0) {
-            collected.push({ name: keyName, quantity })
-            continue
-          }
-        }
+    let name
+    let namePriority = Number.POSITIVE_INFINITY
 
-        if (singleValue && typeof singleValue === 'object') {
-          pushCandidate({ ...singleValue, name: singleValue.name ?? keyName })
-          continue
-        }
+    const applyName = (value, priority) => {
+      const normalized = toStringValue(value)
+      if (!normalized) {
+        return
+      }
+
+      if (!name || priority < namePriority) {
+        name = normalized
+        namePriority = priority
       }
     }
+
+    if (menuEntry) {
+      applyName(menuEntry.kitchenName, 0)
+    }
+
+    applyName(pickValue(candidate, ['kitchenName', 'kitchen_name']), 1)
 
     const quantityRaw = toNumber(
       pickValue(candidate, [
@@ -826,8 +869,6 @@ const normalizeItemModifiers = (item) => {
       'isApplied',
       'chosen',
       'isChosen',
-      'enabled',
-      'isEnabled',
     ])
     const selectionFlag =
       selectionFlagRaw !== undefined
@@ -840,9 +881,24 @@ const normalizeItemModifiers = (item) => {
 
     let forwarded = false
     for (const key of containerKeys) {
-      if (key in candidate && candidate[key] !== undefined && candidate[key] !== null) {
+      if (!(key in candidate)) {
+        continue
+      }
+
+      const value = candidate[key]
+      if (value === undefined || value === null) {
+        continue
+      }
+
+      const hasChildren = Array.isArray(value)
+        ? value.some((entry) => entry !== undefined && entry !== null)
+        : typeof value === 'object'
+          ? Object.keys(value).length > 0
+          : false
+
+      if (hasChildren) {
         forwarded = true
-        pushCandidate(candidate[key])
+        pushCandidate(value)
       }
     }
 
@@ -854,10 +910,25 @@ const normalizeItemModifiers = (item) => {
       }
     }
 
-    if (name) {
-      const shouldAdd = !forwarded || quantityRaw || priceValue !== undefined || selectionFlag
+    if (typeof name === 'string') {
+      const trimmedName = name.trim()
+      if (!trimmedName) {
+        continue
+      }
+      const hasExplicitQuantity = quantityRaw !== undefined && quantityRaw > 0
+      const hasExplicitPrice = priceValue !== undefined
+      const hasExplicitSelection = selectionFlag === true
+      const hasExplicitDeselection = selectionFlag === false || quantityRaw === 0
+      const shouldAdd =
+        !hasExplicitDeselection &&
+        (!forwarded || hasExplicitSelection || hasExplicitQuantity || hasExplicitPrice)
       if (shouldAdd) {
-        collected.push({ name, quantity: normalizedQuantity })
+        collected.push({
+          name: trimmedName,
+          quantity: normalizedQuantity,
+          priority: namePriority,
+          identifier: modifierIdentifier ?? undefined,
+        })
       }
     }
   }
@@ -868,22 +939,32 @@ const normalizeItemModifiers = (item) => {
 
   const aggregated = new Map()
 
-  collected.forEach(({ name, quantity }) => {
+  collected.forEach(({ name, quantity, priority, identifier }) => {
     if (!name) {
       return
     }
 
     const normalizedQuantity = quantity && quantity > 0 ? quantity : 1
-    if (!aggregated.has(name)) {
-      aggregated.set(name, { name, quantity: normalizedQuantity })
+    const key = identifier ?? name.trim().toLowerCase()
+
+    if (!aggregated.has(key)) {
+      aggregated.set(key, {
+        name,
+        quantity: normalizedQuantity,
+        priority: priority ?? Number.POSITIVE_INFINITY,
+      })
       return
     }
 
-    const existing = aggregated.get(name)
+    const existing = aggregated.get(key)
     existing.quantity += normalizedQuantity
+    if ((priority ?? Number.POSITIVE_INFINITY) < existing.priority && name) {
+      existing.name = name
+      existing.priority = priority ?? Number.POSITIVE_INFINITY
+    }
   })
 
-  return Array.from(aggregated.values())
+  return Array.from(aggregated.values()).map(({ name, quantity }) => ({ name, quantity }))
 }
 
 const ORDER_ITEM_IDENTIFIER_KEYS = [
@@ -1073,12 +1154,13 @@ const normalizeOrderItems = (order, menuLookup) => {
 
   return candidateItems.map((item, index) => {
     const fallbackName = `Item ${index + 1}`
+    const orderKitchenName = toStringValue(pickValue(item, ['kitchenName', 'kitchen_name']))
     const baseName = toStringValue(pickValue(item, ORDER_ITEM_NAME_KEYS))
     const quantity = toNumber(pickValue(item, ORDER_ITEM_QUANTITY_KEYS)) ?? 1
     const price = toNumber(pickValue(item, ORDER_ITEM_PRICE_KEYS))
     const currency = toStringValue(pickValue(item, ['currency', 'currencyCode']))
     const notes = toStringValue(pickValue(item, ['notes', 'note', 'specialInstructions', 'instructions']))
-    const modifiers = normalizeItemModifiers(item)
+    const modifiers = normalizeItemModifiers(item, menuLookup)
 
     let rawIdentifier
     for (const key of ORDER_ITEM_IDENTIFIER_KEYS) {
@@ -1090,11 +1172,11 @@ const normalizeOrderItems = (order, menuLookup) => {
     }
 
     const identifier = rawIdentifier ?? `${index}`
-    const menuName = rawIdentifier && menuLookup ? menuLookup.get(rawIdentifier) : undefined
-    let name = baseName
+    const menuEntry = rawIdentifier && menuLookup ? menuLookup.get(rawIdentifier) : undefined
+    let name = menuEntry?.kitchenName ?? orderKitchenName
 
-    if ((!name || name === fallbackName) && menuName) {
-      name = menuName
+    if (!name) {
+      name = baseName ?? menuEntry?.fallbackName
     }
 
     if (!name) {
@@ -1113,28 +1195,114 @@ const normalizeOrderItems = (order, menuLookup) => {
   })
 }
 
+const ORDER_DISPLAY_ID_PRIMARY_KEYS = [
+  'displayId',
+  'display_id',
+  'orderNumber',
+  'order_number',
+  'ticket',
+  'number',
+  'id',
+  'reference',
+  'name',
+]
+
+const ORDER_DISPLAY_ID_NESTED_KEYS = [
+  'attributes.displayId',
+  'attributes.display_id',
+  'attributes.orderNumber',
+  'attributes.order_number',
+  'attributes.ticket',
+  'attributes.number',
+  'data.displayId',
+  'data.display_id',
+  'data.orderNumber',
+  'data.order_number',
+  'data.ticket',
+  'data.number',
+  'order.displayId',
+  'order.display_id',
+  'order.orderNumber',
+  'order.order_number',
+  'order.ticket',
+  'order.number',
+  'header.displayId',
+  'header.display_id',
+  'header.orderNumber',
+  'header.order_number',
+  'header.ticket',
+  'header.number',
+  '*.displayId',
+  '*.display_id',
+  '*.orderNumber',
+  '*.order_number',
+  '*.ticket',
+  '*.number',
+]
+
+const ORDER_DINING_OPTION_KEYS = [
+  'diningOption',
+  'dining_option',
+  'dining.option',
+  'serviceType',
+  'service_type',
+  'service.type',
+  'orderType',
+  'order_type',
+  'order.type',
+  'fulfillmentType',
+  'fulfillment_type',
+  'fulfillment.type',
+  'channel',
+  'serviceMode',
+  'service_mode',
+  'mode',
+]
+
+const ORDER_FULFILLMENT_STATUS_KEYS = [
+  'fulfillmentStatus',
+  'fulfillment_status',
+  'fulfillmentState',
+  'fulfillment_state',
+  'fulfillment.status',
+  'fulfillment.state',
+  'fulfillment.progress',
+  'deliveryStatus',
+  'delivery_status',
+  'serviceStatus',
+  'service_status',
+]
+
+const pickStringFromPaths = (source, keys) => {
+  if (!source) {
+    return undefined
+  }
+
+  for (const key of keys) {
+    const values = collectValuesAtKeyPath(source, key)
+    for (const value of values) {
+      const stringValue = toStringValue(value)
+      if (stringValue && stringValue.trim() !== '') {
+        return stringValue
+      }
+    }
+  }
+
+  return undefined
+}
+
 const normalizeOrders = (rawOrders, menuLookup = new Map()) => {
   const collection = ensureArray(rawOrders)
 
-  return collection.map((order, index) => {
+  const normalizedWithIndex = collection.map((order, index) => {
     if (!order || typeof order !== 'object') {
       return null
     }
 
     const guid = extractOrderGuid(order)
-    const displayId = toStringValue(
-      pickValue(order, [
-        'displayId',
-        'display_id',
-        'orderNumber',
-        'order_number',
-        'ticket',
-        'number',
-        'id',
-        'reference',
-        'name',
-      ]),
-    )
+    const displayId =
+      pickStringFromPaths(order, ORDER_DISPLAY_ID_PRIMARY_KEYS) ??
+      pickStringFromPaths(order, ORDER_DISPLAY_ID_NESTED_KEYS)
 
     const status = toStringValue(pickValue(order, ['status', 'orderStatus', 'state', 'stage', 'fulfillment_status']))
     const createdAtRaw =
@@ -1156,11 +1324,16 @@ const normalizeOrders = (rawOrders, menuLookup = new Map()) => {
     const customerName = toStringValue(
       pickValue(order, ['customer', 'customerName', 'customer_name', 'guest', 'client', 'user']),
     )
+    const diningOption = toStringValue(pickValue(order, ORDER_DINING_OPTION_KEYS))
+    const fulfillmentStatus = toStringValue(pickValue(order, ORDER_FULFILLMENT_STATUS_KEYS))
     const notes = toStringValue(pickValue(order, ['notes', 'note', 'specialInstructions', 'instructions']))
+
+    const tabName = toStringValue(pickValue(order, ['tabName', 'tab_name']))
 
     return {
       id: guid ?? displayId ?? `order-${index}`,
       displayId: displayId ?? `#${index + 1}`,
+      displayNumber,
       guid,
       status,
       createdAt,
@@ -1168,10 +1341,31 @@ const normalizeOrders = (rawOrders, menuLookup = new Map()) => {
       total,
       currency,
       customerName,
+      diningOption,
+      fulfillmentStatus,
       notes,
+      tabName,
       items: normalizeOrderItems(order, menuLookup),
+      originalIndex: index,
     }
   }).filter(Boolean)
+
+  normalizedWithIndex.sort((a, b) => {
+    const aTime = a.createdAt instanceof Date && !Number.isNaN(a.createdAt.getTime()) ? a.createdAt.getTime() : null
+    const bTime = b.createdAt instanceof Date && !Number.isNaN(b.createdAt.getTime()) ? b.createdAt.getTime() : null
+
+    if (aTime !== null && bTime !== null) {
+      return aTime - bTime
+    }
+
+    if (aTime === null && bTime === null) {
+      return a.originalIndex - b.originalIndex
+    }
+
+    return aTime === null ? 1 : -1
+  })
+
+  return normalizedWithIndex.map(({ originalIndex, ...order }) => order)
 }
 
 const extractOrdersFromPayload = (payload) => {
@@ -1352,6 +1546,47 @@ const formatTimestamp = (date, fallback) => {
   }
 }
 
+const formatElapsedDuration = (start, end = new Date()) => {
+  if (!(start instanceof Date) || Number.isNaN(start.getTime())) {
+    return undefined
+  }
+
+  const target = end instanceof Date && !Number.isNaN(end.getTime()) ? end : new Date()
+  const diffMs = Math.max(0, target.getTime() - start.getTime())
+  const totalSeconds = Math.floor(diffMs / 1000)
+  const hours = Math.floor(totalSeconds / 3600)
+  const minutes = Math.floor((totalSeconds % 3600) / 60)
+  const seconds = totalSeconds % 60
+
+  const pad = (value) => value.toString().padStart(2, '0')
+
+  if (hours > 0) {
+    return `${hours}:${pad(minutes)}:${pad(seconds)}`
+  }
+
+  return `${pad(minutes)}:${pad(seconds)}`
+}
+
+const useNow = (intervalMs = 1000) => {
+  const [now, setNow] = useState(() => new Date())
+
+  useEffect(() => {
+    if (!Number.isFinite(intervalMs) || intervalMs <= 0) {
+      return undefined
+    }
+
+    const id = setInterval(() => {
+      setNow(new Date())
+    }, intervalMs)
+
+    return () => {
+      clearInterval(id)
+    }
+  }, [intervalMs])
+
+  return now
+}
+
 const statusToClassName = (status) => {
   if (!status) {
     return ''
@@ -1395,8 +1630,7 @@ function App() {
   const [modifiers, setModifiers] = useState([])
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState(null)
-  const [isRefreshing, setIsRefreshing] = useState(false)
-  const [showOnlyPreparing, setShowOnlyPreparing] = useState(false)
+  const now = useNow(1000)
 
   const activeRequestRef = useRef(null)
   const isMountedRef = useRef(true)
@@ -1718,6 +1952,8 @@ function App() {
                 const formattedTotal = formatCurrency(order.total, order.currency ?? 'USD')
                 const statusClass = statusToClassName(order.status)
                 const timeLabel = formatTimestamp(order.createdAt, order.createdAtRaw)
+                const elapsedDuration = formatElapsedDuration(order.createdAt, now)
+                const shouldShowFulfillmentStatus = Boolean(order.fulfillmentStatus)
 
                 return (
                   <article className="order-card" key={order.id}>
@@ -1732,13 +1968,31 @@ function App() {
                         {order.status ? (
                           <span className={`order-status-badge ${statusClass}`}>{order.status}</span>
                         ) : null}
+                        {shouldShowFulfillmentStatus ? (
+                          <span className="order-fulfillment-badge">{order.fulfillmentStatus}</span>
+                        ) : null}
+                        {order.diningOption ? (
+                          <span className="order-card-dining" aria-label={`Dining option ${order.diningOption}`}>
+                            {order.diningOption}
+                          </span>
+                        ) : null}
                         {timeLabel ? (
                           <time className="order-card-time" dateTime={order.createdAt?.toISOString() ?? undefined}>
                             {timeLabel}
                           </time>
                         ) : null}
+                        {elapsedDuration ? (
+                          <span className="order-card-timer" aria-live="polite">
+                            Elapsed {elapsedDuration}
+                          </span>
+                        ) : null}
                       </div>
                     </header>
+                    {elapsedLabel ? (
+                      <p className="order-card-elapsed">
+                        In queue for <span className="order-card-elapsed-value">{elapsedLabel}</span>
+                      </p>
+                    ) : null}
                     {order.items.length > 0 ? (
                       <ul className="order-items">
                         {order.items.map((item) => (
