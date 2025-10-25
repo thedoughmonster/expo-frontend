@@ -206,6 +206,8 @@ const ORDER_SECONDARY_HINT_KEYS = [
   'state',
   'stage',
   'fulfillment_status',
+  'fulfillmentStatus',
+  'fulfillment.status',
   'createdAt',
   'created_at',
   'placedAt',
@@ -227,6 +229,12 @@ const ORDER_SECONDARY_HINT_KEYS = [
   'guest',
   'client',
   'user',
+  'diningOption',
+  'dining_option',
+  'serviceType',
+  'service_type',
+  'orderType',
+  'order_type',
   'notes',
   'note',
   'specialInstructions',
@@ -1113,28 +1121,114 @@ const normalizeOrderItems = (order, menuLookup) => {
   })
 }
 
+const ORDER_DISPLAY_ID_PRIMARY_KEYS = [
+  'displayId',
+  'display_id',
+  'orderNumber',
+  'order_number',
+  'ticket',
+  'number',
+  'id',
+  'reference',
+  'name',
+]
+
+const ORDER_DISPLAY_ID_NESTED_KEYS = [
+  'attributes.displayId',
+  'attributes.display_id',
+  'attributes.orderNumber',
+  'attributes.order_number',
+  'attributes.ticket',
+  'attributes.number',
+  'data.displayId',
+  'data.display_id',
+  'data.orderNumber',
+  'data.order_number',
+  'data.ticket',
+  'data.number',
+  'order.displayId',
+  'order.display_id',
+  'order.orderNumber',
+  'order.order_number',
+  'order.ticket',
+  'order.number',
+  'header.displayId',
+  'header.display_id',
+  'header.orderNumber',
+  'header.order_number',
+  'header.ticket',
+  'header.number',
+  '*.displayId',
+  '*.display_id',
+  '*.orderNumber',
+  '*.order_number',
+  '*.ticket',
+  '*.number',
+]
+
+const ORDER_DINING_OPTION_KEYS = [
+  'diningOption',
+  'dining_option',
+  'dining.option',
+  'serviceType',
+  'service_type',
+  'service.type',
+  'orderType',
+  'order_type',
+  'order.type',
+  'fulfillmentType',
+  'fulfillment_type',
+  'fulfillment.type',
+  'channel',
+  'serviceMode',
+  'service_mode',
+  'mode',
+]
+
+const ORDER_FULFILLMENT_STATUS_KEYS = [
+  'fulfillmentStatus',
+  'fulfillment_status',
+  'fulfillmentState',
+  'fulfillment_state',
+  'fulfillment.status',
+  'fulfillment.state',
+  'fulfillment.progress',
+  'deliveryStatus',
+  'delivery_status',
+  'serviceStatus',
+  'service_status',
+]
+
+const pickStringFromPaths = (source, keys) => {
+  if (!source) {
+    return undefined
+  }
+
+  for (const key of keys) {
+    const values = collectValuesAtKeyPath(source, key)
+    for (const value of values) {
+      const stringValue = toStringValue(value)
+      if (stringValue && stringValue.trim() !== '') {
+        return stringValue
+      }
+    }
+  }
+
+  return undefined
+}
+
 const normalizeOrders = (rawOrders, menuLookup = new Map()) => {
   const collection = ensureArray(rawOrders)
 
-  return collection.map((order, index) => {
+  const normalizedWithIndex = collection.map((order, index) => {
     if (!order || typeof order !== 'object') {
       return null
     }
 
     const guid = extractOrderGuid(order)
-    const displayId = toStringValue(
-      pickValue(order, [
-        'displayId',
-        'display_id',
-        'orderNumber',
-        'order_number',
-        'ticket',
-        'number',
-        'id',
-        'reference',
-        'name',
-      ]),
-    )
+    const displayId =
+      pickStringFromPaths(order, ORDER_DISPLAY_ID_PRIMARY_KEYS) ??
+      pickStringFromPaths(order, ORDER_DISPLAY_ID_NESTED_KEYS)
 
     const status = toStringValue(pickValue(order, ['status', 'orderStatus', 'state', 'stage', 'fulfillment_status']))
     const createdAtRaw =
@@ -1156,6 +1250,8 @@ const normalizeOrders = (rawOrders, menuLookup = new Map()) => {
     const customerName = toStringValue(
       pickValue(order, ['customer', 'customerName', 'customer_name', 'guest', 'client', 'user']),
     )
+    const diningOption = toStringValue(pickValue(order, ORDER_DINING_OPTION_KEYS))
+    const fulfillmentStatus = toStringValue(pickValue(order, ORDER_FULFILLMENT_STATUS_KEYS))
     const notes = toStringValue(pickValue(order, ['notes', 'note', 'specialInstructions', 'instructions']))
 
     return {
@@ -1168,10 +1264,30 @@ const normalizeOrders = (rawOrders, menuLookup = new Map()) => {
       total,
       currency,
       customerName,
+      diningOption,
+      fulfillmentStatus,
       notes,
       items: normalizeOrderItems(order, menuLookup),
+      originalIndex: index,
     }
   }).filter(Boolean)
+
+  normalizedWithIndex.sort((a, b) => {
+    const aTime = a.createdAt instanceof Date && !Number.isNaN(a.createdAt.getTime()) ? a.createdAt.getTime() : null
+    const bTime = b.createdAt instanceof Date && !Number.isNaN(b.createdAt.getTime()) ? b.createdAt.getTime() : null
+
+    if (aTime !== null && bTime !== null) {
+      return aTime - bTime
+    }
+
+    if (aTime === null && bTime === null) {
+      return a.originalIndex - b.originalIndex
+    }
+
+    return aTime === null ? 1 : -1
+  })
+
+  return normalizedWithIndex.map(({ originalIndex, ...order }) => order)
 }
 
 const extractOrdersFromPayload = (payload) => {
@@ -1352,6 +1468,47 @@ const formatTimestamp = (date, fallback) => {
   }
 }
 
+const formatElapsedDuration = (start, end = new Date()) => {
+  if (!(start instanceof Date) || Number.isNaN(start.getTime())) {
+    return undefined
+  }
+
+  const target = end instanceof Date && !Number.isNaN(end.getTime()) ? end : new Date()
+  const diffMs = Math.max(0, target.getTime() - start.getTime())
+  const totalSeconds = Math.floor(diffMs / 1000)
+  const hours = Math.floor(totalSeconds / 3600)
+  const minutes = Math.floor((totalSeconds % 3600) / 60)
+  const seconds = totalSeconds % 60
+
+  const pad = (value) => value.toString().padStart(2, '0')
+
+  if (hours > 0) {
+    return `${hours}:${pad(minutes)}:${pad(seconds)}`
+  }
+
+  return `${pad(minutes)}:${pad(seconds)}`
+}
+
+const useNow = (intervalMs = 1000) => {
+  const [now, setNow] = useState(() => new Date())
+
+  useEffect(() => {
+    if (!Number.isFinite(intervalMs) || intervalMs <= 0) {
+      return undefined
+    }
+
+    const id = setInterval(() => {
+      setNow(new Date())
+    }, intervalMs)
+
+    return () => {
+      clearInterval(id)
+    }
+  }, [intervalMs])
+
+  return now
+}
+
 const statusToClassName = (status) => {
   if (!status) {
     return ''
@@ -1365,6 +1522,7 @@ function App() {
   const [modifiers, setModifiers] = useState([])
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState(null)
+  const now = useNow(1000)
 
   useEffect(() => {
     let isSubscribed = true
@@ -1566,6 +1724,8 @@ function App() {
                 const formattedTotal = formatCurrency(order.total, order.currency ?? 'USD')
                 const statusClass = statusToClassName(order.status)
                 const timeLabel = formatTimestamp(order.createdAt, order.createdAtRaw)
+                const elapsedDuration = formatElapsedDuration(order.createdAt, now)
+                const shouldShowFulfillmentStatus = Boolean(order.fulfillmentStatus)
 
                 return (
                   <article className="order-card" key={order.id}>
@@ -1580,10 +1740,23 @@ function App() {
                         {order.status ? (
                           <span className={`order-status-badge ${statusClass}`}>{order.status}</span>
                         ) : null}
+                        {shouldShowFulfillmentStatus ? (
+                          <span className="order-fulfillment-badge">{order.fulfillmentStatus}</span>
+                        ) : null}
+                        {order.diningOption ? (
+                          <span className="order-card-dining" aria-label={`Dining option ${order.diningOption}`}>
+                            {order.diningOption}
+                          </span>
+                        ) : null}
                         {timeLabel ? (
                           <time className="order-card-time" dateTime={order.createdAt?.toISOString() ?? undefined}>
                             {timeLabel}
                           </time>
+                        ) : null}
+                        {elapsedDuration ? (
+                          <span className="order-card-timer" aria-live="polite">
+                            Elapsed {elapsedDuration}
+                          </span>
                         ) : null}
                       </div>
                     </header>
