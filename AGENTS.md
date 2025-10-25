@@ -1,4 +1,4 @@
 # Agent Instructions
-
 - Review `docs/doughmonster-worker.openapi.yaml` before beginning any task so the available API surface and field definitions remain top of mind.
+- Always consult the schema when touching data normalization or API-driven features so field names (e.g., `displayNumber`) stay aligned with the worker payloads.
 - For any changes affecting the frontend, always capture and share a screenshot of the rendered UI to accompany your summary.
