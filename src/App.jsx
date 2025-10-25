@@ -1333,7 +1333,6 @@ const normalizeOrders = (rawOrders, menuLookup = new Map()) => {
     return {
       id: guid ?? displayId ?? `order-${index}`,
       displayId: displayId ?? `#${index + 1}`,
-      displayNumber,
       guid,
       status,
       createdAt,
