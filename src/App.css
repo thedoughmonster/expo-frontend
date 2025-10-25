@@ -26,7 +26,14 @@
   color: inherit;
 }
 
-.settings-button {
+.top-bar-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.settings-button,
+.refresh-button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -41,19 +48,103 @@
 }
 
 .settings-button:hover,
-.settings-button:focus-visible {
+.settings-button:focus-visible,
+.refresh-button:hover,
+.refresh-button:focus-visible {
   background: rgba(59, 130, 246, 0.24);
   border-color: rgba(96, 165, 250, 0.5);
   color: #f8fafc;
   outline: none;
 }
 
-.settings-button:focus-visible {
+.settings-button:focus-visible,
+.refresh-button:focus-visible {
   box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.35);
+}
+
+.refresh-button {
+  background: rgba(34, 197, 94, 0.16);
+  color: #bbf7d0;
+  border-color: rgba(34, 197, 94, 0.2);
+}
+
+.refresh-button:hover,
+.refresh-button:focus-visible {
+  background: rgba(34, 197, 94, 0.24);
+  border-color: rgba(74, 222, 128, 0.45);
+  color: #dcfce7;
+}
+
+.refresh-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  background: rgba(34, 197, 94, 0.16);
+  color: #86efac;
+  border-color: rgba(34, 197, 94, 0.2);
+}
+
+.refresh-button.is-refreshing {
+  pointer-events: none;
+}
+
+.refresh-icon {
+  display: block;
+}
+
+.refresh-button.is-refreshing .refresh-icon {
+  animation: spin 0.9s linear infinite;
+}
+
+.filter-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.45rem 1rem;
+  border-radius: 999px;
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  background: rgba(30, 41, 59, 0.65);
+  color: #e2e8f0;
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 150ms ease, border-color 150ms ease, color 150ms ease, box-shadow 150ms ease;
+  white-space: nowrap;
+}
+
+.filter-toggle:hover,
+.filter-toggle:focus-visible {
+  background: rgba(59, 130, 246, 0.24);
+  border-color: rgba(96, 165, 250, 0.5);
+  color: #f8fafc;
+  outline: none;
+}
+
+.filter-toggle:focus-visible {
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.35);
+}
+
+.filter-toggle.is-active {
+  background: rgba(59, 130, 246, 0.32);
+  border-color: rgba(96, 165, 250, 0.65);
+  color: #f8fafc;
+}
+
+.filter-toggle-label {
+  line-height: 1;
 }
 
 .settings-icon {
   display: block;
+}
+
+@keyframes spin {
+  0% {
+    transform: rotate(0deg);
+  }
+
+  100% {
+    transform: rotate(360deg);
+  }
 }
 
 .dashboard-body {

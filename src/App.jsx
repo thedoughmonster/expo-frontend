@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import './App.css'
 
 const ORDERS_ENDPOINT =
@@ -1360,18 +1360,61 @@ const statusToClassName = (status) => {
   return `order-status--${status.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`
 }
 
+const isSentStatus = (status) => {
+  if (!status) {
+    return false
+  }
+
+  const normalized = status.toLowerCase()
+  const sentKeywords = [
+    'sent',
+    'complete',
+    'completed',
+    'done',
+    'delivered',
+    'delivering',
+    'fulfilled',
+    'fulfillment',
+    'closed',
+    'finished',
+    'collected',
+    'pickup',
+    'picked up',
+    'picked-up',
+    'pickedup',
+    'out for',
+    'out-for',
+    'out_for',
+  ]
+
+  return sentKeywords.some((keyword) => normalized.includes(keyword))
+}
+
 function App() {
   const [orders, setOrders] = useState([])
   const [modifiers, setModifiers] = useState([])
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState(null)
+  const [isRefreshing, setIsRefreshing] = useState(false)
+  const [showOnlyPreparing, setShowOnlyPreparing] = useState(false)
 
-  useEffect(() => {
-    let isSubscribed = true
-    const controller = new AbortController()
+  const activeRequestRef = useRef(null)
+  const isMountedRef = useRef(true)
 
-    const loadData = async () => {
-      setIsLoading(true)
+  const loadData = useCallback(
+    async ({ silent = false } = {}) => {
+      if (activeRequestRef.current) {
+        activeRequestRef.current.abort()
+      }
+
+      const controller = new AbortController()
+      activeRequestRef.current = controller
+
+      if (silent) {
+        setIsRefreshing(true)
+      } else {
+        setIsLoading(true)
+      }
       setError(null)
 
       try {
@@ -1393,7 +1436,7 @@ function App() {
           menusResponse.json(),
         ])
 
-        if (!isSubscribed) {
+        if (controller.signal.aborted || !isMountedRef.current || activeRequestRef.current !== controller) {
           return
         }
 
@@ -1414,30 +1457,57 @@ function App() {
           ? payloadModifiers
           : deriveModifiersFromOrders(normalizedOrders)
 
+        if (!isMountedRef.current || controller.signal.aborted || activeRequestRef.current !== controller) {
+          return
+        }
+
         setOrders(normalizedOrders)
         setModifiers(aggregatedModifiers)
       } catch (fetchError) {
-        if (!isSubscribed || fetchError.name === 'AbortError') {
+        if (fetchError.name === 'AbortError') {
+          return
+        }
+
+        if (!isMountedRef.current || controller.signal.aborted || activeRequestRef.current !== controller) {
           return
         }
 
         setError(fetchError)
-        setOrders([])
-        setModifiers([])
+        if (!silent) {
+          setOrders([])
+          setModifiers([])
+        }
       } finally {
-        if (isSubscribed) {
+        const isCurrentRequest = activeRequestRef.current === controller
+
+        if (isCurrentRequest) {
+          activeRequestRef.current = null
+        }
+
+        if (!isMountedRef.current || !isCurrentRequest) {
+          return
+        }
+
+        if (silent) {
+          setIsRefreshing(false)
+        } else {
           setIsLoading(false)
         }
       }
-    }
+    },
+    [],
+  )
 
+  useEffect(() => {
     loadData()
 
     return () => {
-      isSubscribed = false
-      controller.abort()
+      isMountedRef.current = false
+      if (activeRequestRef.current) {
+        activeRequestRef.current.abort()
+      }
     }
-  }, [])
+  }, [loadData])
 
   const settingsTabs = useMemo(
     () => [
@@ -1463,6 +1533,22 @@ function App() {
   const activeTab = settingsTabs.find((tab) => tab.id === activeTabId) ?? settingsTabs[0]
 
   const modifierItems = modifiers.length > 0 ? modifiers : []
+  const hasExistingOrders = orders.length > 0
+  const visibleOrders = useMemo(
+    () => (showOnlyPreparing ? orders.filter((order) => !isSentStatus(order.status)) : orders),
+    [orders, showOnlyPreparing],
+  )
+  const hasVisibleOrders = visibleOrders.length > 0
+  const isRefreshInProgress = isLoading || isRefreshing
+  const filterLabel = showOnlyPreparing ? 'Preparing Only' : 'All Orders'
+
+  const handleManualRefresh = useCallback(() => {
+    loadData({ silent: hasExistingOrders })
+  }, [hasExistingOrders, loadData])
+
+  const toggleOrderFilter = useCallback(() => {
+    setShowOnlyPreparing((previous) => !previous)
+  }, [])
 
   const openSettings = () => {
     setActiveTabId(settingsTabs[0].id)
@@ -1477,39 +1563,102 @@ function App() {
     <div className="dashboard">
       <header className="top-bar">
         <h1>Order Dashboard</h1>
-        <button
-          type="button"
-          className="settings-button"
-          aria-haspopup="dialog"
-          aria-expanded={isSettingsOpen}
-          onClick={openSettings}
-        >
-          <span className="sr-only">Open settings</span>
-          <svg
-            aria-hidden="true"
-            width="22"
-            height="22"
-            viewBox="0 0 24 24"
-            fill="none"
-            xmlns="http://www.w3.org/2000/svg"
-            className="settings-icon"
+        <div className="top-bar-actions">
+          <button
+            type="button"
+            className={`filter-toggle${showOnlyPreparing ? ' is-active' : ''}`}
+            onClick={toggleOrderFilter}
+            aria-pressed={showOnlyPreparing}
           >
-            <path
-              d="M12 15.25C13.7949 15.25 15.25 13.7949 15.25 12C15.25 10.2051 13.7949 8.75 12 8.75C10.2051 8.75 8.75 10.2051 8.75 12C8.75 13.7949 10.2051 15.25 12 15.25Z"
-              stroke="currentColor"
-              strokeWidth="1.5"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-            <path
-              d="M19.5 12.0001C19.5001 12.5003 19.4412 12.9991 19.3245 13.4846L21.1815 15.0631L19.0631 18.1815L17.2055 16.9091C16.6021 17.3539 15.9295 17.7011 15.2155 17.9346L14.8725 20.25H9.1275L8.7845 17.9346C8.0705 17.7011 7.39792 17.3539 6.7945 16.9091L4.93688 18.1815L2.81848 15.0631L4.67548 13.4846C4.55879 12.9991 4.4999 12.5003 4.5 12.0001C4.4999 11.4999 4.55879 11.0011 4.67548 10.5156L2.81848 8.93705L4.93688 5.81865L6.7945 7.09105C7.39792 6.64625 8.0705 6.29903 8.7845 6.06555L9.1275 3.75H14.8725L15.2155 6.06555C15.9295 6.29903 16.6021 6.64625 17.2055 7.09105L19.0631 5.81865L21.1815 8.93705L19.3245 10.5156C19.4412 11.0011 19.5001 11.4999 19.5 12.0001Z"
-              stroke="currentColor"
-              strokeWidth="1.5"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          </svg>
-        </button>
+            <span aria-hidden="true" className="filter-toggle-label">
+              {filterLabel}
+            </span>
+            <span className="sr-only">
+              {showOnlyPreparing
+                ? 'Show all orders including those already sent'
+                : 'Show only orders still in preparation'}
+            </span>
+          </button>
+          <button
+            type="button"
+            className={`refresh-button${isRefreshInProgress ? ' is-refreshing' : ''}`}
+            onClick={handleManualRefresh}
+            disabled={isRefreshInProgress}
+          >
+            <span className="sr-only">Refresh orders</span>
+            <svg
+              aria-hidden="true"
+              width="22"
+              height="22"
+              viewBox="0 0 24 24"
+              fill="none"
+              xmlns="http://www.w3.org/2000/svg"
+              className="refresh-icon"
+            >
+              <path
+                d="M21 5v6h-6"
+                stroke="currentColor"
+                strokeWidth="1.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+              <path
+                d="M3 19v-6h6"
+                stroke="currentColor"
+                strokeWidth="1.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+              <path
+                d="M5.64 9A7 7 0 0 1 12 5c1.7 0 3.27.63 4.44 1.66L21 11"
+                stroke="currentColor"
+                strokeWidth="1.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+              <path
+                d="M18.36 15A7 7 0 0 1 12 19c-1.7 0-3.27-.63-4.44-1.66L3 13"
+                stroke="currentColor"
+                strokeWidth="1.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+          </button>
+          <button
+            type="button"
+            className="settings-button"
+            aria-haspopup="dialog"
+            aria-expanded={isSettingsOpen}
+            onClick={openSettings}
+          >
+            <span className="sr-only">Open settings</span>
+            <svg
+              aria-hidden="true"
+              width="22"
+              height="22"
+              viewBox="0 0 24 24"
+              fill="none"
+              xmlns="http://www.w3.org/2000/svg"
+              className="settings-icon"
+            >
+              <path
+                d="M12 15.25C13.7949 15.25 15.25 13.7949 15.25 12C15.25 10.2051 13.7949 8.75 12 8.75C10.2051 8.75 8.75 10.2051 8.75 12C8.75 13.7949 10.2051 15.25 12 15.25Z"
+                stroke="currentColor"
+                strokeWidth="1.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+              <path
+                d="M19.5 12.0001C19.5001 12.5003 19.4412 12.9991 19.3245 13.4846L21.1815 15.0631L19.0631 18.1815L17.2055 16.9091C16.6021 17.3539 15.9295 17.7011 15.2155 17.9346L14.8725 20.25H9.1275L8.7845 17.9346C8.0705 17.7011 7.39792 17.3539 6.7945 16.9091L4.93688 18.1815L2.81848 15.0631L4.67548 13.4846C4.55879 12.9991 4.4999 12.5003 4.5 12.0001C4.4999 11.4999 4.55879 11.0011 4.67548 10.5156L2.81848 8.93705L4.93688 5.81865L6.7945 7.09105C7.39792 6.64625 8.0705 6.29903 8.7845 6.06555L9.1275 3.75H14.8725L15.2155 6.06555C15.9295 6.29903 16.6021 6.64625 17.2055 7.09105L19.0631 5.81865L21.1815 8.93705L19.3245 10.5156C19.4412 11.0011 19.5001 11.4999 19.5 12.0001Z"
+                stroke="currentColor"
+                strokeWidth="1.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+          </button>
+        </div>
       </header>
       <div className="dashboard-body">
         <aside className="sidebar">
@@ -1546,7 +1695,7 @@ function App() {
           ) : null}
         </aside>
         <main className="orders-area">
-          {isLoading && orders.length === 0 && !error ? (
+          {isLoading && !hasExistingOrders && !error ? (
             <section className="orders-state" aria-live="polite">
               Loading orders…
             </section>
@@ -1557,12 +1706,15 @@ function App() {
               <p>{error.message ?? 'Please try again later.'}</p>
             </section>
           ) : null}
-          {!isLoading && !error && orders.length === 0 ? (
+          {!isLoading && !error && !hasExistingOrders ? (
             <section className="orders-state">No orders available.</section>
           ) : null}
-          {orders.length > 0 ? (
+          {!isLoading && !error && hasExistingOrders && !hasVisibleOrders ? (
+            <section className="orders-state">No orders currently in preparation.</section>
+          ) : null}
+          {hasVisibleOrders ? (
             <section className="orders-grid" aria-live="polite">
-              {orders.map((order) => {
+              {visibleOrders.map((order) => {
                 const formattedTotal = formatCurrency(order.total, order.currency ?? 'USD')
                 const statusClass = statusToClassName(order.status)
                 const timeLabel = formatTimestamp(order.createdAt, order.createdAtRaw)
