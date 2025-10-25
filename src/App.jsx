@@ -2425,18 +2425,25 @@ function App() {
                 return (
                   <article className="order-card" key={order.id}>
                     <header className="order-card-header">
-                      <div className="order-card-heading">
-                        <h2 className="order-card-title">Order {order.displayId}</h2>
-                        {order.customerName ? (
-                          <p className="order-card-subtitle">for {order.customerName}</p>
+                      <div className="order-card-header-row">
+                        <div className="order-card-heading">
+                          <h2 className="order-card-title">Order {order.displayId}</h2>
+                          {order.customerName ? (
+                            <p className="order-card-subtitle">for {order.customerName}</p>
+                          ) : null}
+                        </div>
+                        {shouldShowFulfillmentStatus ? (
+                          <span
+                            className="order-fulfillment-badge"
+                            aria-label={`Fulfillment status ${order.fulfillmentStatus}`}
+                          >
+                            {order.fulfillmentStatus}
+                          </span>
                         ) : null}
                       </div>
                       <div className="order-card-meta">
                         {order.status ? (
                           <span className={`order-status-badge ${statusClass}`}>{order.status}</span>
-                        ) : null}
-                        {shouldShowFulfillmentStatus ? (
-                          <span className="order-fulfillment-badge">{order.fulfillmentStatus}</span>
                         ) : null}
                         {order.diningOption ? (
                           <span className="order-card-dining" aria-label={`Dining option ${order.diningOption}`}>
