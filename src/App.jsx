@@ -1287,6 +1287,17 @@ const ORDER_FULFILLMENT_STATUS_KEYS = [
   'service_status',
 ]
 
+const ORDER_FULFILLMENT_STATUS_NESTED_KEYS = [
+  'checks[].selections.fulfillmentStatus',
+  'checks[].selections.fulfillment_status',
+  'checks[].selections[].fulfillmentStatus',
+  'checks[].selections[].fulfillment_status',
+  'checks[].selections.edges[].node.fulfillmentStatus',
+  'checks[].selections.edges[].node.fulfillment_status',
+  'checks[].selections.nodes[].fulfillmentStatus',
+  'checks[].selections.nodes[].fulfillment_status',
+]
+
 const pickStringFromPaths = (source, keys) => {
   if (!source) {
     return undefined
@@ -1339,7 +1350,19 @@ const normalizeOrders = (rawOrders, menuLookup = new Map()) => {
       pickValue(order, ['customer', 'customerName', 'customer_name', 'guest', 'client', 'user']),
     )
     const diningOption = toStringValue(pickValue(order, ORDER_DINING_OPTION_KEYS))
-    const fulfillmentStatus = toStringValue(pickValue(order, ORDER_FULFILLMENT_STATUS_KEYS))
+    const directFulfillmentStatus = toStringValue(pickValue(order, ORDER_FULFILLMENT_STATUS_KEYS))
+    const nestedFulfillmentStatuses = ORDER_FULFILLMENT_STATUS_NESTED_KEYS.flatMap((key) =>
+      collectValuesAtKeyPath(order, key)
+        .map((value) => toStringValue(value))
+        .filter(Boolean),
+    )
+    const fulfillmentStatusCandidates = [directFulfillmentStatus, ...nestedFulfillmentStatuses].filter(Boolean)
+    const uniqueFulfillmentStatuses = Array.from(new Set(fulfillmentStatusCandidates))
+    const humanReadableFulfillmentStatuses = uniqueFulfillmentStatuses.filter((value) => !isLikelyGuid(value))
+    const fulfillmentStatus =
+      humanReadableFulfillmentStatuses.length > 0
+        ? humanReadableFulfillmentStatuses.join(', ')
+        : uniqueFulfillmentStatuses[0]
     const notes = toStringValue(pickValue(order, ['notes', 'note', 'specialInstructions', 'instructions']))
 
     const tabName = toStringValue(pickValue(order, ['tabName', 'tab_name']))
@@ -1378,7 +1401,10 @@ const normalizeOrders = (rawOrders, menuLookup = new Map()) => {
     return aTime === null ? 1 : -1
   })
 
-  return normalizedWithIndex.map(({ originalIndex, ...order }) => order)
+  return normalizedWithIndex.map((entry) => {
+    const { originalIndex: _originalIndex, ...order } = entry
+    return order
+  })
 }
 
 const extractOrdersFromPayload = (payload) => {
@@ -1744,15 +1770,13 @@ function App() {
           setModifiers([])
         }
       } finally {
-        if (!isMountedRef.current) {
-          return
-        }
-
-        if (silent) {
-          setIsRefreshing(false)
-        } else {
-          setIsLoading(false)
-          setIsRefreshing(false)
+        if (isMountedRef.current) {
+          if (silent) {
+            setIsRefreshing(false)
+          } else {
+            setIsLoading(false)
+            setIsRefreshing(false)
+          }
         }
       }
     },
@@ -1992,11 +2016,12 @@ function App() {
             <section className="orders-grid" aria-live="polite">
               {visibleOrders.map((order) => {
                 const formattedTotal = formatCurrency(order.total, order.currency ?? 'USD')
-                const statusClass = statusToClassName(order.status)
+                const statusLabel = order.fulfillmentStatus ?? order.status
+                const statusClass = statusToClassName(statusLabel)
                 const timeLabel = formatTimestamp(order.createdAt, order.createdAtRaw)
                 const elapsedDuration = formatElapsedDuration(order.createdAt, now)
                 const elapsedLabel = formatElapsedLabel(order.createdAt, now)
-                const shouldShowFulfillmentStatus = Boolean(order.fulfillmentStatus)
+                const shouldShowStatus = Boolean(statusLabel)
 
                 return (
                   <article className="order-card" key={order.id}>
@@ -2008,11 +2033,8 @@ function App() {
                         ) : null}
                       </div>
                       <div className="order-card-meta">
-                        {order.status ? (
-                          <span className={`order-status-badge ${statusClass}`}>{order.status}</span>
-                        ) : null}
-                        {shouldShowFulfillmentStatus ? (
-                          <span className="order-fulfillment-badge">{order.fulfillmentStatus}</span>
+                        {shouldShowStatus ? (
+                          <span className={`order-status-badge ${statusClass}`}>{statusLabel}</span>
                         ) : null}
                         {order.diningOption ? (
                           <span className="order-card-dining" aria-label={`Dining option ${order.diningOption}`}>
