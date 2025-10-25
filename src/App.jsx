@@ -535,7 +535,28 @@ const extractOrderGuid = (order) => {
   return undefined
 }
 
-const MENU_ITEM_ID_KEYS = ['guid', 'id', 'sku', 'code', 'itemGuid', 'item_guid', 'itemId', 'item_id']
+const MENU_ITEM_ID_KEYS = [
+  'guid',
+  'id',
+  'sku',
+  'code',
+  'itemGuid',
+  'item_guid',
+  'itemId',
+  'item_id',
+  'menuItemGuid',
+  'menu_item_guid',
+  'menuItemId',
+  'menu_item_id',
+  'modifierGuid',
+  'modifier_guid',
+  'modifierId',
+  'modifier_id',
+]
+
+const MENU_KITCHEN_NAME_KEYS = ['kitchenName', 'kitchen_name']
+const MENU_POS_NAME_KEYS = ['posName', 'pos_name', 'posDisplayName', 'pos_display_name']
+const MENU_DISPLAY_NAME_KEYS = ['displayName', 'display_name', 'label', 'title']
 
 const buildMenuItemLookup = (menuPayload) => {
   const lookup = new Map()
@@ -563,9 +584,23 @@ const buildMenuItemLookup = (menuPayload) => {
       }
     }
 
-    const name = toStringValue(pickValue(node, ['name', 'title', 'label', 'description']))
-    if (identifier && name) {
-      lookup.set(identifier, name)
+    const kitchenName = toStringValue(pickValue(node, MENU_KITCHEN_NAME_KEYS))
+    const posName = toStringValue(pickValue(node, MENU_POS_NAME_KEYS))
+    const displayName = toStringValue(pickValue(node, MENU_DISPLAY_NAME_KEYS))
+    const fallbackName =
+      toStringValue(pickValue(node, ['name', 'description'])) ?? displayName ?? posName ?? kitchenName
+
+    if (identifier && (kitchenName || posName || displayName || fallbackName)) {
+      const existing = lookup.get(identifier) ?? {}
+
+      const nextValue = {
+        kitchenName: existing.kitchenName ?? kitchenName ?? undefined,
+        posName: existing.posName ?? posName ?? undefined,
+        displayName: existing.displayName ?? displayName ?? undefined,
+        fallbackName: existing.fallbackName ?? fallbackName ?? undefined,
+      }
+
+      lookup.set(identifier, nextValue)
     }
 
     Object.values(node).forEach(visit)
@@ -675,7 +710,21 @@ const extractUnfulfilledOrderGuids = (menuPayload) => {
   return unfulfilled
 }
 
-const normalizeItemModifiers = (item) => {
+const MODIFIER_IDENTIFIER_KEYS = [
+  ...MENU_ITEM_ID_KEYS,
+  'modifierCode',
+  'modifier_code',
+  'optionGuid',
+  'option_guid',
+  'optionId',
+  'option_id',
+  'choiceGuid',
+  'choice_guid',
+  'choiceId',
+  'choice_id',
+]
+
+const normalizeItemModifiers = (item, menuLookup) => {
   if (!item || typeof item !== 'object') {
     return []
   }
@@ -770,45 +819,31 @@ const normalizeItemModifiers = (item) => {
 
     const entries = Object.entries(candidate)
 
-    let name = toStringValue(
-      pickValue(candidate, [
-        'name',
-        'title',
-        'label',
-        'modifier',
-        'value',
-        'description',
-        'option',
-        'optionName',
-        'choice',
-        'choiceName',
-        'selection',
-        'selectionName',
-        'menuItem',
-        'menu_item',
-        'itemName',
-        'displayName',
-      ]),
-    )
+    const modifierIdentifier = toStringValue(pickValue(candidate, MODIFIER_IDENTIFIER_KEYS))
+    const menuEntry = modifierIdentifier && menuLookup?.has(modifierIdentifier)
+      ? menuLookup.get(modifierIdentifier)
+      : undefined
 
-    if (!name && entries.length === 1) {
-      const [singleKey, singleValue] = entries[0]
-      const keyName = toStringValue(singleKey)
-      if (keyName) {
-        if (typeof singleValue === 'number' || typeof singleValue === 'string') {
-          const quantity = toNumber(singleValue)
-          if (quantity && quantity > 0) {
-            collected.push({ name: keyName, quantity })
-            continue
-          }
-        }
+    let name
+    let namePriority = Number.POSITIVE_INFINITY
 
-        if (singleValue && typeof singleValue === 'object') {
-          pushCandidate({ ...singleValue, name: singleValue.name ?? keyName })
-          continue
-        }
+    const applyName = (value, priority) => {
+      const normalized = toStringValue(value)
+      if (!normalized) {
+        return
+      }
+
+      if (!name || priority < namePriority) {
+        name = normalized
+        namePriority = priority
       }
     }
+
+    if (menuEntry) {
+      applyName(menuEntry.kitchenName, 0)
+    }
+
+    applyName(pickValue(candidate, ['kitchenName', 'kitchen_name']), 1)
 
     const quantityRaw = toNumber(
       pickValue(candidate, [
@@ -834,8 +869,6 @@ const normalizeItemModifiers = (item) => {
       'isApplied',
       'chosen',
       'isChosen',
-      'enabled',
-      'isEnabled',
     ])
     const selectionFlag =
       selectionFlagRaw !== undefined
@@ -848,9 +881,24 @@ const normalizeItemModifiers = (item) => {
 
     let forwarded = false
     for (const key of containerKeys) {
-      if (key in candidate && candidate[key] !== undefined && candidate[key] !== null) {
+      if (!(key in candidate)) {
+        continue
+      }
+
+      const value = candidate[key]
+      if (value === undefined || value === null) {
+        continue
+      }
+
+      const hasChildren = Array.isArray(value)
+        ? value.some((entry) => entry !== undefined && entry !== null)
+        : typeof value === 'object'
+          ? Object.keys(value).length > 0
+          : false
+
+      if (hasChildren) {
         forwarded = true
-        pushCandidate(candidate[key])
+        pushCandidate(value)
       }
     }
 
@@ -862,10 +910,25 @@ const normalizeItemModifiers = (item) => {
       }
     }
 
-    if (name) {
-      const shouldAdd = !forwarded || quantityRaw || priceValue !== undefined || selectionFlag
+    if (typeof name === 'string') {
+      const trimmedName = name.trim()
+      if (!trimmedName) {
+        continue
+      }
+      const hasExplicitQuantity = quantityRaw !== undefined && quantityRaw > 0
+      const hasExplicitPrice = priceValue !== undefined
+      const hasExplicitSelection = selectionFlag === true
+      const hasExplicitDeselection = selectionFlag === false || quantityRaw === 0
+      const shouldAdd =
+        !hasExplicitDeselection &&
+        (!forwarded || hasExplicitSelection || hasExplicitQuantity || hasExplicitPrice)
       if (shouldAdd) {
-        collected.push({ name, quantity: normalizedQuantity })
+        collected.push({
+          name: trimmedName,
+          quantity: normalizedQuantity,
+          priority: namePriority,
+          identifier: modifierIdentifier ?? undefined,
+        })
       }
     }
   }
@@ -876,22 +939,32 @@ const normalizeItemModifiers = (item) => {
 
   const aggregated = new Map()
 
-  collected.forEach(({ name, quantity }) => {
+  collected.forEach(({ name, quantity, priority, identifier }) => {
     if (!name) {
       return
     }
 
     const normalizedQuantity = quantity && quantity > 0 ? quantity : 1
-    if (!aggregated.has(name)) {
-      aggregated.set(name, { name, quantity: normalizedQuantity })
+    const key = identifier ?? name.trim().toLowerCase()
+
+    if (!aggregated.has(key)) {
+      aggregated.set(key, {
+        name,
+        quantity: normalizedQuantity,
+        priority: priority ?? Number.POSITIVE_INFINITY,
+      })
       return
     }
 
-    const existing = aggregated.get(name)
+    const existing = aggregated.get(key)
     existing.quantity += normalizedQuantity
+    if ((priority ?? Number.POSITIVE_INFINITY) < existing.priority && name) {
+      existing.name = name
+      existing.priority = priority ?? Number.POSITIVE_INFINITY
+    }
   })
 
-  return Array.from(aggregated.values())
+  return Array.from(aggregated.values()).map(({ name, quantity }) => ({ name, quantity }))
 }
 
 const ORDER_ITEM_IDENTIFIER_KEYS = [
@@ -1081,12 +1154,13 @@ const normalizeOrderItems = (order, menuLookup) => {
 
   return candidateItems.map((item, index) => {
     const fallbackName = `Item ${index + 1}`
+    const orderKitchenName = toStringValue(pickValue(item, ['kitchenName', 'kitchen_name']))
     const baseName = toStringValue(pickValue(item, ORDER_ITEM_NAME_KEYS))
     const quantity = toNumber(pickValue(item, ORDER_ITEM_QUANTITY_KEYS)) ?? 1
     const price = toNumber(pickValue(item, ORDER_ITEM_PRICE_KEYS))
     const currency = toStringValue(pickValue(item, ['currency', 'currencyCode']))
     const notes = toStringValue(pickValue(item, ['notes', 'note', 'specialInstructions', 'instructions']))
-    const modifiers = normalizeItemModifiers(item)
+    const modifiers = normalizeItemModifiers(item, menuLookup)
 
     let rawIdentifier
     for (const key of ORDER_ITEM_IDENTIFIER_KEYS) {
@@ -1098,11 +1172,11 @@ const normalizeOrderItems = (order, menuLookup) => {
     }
 
     const identifier = rawIdentifier ?? `${index}`
-    const menuName = rawIdentifier && menuLookup ? menuLookup.get(rawIdentifier) : undefined
-    let name = baseName
+    const menuEntry = rawIdentifier && menuLookup ? menuLookup.get(rawIdentifier) : undefined
+    let name = menuEntry?.kitchenName ?? orderKitchenName
 
-    if ((!name || name === fallbackName) && menuName) {
-      name = menuName
+    if (!name) {
+      name = baseName ?? menuEntry?.fallbackName
     }
 
     if (!name) {
@@ -1254,9 +1328,12 @@ const normalizeOrders = (rawOrders, menuLookup = new Map()) => {
     const fulfillmentStatus = toStringValue(pickValue(order, ORDER_FULFILLMENT_STATUS_KEYS))
     const notes = toStringValue(pickValue(order, ['notes', 'note', 'specialInstructions', 'instructions']))
 
+    const tabName = toStringValue(pickValue(order, ['tabName', 'tab_name']))
+
     return {
       id: guid ?? displayId ?? `order-${index}`,
       displayId: displayId ?? `#${index + 1}`,
+      displayNumber,
       guid,
       status,
       createdAt,
@@ -1267,6 +1344,7 @@ const normalizeOrders = (rawOrders, menuLookup = new Map()) => {
       diningOption,
       fulfillmentStatus,
       notes,
+      tabName,
       items: normalizeOrderItems(order, menuLookup),
       originalIndex: index,
     }
@@ -1760,6 +1838,11 @@ function App() {
                         ) : null}
                       </div>
                     </header>
+                    {elapsedLabel ? (
+                      <p className="order-card-elapsed">
+                        In queue for <span className="order-card-elapsed-value">{elapsedLabel}</span>
+                      </p>
+                    ) : null}
                     {order.items.length > 0 ? (
                       <ul className="order-items">
                         {order.items.map((item) => (
