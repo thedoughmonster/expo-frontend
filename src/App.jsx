@@ -2016,11 +2016,12 @@ function App() {
             <section className="orders-grid" aria-live="polite">
               {visibleOrders.map((order) => {
                 const formattedTotal = formatCurrency(order.total, order.currency ?? 'USD')
-                const statusClass = statusToClassName(order.status)
+                const statusLabel = order.fulfillmentStatus ?? order.status
+                const statusClass = statusToClassName(statusLabel)
                 const timeLabel = formatTimestamp(order.createdAt, order.createdAtRaw)
                 const elapsedDuration = formatElapsedDuration(order.createdAt, now)
                 const elapsedLabel = formatElapsedLabel(order.createdAt, now)
-                const shouldShowFulfillmentStatus = Boolean(order.fulfillmentStatus)
+                const shouldShowStatus = Boolean(statusLabel)
 
                 return (
                   <article className="order-card" key={order.id}>
@@ -2032,11 +2033,8 @@ function App() {
                         ) : null}
                       </div>
                       <div className="order-card-meta">
-                        {order.status ? (
-                          <span className={`order-status-badge ${statusClass}`}>{order.status}</span>
-                        ) : null}
-                        {shouldShowFulfillmentStatus ? (
-                          <span className="order-fulfillment-badge">{order.fulfillmentStatus}</span>
+                        {shouldShowStatus ? (
+                          <span className={`order-status-badge ${statusClass}`}>{statusLabel}</span>
                         ) : null}
                         {order.diningOption ? (
                           <span className="order-card-dining" aria-label={`Dining option ${order.diningOption}`}>

@@ -370,8 +370,7 @@
 
 .order-status--ready,
 .order-status--ready-for-pickup,
-.order-status--pickup-ready,
-.order-fulfillment-badge {
+.order-status--pickup-ready {
   display: inline-flex;
   align-items: center;
   justify-content: center;
