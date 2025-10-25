@@ -701,9 +701,14 @@ const buildDiningOptionLookup = (configPayload) => {
     }
   }
 
-  const rootCandidates = DINING_OPTION_COLLECTION_PATHS.map((path) => pickValue(configPayload, [path])).filter(
-    (value) => value !== undefined && value !== null,
-  )
+  let rootCandidates = DINING_OPTION_COLLECTION_PATHS.flatMap((path) => {
+    const value = pickValue(configPayload, [path])
+    return value === undefined || value === null ? [] : [value]
+  })
+
+  if (configPayload && typeof configPayload === 'object' && 'data' in configPayload && configPayload.data) {
+    rootCandidates = [...rootCandidates, configPayload.data]
+  }
 
   const processEntry = (entry) => {
     if (entry === undefined || entry === null) {
@@ -746,7 +751,7 @@ const buildDiningOptionLookup = (configPayload) => {
   }
 
   if (rootCandidates.length === 0) {
-    processEntry(pickValue(configPayload, ['diningOptions']))
+    processEntry(configPayload)
   } else {
     rootCandidates.forEach((candidate) => {
       const collection = ensureArray(candidate)
@@ -1632,11 +1637,25 @@ const ORDER_DINING_OPTION_LABEL_PATHS = [
 const ORDER_FULFILLMENT_STATUS_KEYS = [
   'fulfillmentStatus',
   'fulfillment_status',
+  'fulfillmentStatus.name',
+  'fulfillmentStatus.displayName',
+  'fulfillmentStatus.display_name',
+  'fulfillmentStatus.label',
+  'fulfillmentStatus.description',
   'fulfillmentState',
   'fulfillment_state',
   'fulfillment.status',
+  'fulfillment.status.name',
+  'fulfillment.status.displayName',
+  'fulfillment.status.display_name',
+  'fulfillment.status.label',
+  'fulfillment.status.description',
   'fulfillment.state',
   'fulfillment.progress',
+  'fulfillment.progressStatus',
+  'fulfillment.progress_status',
+  'fulfillment.statusProgress',
+  'fulfillment.status_progress',
   'deliveryStatus',
   'delivery_status',
   'serviceStatus',
@@ -1724,7 +1743,7 @@ const normalizeOrders = (rawOrders, menuLookup = new Map(), diningOptionLookup =
       pickValue(order, ['customer', 'customerName', 'customer_name', 'guest', 'client', 'user']),
     )
     const diningOption = resolveOrderDiningOption(order, diningOptionLookup)
-    const fulfillmentStatus = toStringValue(pickValue(order, ORDER_FULFILLMENT_STATUS_KEYS))
+    const fulfillmentStatus = pickStringFromPaths(order, ORDER_FULFILLMENT_STATUS_KEYS)
     const notes = toStringValue(pickValue(order, ['notes', 'note', 'specialInstructions', 'instructions']))
 
     const tabName = toStringValue(pickValue(order, ['tabName', 'tab_name']))
