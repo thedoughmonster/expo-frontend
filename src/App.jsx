@@ -2655,28 +2655,44 @@ const fulfillmentStatusToClassName = (status) => {
 
   const normalized = status.trim().toUpperCase()
 
-  switch (normalized) {
-    case 'SENT':
-      return 'is-sent'
-    case 'IN PREPARATION':
-      return 'is-in-preparation'
-    case 'READY':
-      return 'is-ready'
-    default:
-      return ''
+  if (/\bSENT\b/.test(normalized)) {
+    return 'is-sent'
   }
+
+  if (/\bREADY\b/.test(normalized)) {
+    return 'is-ready'
+  }
+
+  if (/\bHOLD\b/.test(normalized)) {
+    return 'is-hold'
+  }
+
+  if (/\bNEW\b/.test(normalized)) {
+    return 'is-new'
+  }
+
+  if (/\bPREP/.test(normalized) || /\bCOOK/.test(normalized)) {
+    return 'is-in-preparation'
+  }
+
+  return ''
 }
 
 const FULFILLMENT_FILTERS = [
   {
+    key: 'new',
+    label: 'New',
+    matches: (value) => /\bNEW\b/.test(value),
+  },
+  {
+    key: 'hold',
+    label: 'Hold',
+    matches: (value) => /\bHOLD\b/.test(value),
+  },
+  {
     key: 'sent',
     label: 'Sent',
     matches: (value) => /\bSENT\b/.test(value),
-  },
-  {
-    key: 'inPrep',
-    label: 'In Prep',
-    matches: (value) => /\bPREP/.test(value) || /\bCOOK/.test(value),
   },
   {
     key: 'ready',
