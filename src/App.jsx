@@ -4,6 +4,8 @@ import './App.css'
 const ORDERS_ENDPOINT =
   'https://doughmonster-worker.thedoughmonster.workers.dev/api/orders/latest'
 const MENUS_ENDPOINT = 'https://doughmonster-worker.thedoughmonster.workers.dev/api/menus'
+const CONFIG_SNAPSHOT_ENDPOINT =
+  'https://doughmonster-worker.thedoughmonster.workers.dev/api/config/snapshot'
 
 const ensureArray = (value) => {
   if (Array.isArray(value)) {
@@ -183,6 +185,7 @@ const collectValuesAtKeyPath = (source, key) => {
 
   return current.filter((value) => value !== undefined && value !== null)
 }
+
 
 const ORDER_PRIMARY_HINT_KEYS = [
   'displayId',
@@ -462,6 +465,20 @@ const toStringValue = (value) => {
   return result
 }
 
+const normalizeLookupKey = (value) => {
+  const stringValue = toStringValue(value)
+  if (!stringValue) {
+    return undefined
+  }
+
+  const trimmed = stringValue.trim()
+  if (!trimmed) {
+    return undefined
+  }
+
+  return trimmed.toLowerCase()
+}
+
 const parseDateLike = (value) => {
   if (!value) {
     return undefined
@@ -535,6 +552,433 @@ const extractOrderGuid = (order) => {
   }
 
   return undefined
+}
+
+const DINING_OPTION_COLLECTION_PATHS = [
+  'data.diningOptions',
+  'data.dining_options',
+  'diningOptions',
+  'dining_options',
+]
+
+const DINING_OPTION_IDENTIFIER_PATHS = [
+  'guid',
+  'id',
+  'uuid',
+  'externalId',
+  'external_id',
+  'value',
+  'code',
+  'optionGuid',
+  'optionId',
+  'option.guid',
+  'option.id',
+  'diningOptionGuid',
+  'diningOptionId',
+  'dining_option_guid',
+  'dining_option_id',
+  'diningOption.guid',
+  'diningOption.id',
+  'dining_option.guid',
+  'dining_option.id',
+  'dining.optionGuid',
+  'dining.optionId',
+  'serviceTypeGuid',
+  'serviceTypeId',
+  'service_type_guid',
+  'service_type_id',
+  'service.typeGuid',
+  'service.typeId',
+  'orderTypeGuid',
+  'orderTypeId',
+  'order_type_guid',
+  'order_type_id',
+  'order.typeGuid',
+  'order.typeId',
+  'fulfillmentTypeGuid',
+  'fulfillmentTypeId',
+  'fulfillment_type_guid',
+  'fulfillment_type_id',
+  'fulfillment.typeGuid',
+  'fulfillment.typeId',
+  'channelGuid',
+  'channelId',
+  'channel.guid',
+  'channel.id',
+  'modeGuid',
+  'modeId',
+  'mode.guid',
+  'mode.id',
+]
+
+const DINING_OPTION_LABEL_PATHS = [
+  'name',
+  'displayName',
+  'display_name',
+  'label',
+  'title',
+  'description',
+  'posName',
+  'pos_name',
+  'webDisplayName',
+  'web_display_name',
+  'shortName',
+  'short_name',
+  'defaultName',
+  'default_name',
+  'externalName',
+  'external_name',
+  'diningOptionName',
+  'dining_option_name',
+  'serviceTypeName',
+  'service_type_name',
+  'orderTypeName',
+  'order_type_name',
+  'modeName',
+  'mode_name',
+  'channelName',
+  'channel_name',
+  'names.*',
+  'displayNames.*',
+  'labels.*',
+  'descriptions.*',
+]
+
+const collectStringValuesAtPaths = (source, paths) => {
+  if (!source) {
+    return []
+  }
+
+  const values = []
+  const seen = new Set()
+
+  for (const path of paths) {
+    const candidates = collectValuesAtKeyPath(source, path)
+    for (const candidate of candidates) {
+      const stringValue = toStringValue(candidate)
+      if (!stringValue) {
+        continue
+      }
+
+      const trimmed = stringValue.trim()
+      if (!trimmed) {
+        continue
+      }
+
+      const dedupeKey = normalizeLookupKey(trimmed) ?? trimmed
+      if (seen.has(dedupeKey)) {
+        continue
+      }
+
+      seen.add(dedupeKey)
+      values.push(trimmed)
+    }
+  }
+
+  return values
+}
+
+const escapeRegexFragment = (value) =>
+  value
+    .trim()
+    .replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+    .replace(/\s+/g, '\\s*')
+
+const buildKeywordPattern = (keywords) => {
+  const fragments = keywords.map(escapeRegexFragment).filter(Boolean)
+  return fragments.length > 0 ? new RegExp(`(${fragments.join('|')})`) : null
+}
+
+const FULFILLMENT_STATUS_CANCELLATION_PATTERN = buildKeywordPattern([
+  'cancel',
+  'void',
+  'reject',
+  'declin',
+  'fail',
+  'refus',
+  'denied',
+  'problem',
+  'issue',
+  'error',
+])
+
+const FULFILLMENT_STATUS_DELAY_PATTERN = buildKeywordPattern([
+  'late',
+  'delay',
+  'behind',
+  'hold',
+  'held',
+  'stuck',
+])
+
+const FULFILLMENT_STATUS_PENDING_PATTERN = buildKeywordPattern([
+  'await',
+  'pending',
+  'pend',
+  'queue',
+  'queued',
+  'new',
+  'open',
+  'received',
+  'created',
+  'unassigned',
+  'not started',
+  'waiting',
+])
+
+const FULFILLMENT_STATUS_ACTIVE_PATTERN = buildKeywordPattern([
+  'in progress',
+  'prep',
+  'prepar',
+  'cook',
+  'bake',
+  'processing',
+  'working',
+  'accepted',
+  'acknowledged',
+  'confirm',
+  'start',
+  'started',
+  'sent',
+  'make',
+  'making',
+  'assembling',
+  'assembly',
+])
+
+const FULFILLMENT_STATUS_READY_PATTERN = buildKeywordPattern([
+  'ready',
+  'pickup',
+  'pick up',
+  'pick-up',
+  'bagged',
+  'packed',
+  'packag',
+  'awaiting pickup',
+  'waiting pickup',
+  'for pickup',
+  'for delivery',
+  'out for delivery',
+  'out for pickup',
+])
+
+const FULFILLMENT_STATUS_COMPLETE_PATTERN = buildKeywordPattern([
+  'complete',
+  'fulfilled',
+  'done',
+  'served',
+  'delivered',
+  'closed',
+  'finished',
+  'picked',
+  'collected',
+])
+
+const normalizeStatusComparisonValue = (value) =>
+  value
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+
+const classifyFulfillmentStatusCandidate = (value, index) => {
+  const stringValue = toStringValue(value)
+  if (!stringValue) {
+    return null
+  }
+
+  const trimmed = stringValue.trim()
+  if (!trimmed) {
+    return null
+  }
+
+  const comparison = normalizeStatusComparisonValue(trimmed)
+  if (!comparison) {
+    return null
+  }
+
+  let rank = 3
+
+  if (FULFILLMENT_STATUS_CANCELLATION_PATTERN.test(comparison)) {
+    rank = 0
+  } else if (FULFILLMENT_STATUS_DELAY_PATTERN.test(comparison)) {
+    rank = 1
+  } else if (FULFILLMENT_STATUS_PENDING_PATTERN.test(comparison)) {
+    rank = 2
+  } else if (FULFILLMENT_STATUS_ACTIVE_PATTERN.test(comparison)) {
+    rank = 3
+  } else if (FULFILLMENT_STATUS_READY_PATTERN.test(comparison)) {
+    rank = 4
+  } else if (FULFILLMENT_STATUS_COMPLETE_PATTERN.test(comparison)) {
+    rank = 5
+  }
+
+  return {
+    label: trimmed,
+    normalized: comparison,
+    rank,
+    index,
+  }
+}
+
+const formatFulfillmentStatusLabel = (value) => {
+  const stringValue = toStringValue(value)
+  if (!stringValue) {
+    return undefined
+  }
+
+  const normalized = stringValue.replace(/[\s_-]+/g, ' ').trim()
+  if (!normalized) {
+    return undefined
+  }
+
+  return normalized.toUpperCase()
+}
+
+const selectFulfillmentStatus = (candidates) => {
+  if (!candidates || candidates.length === 0) {
+    return undefined
+  }
+
+  const scored = []
+  const seen = new Set()
+
+  candidates.forEach((candidate, index) => {
+    if (!candidate) {
+      return
+    }
+
+    const classification = classifyFulfillmentStatusCandidate(candidate, index)
+    if (!classification) {
+      return
+    }
+
+    const dedupeKey = classification.normalized || classification.label.toLowerCase()
+    if (seen.has(dedupeKey)) {
+      return
+    }
+
+    seen.add(dedupeKey)
+    scored.push(classification)
+  })
+
+  if (scored.length === 0) {
+    const fallback = candidates.find((candidate) => typeof candidate === 'string' && candidate.trim())
+    return fallback ? formatFulfillmentStatusLabel(fallback) ?? fallback.trim() : undefined
+  }
+
+  scored.sort((a, b) => {
+    if (a.rank !== b.rank) {
+      return a.rank - b.rank
+    }
+
+    if (a.index !== b.index) {
+      return a.index - b.index
+    }
+
+    if (a.label.length !== b.label.length) {
+      return a.label.length - b.label.length
+    }
+
+    return a.label.localeCompare(b.label)
+  })
+
+  const best = scored[0]
+  return formatFulfillmentStatusLabel(best.label) ?? best.label
+}
+
+const buildDiningOptionLookup = (configPayload) => {
+  const lookup = new Map()
+
+  if (!configPayload) {
+    return lookup
+  }
+
+  const addMapping = (keyValue, displayValue) => {
+    const normalizedKey = normalizeLookupKey(keyValue)
+    if (!normalizedKey) {
+      return
+    }
+
+    const display = displayValue ?? toStringValue(keyValue)
+    if (!display) {
+      return
+    }
+
+    if (!lookup.has(normalizedKey)) {
+      lookup.set(normalizedKey, display)
+    }
+  }
+
+  let rootCandidates = DINING_OPTION_COLLECTION_PATHS.flatMap((path) => {
+    const value = pickValue(configPayload, [path])
+    return value === undefined || value === null ? [] : [value]
+  })
+
+  if (configPayload && typeof configPayload === 'object' && 'data' in configPayload && configPayload.data) {
+    rootCandidates = [...rootCandidates, configPayload.data]
+  }
+
+  const processEntry = (entry) => {
+    if (entry === undefined || entry === null) {
+      return
+    }
+
+    if (Array.isArray(entry)) {
+      entry.forEach(processEntry)
+      return
+    }
+
+    if (typeof entry !== 'object') {
+      const asString = toStringValue(entry)
+      if (asString) {
+        addMapping(asString, asString)
+      }
+      return
+    }
+
+    const identifiers = collectStringValuesAtPaths(entry, DINING_OPTION_IDENTIFIER_PATHS)
+    const labels = collectStringValuesAtPaths(entry, DINING_OPTION_LABEL_PATHS)
+    const primaryLabel = labels[0] ?? identifiers[0]
+
+    if (labels.length > 0) {
+      for (const label of labels) {
+        addMapping(label, primaryLabel ?? label)
+      }
+    }
+
+    for (const identifier of identifiers) {
+      addMapping(identifier, primaryLabel ?? identifier)
+    }
+
+    if (identifiers.length === 0 && labels.length === 0) {
+      const fallback = toStringValue(entry)
+      if (fallback) {
+        addMapping(fallback, fallback)
+      }
+    }
+  }
+
+  if (rootCandidates.length === 0) {
+    processEntry(configPayload)
+  } else {
+    rootCandidates.forEach((candidate) => {
+      const collection = ensureArray(candidate)
+      if (collection.length === 0 && candidate && typeof candidate === 'object' && !Array.isArray(candidate)) {
+        processEntry(candidate)
+        return
+      }
+
+      if (collection.length === 0) {
+        processEntry(candidate)
+        return
+      }
+
+      collection.forEach(processEntry)
+    })
+  }
+
+  return lookup
 }
 
 const MENU_ITEM_ID_KEYS = [
@@ -1211,6 +1655,39 @@ const ORDER_DISPLAY_ID_PRIMARY_KEYS = [
   'name',
 ]
 
+const ORDER_TAB_NAME_PATHS = [
+  'tabName',
+  'tab_name',
+  'tab.name',
+  'data.tabName',
+  'data.tab_name',
+  'data.tab.name',
+  'attributes.tabName',
+  'attributes.tab_name',
+  'attributes.tab.name',
+  'order.tabName',
+  'order.tab_name',
+  'order.tab.name',
+  'payload.tabName',
+  'payload.tab_name',
+  'payload.tab.name',
+  'order.data.tabName',
+  'order.data.tab_name',
+  'order.attributes.tabName',
+  'order.attributes.tab_name',
+  'data.order.tabName',
+  'data.order.tab_name',
+  'checks[].tabName',
+  'checks[].tab_name',
+  'checks[].tab.name',
+  'checks[].data.tabName',
+  'checks[].data.tab_name',
+  'checks[].attributes.tabName',
+  'checks[].attributes.tab_name',
+  'checks[].header.tabName',
+  'checks[].header.tab_name',
+]
+
 const ORDER_DISPLAY_ID_NESTED_KEYS = [
   'attributes.displayId',
   'attributes.display_id',
@@ -1273,19 +1750,226 @@ const ORDER_DINING_OPTION_KEYS = [
   'mode',
 ]
 
-const ORDER_FULFILLMENT_STATUS_KEYS = [
+const ORDER_DINING_OPTION_IDENTIFIER_PATHS = [
+  'diningOptionGuid',
+  'dining_option_guid',
+  'diningOptionId',
+  'dining_option_id',
+  'diningOption.guid',
+  'diningOption.id',
+  'dining_option.guid',
+  'dining_option.id',
+  'dining.optionGuid',
+  'dining.optionId',
+  'dining.guid',
+  'dining.id',
+  'serviceTypeGuid',
+  'serviceTypeId',
+  'service_type_guid',
+  'service_type_id',
+  'serviceType.guid',
+  'serviceType.id',
+  'service.typeGuid',
+  'service.typeId',
+  'orderTypeGuid',
+  'orderTypeId',
+  'order_type_guid',
+  'order_type_id',
+  'orderType.guid',
+  'orderType.id',
+  'order.typeGuid',
+  'order.typeId',
+  'fulfillmentTypeGuid',
+  'fulfillmentTypeId',
+  'fulfillment_type_guid',
+  'fulfillment_type_id',
+  'fulfillmentType.guid',
+  'fulfillmentType.id',
+  'fulfillment.typeGuid',
+  'fulfillment.typeId',
+  'channelGuid',
+  'channelId',
+  'channel.guid',
+  'channel.id',
+  'serviceModeGuid',
+  'serviceModeId',
+  'serviceMode.guid',
+  'serviceMode.id',
+  'service_mode_guid',
+  'service_mode_id',
+  'modeGuid',
+  'modeId',
+  'mode.guid',
+  'mode.id',
+]
+
+const ORDER_DINING_OPTION_LABEL_PATHS = [
+  'diningOption.name',
+  'diningOption.displayName',
+  'diningOption.display_name',
+  'diningOption.label',
+  'diningOption.description',
+  'diningOption.title',
+  'diningOption.names.*',
+  'diningOption.labels.*',
+  'diningOption.descriptions.*',
+  'dining.option',
+  'dining.optionName',
+  'dining.option_name',
+  'dining.name',
+  'dining.displayName',
+  'dining.display_name',
+  'dining.label',
+  'dining.description',
+  'dining.names.*',
+  'serviceType.name',
+  'serviceType.displayName',
+  'serviceType.display_name',
+  'serviceType.label',
+  'serviceType.description',
+  'serviceType.names.*',
+  'service.type',
+  'serviceMode',
+  'service_mode',
+  'serviceMode.name',
+  'serviceMode.displayName',
+  'serviceMode.display_name',
+  'serviceMode.label',
+  'serviceMode.description',
+  'serviceMode.names.*',
+  'orderType.name',
+  'orderType.displayName',
+  'orderType.display_name',
+  'orderType.label',
+  'orderType.description',
+  'orderType.names.*',
+  'order.type',
+  'fulfillmentType.name',
+  'fulfillmentType.displayName',
+  'fulfillmentType.display_name',
+  'fulfillmentType.label',
+  'fulfillmentType.description',
+  'fulfillmentType.names.*',
+  'fulfillment.type',
+  'channel.name',
+  'channel.displayName',
+  'channel.display_name',
+  'channel.label',
+  'channel.description',
+  'channel.names.*',
+  'mode.name',
+  'mode.displayName',
+  'mode.display_name',
+  'mode.label',
+  'mode.description',
+  'mode.names.*',
+  'fulfillment.channel',
+  'fulfillment.serviceType',
+  'fulfillment.service_type',
+  'fulfillment.orderType',
+  'fulfillment.order_type',
+  'context.serviceType',
+  'context.service_type',
+  'context.orderType',
+  'context.order_type',
+  'context.channel',
+  'context.mode',
+]
+
+const ORDER_FULFILLMENT_STATUS_BASE_FIELDS = [
   'fulfillmentStatus',
   'fulfillment_status',
+  'fulfillmentStatus.name',
+  'fulfillmentStatus.displayName',
+  'fulfillmentStatus.display_name',
+  'fulfillmentStatus.label',
+  'fulfillmentStatus.description',
   'fulfillmentState',
   'fulfillment_state',
   'fulfillment.status',
+  'fulfillment.status.name',
+  'fulfillment.status.displayName',
+  'fulfillment.status.display_name',
+  'fulfillment.status.label',
+  'fulfillment.status.description',
   'fulfillment.state',
   'fulfillment.progress',
+  'fulfillment.progressStatus',
+  'fulfillment.progress_status',
+  'fulfillment.statusProgress',
+  'fulfillment.status_progress',
   'deliveryStatus',
   'delivery_status',
   'serviceStatus',
   'service_status',
 ]
+
+const ORDER_FULFILLMENT_STATUS_EXTENDED_FIELDS = [
+  ...ORDER_FULFILLMENT_STATUS_BASE_FIELDS,
+  'status',
+  'state',
+  'progressStatus',
+  'progress_status',
+]
+
+const ORDER_FULFILLMENT_STATUS_COLLECTION_BASES = (() => {
+  const bases = new Set(['checks[]'])
+
+  ORDER_ITEM_COLLECTION_KEYS.forEach((key) => {
+    bases.add(key)
+  })
+
+  ORDER_ITEM_COLLECTION_KEYS.forEach((key) => {
+    ORDER_ITEM_MODIFIER_COLLECTION_KEYS.forEach((modifierKey) => {
+      bases.add(`${key}.${modifierKey}`)
+    })
+  })
+
+  const prefixes = [
+    '',
+    'order',
+    'data',
+    'attributes',
+    'payload',
+    'order.data',
+    'order.attributes',
+    'data.order',
+    'attributes.order',
+  ]
+  const combined = new Set()
+
+  bases.forEach((base) => {
+    prefixes.forEach((prefix) => {
+      if (!prefix) {
+        combined.add(base)
+      } else if (!base) {
+        combined.add(prefix)
+      } else {
+        combined.add(`${prefix}.${base}`)
+      }
+    })
+  })
+
+  prefixes.forEach((prefix) => {
+    if (prefix) {
+      combined.add(prefix)
+    }
+  })
+
+  return Array.from(combined)
+})()
+
+const ORDER_FULFILLMENT_STATUS_KEYS = (() => {
+  const keys = [...ORDER_FULFILLMENT_STATUS_BASE_FIELDS]
+
+  ORDER_FULFILLMENT_STATUS_COLLECTION_BASES.forEach((base) => {
+    ORDER_FULFILLMENT_STATUS_EXTENDED_FIELDS.forEach((field) => {
+      keys.push(`${base}.${field}`)
+    })
+  })
+
+  return Array.from(new Set(keys))
+})()
 
 const pickStringFromPaths = (source, keys) => {
   if (!source) {
@@ -1305,7 +1989,36 @@ const pickStringFromPaths = (source, keys) => {
   return undefined
 }
 
-const normalizeOrders = (rawOrders, menuLookup = new Map()) => {
+const resolveOrderDiningOption = (order, diningOptionLookup = new Map()) => {
+  if (!order || typeof order !== 'object') {
+    return undefined
+  }
+
+  const identifierCandidates = collectStringValuesAtPaths(order, ORDER_DINING_OPTION_IDENTIFIER_PATHS)
+  const labelCandidates = collectStringValuesAtPaths(order, ORDER_DINING_OPTION_LABEL_PATHS)
+  const fallbackCandidates = collectStringValuesAtPaths(order, ORDER_DINING_OPTION_KEYS)
+
+  const candidateOrder = [...identifierCandidates, ...labelCandidates, ...fallbackCandidates]
+
+  for (const candidate of candidateOrder) {
+    const normalized = normalizeLookupKey(candidate)
+    if (normalized && diningOptionLookup.has(normalized)) {
+      return diningOptionLookup.get(normalized)
+    }
+  }
+
+  if (labelCandidates.length > 0) {
+    return labelCandidates[0]
+  }
+
+  if (fallbackCandidates.length > 0) {
+    return fallbackCandidates[0]
+  }
+
+  return undefined
+}
+
+const normalizeOrders = (rawOrders, menuLookup = new Map(), diningOptionLookup = new Map()) => {
   const collection = ensureArray(rawOrders)
 
   const normalizedWithIndex = collection.map((order, index) => {
@@ -1335,14 +2048,19 @@ const normalizeOrders = (rawOrders, menuLookup = new Map()) => {
       ]),
     )
     const currency = toStringValue(pickValue(order, ['currency', 'currencyCode', 'totals.currency']))
-    const customerName = toStringValue(
+    let customerName = toStringValue(
       pickValue(order, ['customer', 'customerName', 'customer_name', 'guest', 'client', 'user']),
     )
-    const diningOption = toStringValue(pickValue(order, ORDER_DINING_OPTION_KEYS))
-    const fulfillmentStatus = toStringValue(pickValue(order, ORDER_FULFILLMENT_STATUS_KEYS))
+    const rawTabName = pickStringFromPaths(order, ORDER_TAB_NAME_PATHS)
+    if (!customerName && rawTabName) {
+      customerName = rawTabName
+    }
+    const diningOption = resolveOrderDiningOption(order, diningOptionLookup)
+    const fulfillmentStatusCandidates = collectStringValuesAtPaths(order, ORDER_FULFILLMENT_STATUS_KEYS)
+    const fulfillmentStatus = selectFulfillmentStatus(fulfillmentStatusCandidates)
     const notes = toStringValue(pickValue(order, ['notes', 'note', 'specialInstructions', 'instructions']))
 
-    const tabName = toStringValue(pickValue(order, ['tabName', 'tab_name']))
+    const tabName = rawTabName ?? customerName
 
     return {
       id: guid ?? displayId ?? `order-${index}`,
@@ -1378,7 +2096,10 @@ const normalizeOrders = (rawOrders, menuLookup = new Map()) => {
     return aTime === null ? 1 : -1
   })
 
-  return normalizedWithIndex.map(({ originalIndex, ...order }) => order)
+  return normalizedWithIndex.map(({ originalIndex, ...order }) => {
+    void originalIndex
+    return order
+  })
 }
 
 const extractOrdersFromPayload = (payload) => {
@@ -1656,6 +2377,25 @@ const statusToClassName = (status) => {
   return `order-status--${status.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`
 }
 
+const fulfillmentStatusToClassName = (status) => {
+  if (!status) {
+    return ''
+  }
+
+  const normalized = status.trim().toUpperCase()
+
+  switch (normalized) {
+    case 'SENT':
+      return 'is-sent'
+    case 'IN PREPARATION':
+      return 'is-in-preparation'
+    case 'READY':
+      return 'is-ready'
+    default:
+      return ''
+  }
+}
+
 function App() {
   const [orders, setOrders] = useState([])
   const [modifiers, setModifiers] = useState([])
@@ -1688,6 +2428,23 @@ function App() {
       setError(null)
 
       try {
+        const configPromise = (async () => {
+          try {
+            const response = await fetch(CONFIG_SNAPSHOT_ENDPOINT, { signal })
+            if (!response.ok) {
+              return null
+            }
+
+            return await response.json()
+          } catch (configError) {
+            if (configError?.name === 'AbortError') {
+              return null
+            }
+
+            return null
+          }
+        })()
+
         const [ordersResponse, menusResponse] = await Promise.all([
           fetch(ORDERS_ENDPOINT, { signal }),
           fetch(MENUS_ENDPOINT, { signal }),
@@ -1701,9 +2458,10 @@ function App() {
           throw new Error(`Menus request failed with status ${menusResponse.status}`)
         }
 
-        const [ordersPayload, menusPayload] = await Promise.all([
+        const [ordersPayload, menusPayload, configPayload] = await Promise.all([
           ordersResponse.json(),
           menusResponse.json(),
+          configPromise,
         ])
 
         if (signal?.aborted || !isMountedRef.current) {
@@ -1712,6 +2470,7 @@ function App() {
 
         const rawOrders = extractOrdersFromPayload(ordersPayload)
         const menuLookup = buildMenuItemLookup(menusPayload)
+        const diningOptionLookup = buildDiningOptionLookup(configPayload)
         const outstandingGuids = extractUnfulfilledOrderGuids(menusPayload)
         const filteredOrders =
           outstandingGuids.size > 0
@@ -1721,7 +2480,7 @@ function App() {
               })
             : rawOrders
 
-        const normalizedOrders = normalizeOrders(filteredOrders, menuLookup)
+        const normalizedOrders = normalizeOrders(filteredOrders, menuLookup, diningOptionLookup)
         const payloadModifiers = normalizeModifiersFromPayload(ordersPayload)
         const aggregatedModifiers =
           payloadModifiers.length > 0 ? payloadModifiers : deriveModifiersFromOrders(normalizedOrders)
@@ -1744,15 +2503,13 @@ function App() {
           setModifiers([])
         }
       } finally {
-        if (!isMountedRef.current) {
-          return
-        }
-
-        if (silent) {
-          setIsRefreshing(false)
-        } else {
-          setIsLoading(false)
-          setIsRefreshing(false)
+        if (isMountedRef.current) {
+          if (silent) {
+            setIsRefreshing(false)
+          } else {
+            setIsLoading(false)
+            setIsRefreshing(false)
+          }
         }
       }
     },
@@ -1997,38 +2754,84 @@ function App() {
                 const elapsedDuration = formatElapsedDuration(order.createdAt, now)
                 const elapsedLabel = formatElapsedLabel(order.createdAt, now)
                 const shouldShowFulfillmentStatus = Boolean(order.fulfillmentStatus)
+                const trimmedTabName = order.tabName?.trim()
+                const trimmedCustomerName = order.customerName?.trim()
+                const shouldShowCustomerSubtitle = Boolean(
+                  trimmedCustomerName &&
+                    (!trimmedTabName || trimmedCustomerName.toLowerCase() !== trimmedTabName.toLowerCase()),
+                )
+
+                const displayCustomerName = trimmedTabName || trimmedCustomerName
+                const orderNumberLabel = order.displayId ? `Order number ${order.displayId}` : undefined
+                const fulfillmentBadgeClass = shouldShowFulfillmentStatus
+                  ? fulfillmentStatusToClassName(order.fulfillmentStatus)
+                  : ''
+                const fulfillmentBadgeClasses = ['order-fulfillment-badge']
+                if (fulfillmentBadgeClass) {
+                  fulfillmentBadgeClasses.push(fulfillmentBadgeClass)
+                }
+                const hasTitlebarMeta = Boolean(order.diningOption || shouldShowFulfillmentStatus)
 
                 return (
                   <article className="order-card" key={order.id}>
                     <header className="order-card-header">
-                      <div className="order-card-heading">
-                        <h2 className="order-card-title">Order {order.displayId}</h2>
-                        {order.customerName ? (
-                          <p className="order-card-subtitle">for {order.customerName}</p>
+                      <div className="order-card-titlebar">
+                        <div className="order-card-titlebar-main">
+                          {order.displayId ? (
+                            <span className="order-card-number" aria-label={orderNumberLabel}>
+                              {order.displayId}
+                            </span>
+                          ) : null}
+                          {displayCustomerName ? (
+                            <span
+                              className="order-card-tabname"
+                              aria-label={`Customer ${displayCustomerName}`}
+                              title={displayCustomerName}
+                            >
+                              {displayCustomerName}
+                            </span>
+                          ) : null}
+                        </div>
+                        {hasTitlebarMeta ? (
+                          <div className="order-card-titlebar-meta">
+                            {order.diningOption ? (
+                              <span
+                                className="order-card-dining"
+                                aria-label={`Dining option ${order.diningOption}`}
+                              >
+                                {order.diningOption}
+                              </span>
+                            ) : null}
+                            {shouldShowFulfillmentStatus ? (
+                              <span
+                                className={fulfillmentBadgeClasses.join(' ')}
+                                aria-label={`Fulfillment status ${order.fulfillmentStatus}`}
+                              >
+                                {order.fulfillmentStatus}
+                              </span>
+                            ) : null}
+                          </div>
                         ) : null}
                       </div>
-                      <div className="order-card-meta">
-                        {order.status ? (
-                          <span className={`order-status-badge ${statusClass}`}>{order.status}</span>
+                      <div className="order-card-header-body">
+                        {shouldShowCustomerSubtitle ? (
+                          <p className="order-card-subtitle">for {order.customerName}</p>
                         ) : null}
-                        {shouldShowFulfillmentStatus ? (
-                          <span className="order-fulfillment-badge">{order.fulfillmentStatus}</span>
-                        ) : null}
-                        {order.diningOption ? (
-                          <span className="order-card-dining" aria-label={`Dining option ${order.diningOption}`}>
-                            {order.diningOption}
-                          </span>
-                        ) : null}
-                        {timeLabel ? (
-                          <time className="order-card-time" dateTime={order.createdAt?.toISOString() ?? undefined}>
-                            {timeLabel}
-                          </time>
-                        ) : null}
-                        {elapsedDuration ? (
-                          <span className="order-card-timer" aria-live="polite">
-                            Elapsed {elapsedDuration}
-                          </span>
-                        ) : null}
+                        <div className="order-card-meta">
+                          {order.status ? (
+                            <span className={`order-status-badge ${statusClass}`}>{order.status}</span>
+                          ) : null}
+                          {timeLabel ? (
+                            <time className="order-card-time" dateTime={order.createdAt?.toISOString() ?? undefined}>
+                              {timeLabel}
+                            </time>
+                          ) : null}
+                          {elapsedDuration ? (
+                            <span className="order-card-timer" aria-live="polite">
+                              Elapsed {elapsedDuration}
+                            </span>
+                          ) : null}
+                        </div>
                       </div>
                     </header>
                     {elapsedLabel ? (
