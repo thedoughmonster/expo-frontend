@@ -724,6 +724,7 @@
   flex-wrap: wrap;
   align-content: flex-start;
   align-items: flex-start;
+  height: var(--order-items-max-height, auto);
   max-height: var(--order-items-max-height, none);
   overflow: visible;
 }
@@ -935,6 +936,7 @@
 
   .order-card--wide .order-items {
     flex-wrap: nowrap;
+    height: auto;
     max-height: none;
   }
 
