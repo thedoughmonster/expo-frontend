@@ -399,6 +399,7 @@
 
 .order-card {
   --order-card-base-width: 320px;
+  --order-items-gap: 0.75rem;
   display: flex;
   flex-direction: column;
   gap: 0.85rem;
@@ -714,25 +715,22 @@
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: 0.75rem;
+  flex-wrap: nowrap;
+  gap: var(--order-items-gap);
   align-items: stretch;
 }
 
 .order-card--wide .order-items {
-  display: block;
-  column-width: 280px;
-  column-gap: 0.75rem;
-  column-fill: balance;
-  gap: 0;
+  flex-wrap: wrap;
+  align-content: flex-start;
+  align-items: flex-start;
+  max-height: var(--order-items-max-height, none);
+  overflow: visible;
 }
 
 .order-card--wide .order-item {
-  break-inside: avoid;
-  margin-bottom: 0.75rem;
-}
-
-.order-card--wide .order-item:last-child {
-  margin-bottom: 0;
+  width: min(var(--order-item-column-width, 100%), 100%);
+  flex: 0 0 auto;
 }
 
 .order-item {
@@ -932,14 +930,16 @@
   }
 
   .order-items {
-    display: flex;
-    flex-direction: column;
+    flex-wrap: nowrap;
   }
 
   .order-card--wide .order-items {
-    column-width: auto;
-    column-count: 1;
-    column-gap: 0;
+    flex-wrap: nowrap;
+    max-height: none;
+  }
+
+  .order-card--wide .order-item {
+    width: 100%;
   }
 
   .order-card-header {

@@ -11,6 +11,8 @@ const BASE_ORDER_CARD_WIDTH = 320
 const ORDER_CARD_WIDTH_STEP = 220
 const MAX_ORDER_CARD_WIDTH = 720
 const ORDER_CARD_HEIGHT_BUFFER = 32
+const ORDER_ITEMS_COLUMN_GAP = 12
+const MIN_ORDER_ITEM_COLUMN_WIDTH = 240
 
 const ensureArray = (value) => {
   if (Array.isArray(value)) {
@@ -2750,7 +2752,7 @@ function App() {
   const ordersBoardRef = useRef(null)
   const orderCardRefs = useRef(new Map())
   const pendingMeasureFrame = useRef(null)
-  const [orderWidthHints, setOrderWidthHints] = useState({})
+  const [orderLayoutHints, setOrderLayoutHints] = useState({})
 
   const isMountedRef = useRef(true)
 
@@ -2986,11 +2988,75 @@ function App() {
         continue
       }
 
+      const itemsNode = node.querySelector('.order-items')
+      if (itemsNode) {
+        itemsNode.style.removeProperty('--order-items-max-height')
+        itemsNode.style.removeProperty('--order-item-column-width')
+      }
+
       let appliedWidth = BASE_ORDER_CARD_WIDTH
+      let finalItemsMaxHeight = null
+      let finalColumnWidth = null
+      let columnGap = ORDER_ITEMS_COLUMN_GAP
+      let horizontalPadding = 0
+      if (itemsNode && typeof window !== 'undefined') {
+        const cardStyles = window.getComputedStyle(node)
+        const itemsStyles = window.getComputedStyle(itemsNode)
+        const paddingStart = parseFloat(cardStyles.paddingLeft || '0')
+        const paddingEnd = parseFloat(cardStyles.paddingRight || '0')
+        if (Number.isFinite(paddingStart)) {
+          horizontalPadding += paddingStart
+        }
+        if (Number.isFinite(paddingEnd)) {
+          horizontalPadding += paddingEnd
+        }
+        const computedGap = parseFloat(itemsStyles.columnGap || itemsStyles.gap || '0')
+        if (Number.isFinite(computedGap) && computedGap > 0) {
+          columnGap = computedGap
+        }
+      }
       for (const candidate of candidateWidths) {
         node.style.setProperty('--order-card-width', `${candidate}px`)
         appliedWidth = candidate
-        const cardHeight = node.scrollHeight
+        let cardHeight = node.scrollHeight
+
+        if (itemsNode) {
+          const itemsHeight = itemsNode.scrollHeight
+          const nonItemsHeight = Math.max(0, cardHeight - itemsHeight)
+          const computedItemsMaxHeight = availableHeight > 0 ? availableHeight - nonItemsHeight : 0
+          const shouldUseColumns = candidate > BASE_ORDER_CARD_WIDTH
+          let computedColumnWidth = null
+
+          if (shouldUseColumns) {
+            const innerWidth = Math.max(0, candidate - horizontalPadding)
+            if (innerWidth >= MIN_ORDER_ITEM_COLUMN_WIDTH * 2 + columnGap) {
+              computedColumnWidth = Math.max(
+                MIN_ORDER_ITEM_COLUMN_WIDTH,
+                Math.floor((innerWidth - columnGap) / 2),
+              )
+            } else {
+              computedColumnWidth = null
+            }
+          }
+
+          finalItemsMaxHeight = computedItemsMaxHeight > 0 ? computedItemsMaxHeight : null
+          finalColumnWidth = computedColumnWidth
+
+          if (finalItemsMaxHeight) {
+            itemsNode.style.setProperty('--order-items-max-height', `${finalItemsMaxHeight}px`)
+          } else {
+            itemsNode.style.removeProperty('--order-items-max-height')
+          }
+
+          if (finalColumnWidth) {
+            itemsNode.style.setProperty('--order-item-column-width', `${finalColumnWidth}px`)
+          } else {
+            itemsNode.style.removeProperty('--order-item-column-width')
+          }
+
+          cardHeight = node.scrollHeight
+        }
+
         if (cardHeight <= availableHeight) {
           break
         }
@@ -2998,6 +3064,10 @@ function App() {
 
       if (appliedWidth <= BASE_ORDER_CARD_WIDTH) {
         node.style.removeProperty('--order-card-width')
+        if (itemsNode) {
+          itemsNode.style.removeProperty('--order-items-max-height')
+          itemsNode.style.removeProperty('--order-item-column-width')
+        }
         continue
       }
 
@@ -3006,13 +3076,46 @@ function App() {
         node.style.setProperty('--order-card-width', `${appliedWidth}px`)
       }
 
-      nextHints[orderId] = appliedWidth
+      if (itemsNode) {
+        if (finalItemsMaxHeight) {
+          itemsNode.style.setProperty('--order-items-max-height', `${finalItemsMaxHeight}px`)
+        } else {
+          itemsNode.style.removeProperty('--order-items-max-height')
+        }
+
+        if (finalColumnWidth) {
+          itemsNode.style.setProperty('--order-item-column-width', `${finalColumnWidth}px`)
+        } else {
+          itemsNode.style.removeProperty('--order-item-column-width')
+        }
+      }
+
+      nextHints[orderId] = {
+        width: appliedWidth,
+        itemsMaxHeight: finalItemsMaxHeight,
+        columnWidth: finalColumnWidth,
+      }
     }
 
-    setOrderWidthHints((previous) => {
+    setOrderLayoutHints((previous) => {
       const previousKeys = Object.keys(previous)
       const nextKeys = Object.keys(nextHints)
-      if (previousKeys.length === nextKeys.length && previousKeys.every((key) => previous[key] === nextHints[key])) {
+      if (
+        previousKeys.length === nextKeys.length &&
+        previousKeys.every((key) => {
+          const previousHint = previous[key]
+          const nextHint = nextHints[key]
+          if (!nextHint || !previousHint) {
+            return false
+          }
+
+          return (
+            previousHint.width === nextHint.width &&
+            previousHint.itemsMaxHeight === nextHint.itemsMaxHeight &&
+            previousHint.columnWidth === nextHint.columnWidth
+          )
+        })
+      ) {
         return previous
       }
 
@@ -3347,9 +3450,19 @@ function App() {
                   if (isOrderActive) {
                     orderCardClasses.push('is-active')
                   }
-                  const widthHint = orderWidthHints[order.id]
-                  if (widthHint && widthHint > BASE_ORDER_CARD_WIDTH) {
+                  const layoutHint = orderLayoutHints[order.id]
+                  if (layoutHint?.width && layoutHint.width > BASE_ORDER_CARD_WIDTH) {
                     orderCardClasses.push('order-card--wide')
+                  }
+                  const orderCardStyle = {}
+                  if (layoutHint?.width) {
+                    orderCardStyle['--order-card-width'] = `${layoutHint.width}px`
+                  }
+                  if (layoutHint?.itemsMaxHeight && layoutHint.itemsMaxHeight > 0) {
+                    orderCardStyle['--order-items-max-height'] = `${layoutHint.itemsMaxHeight}px`
+                  }
+                  if (layoutHint?.columnWidth && layoutHint.columnWidth > 0) {
+                    orderCardStyle['--order-item-column-width'] = `${layoutHint.columnWidth}px`
                   }
                 const formattedTotal = formatCurrency(order.total, order.currency ?? 'USD')
                 const statusClass = statusToClassName(order.status)
@@ -3393,7 +3506,7 @@ function App() {
                       onClick={() => toggleOrderActive(order.id)}
                       onKeyDown={(event) => handleOrderKeyDown(event, order.id)}
                       ref={(node) => registerOrderCardNode(order.id, node)}
-                      style={widthHint ? { '--order-card-width': `${widthHint}px` } : undefined}
+                      style={Object.keys(orderCardStyle).length > 0 ? orderCardStyle : undefined}
                     >
                     <header className="order-card-header">
                       <div className="order-card-titlebar">
