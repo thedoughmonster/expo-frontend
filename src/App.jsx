@@ -3341,64 +3341,66 @@ function App() {
                         In queue for <span className="order-card-elapsed-value">{elapsedLabel}</span>
                       </p>
                     ) : null}
-                    {order.items.length > 0 ? (
-                      <ul className="order-items">
-                        {order.items.map((item) => (
-                          <li className="order-item" key={`${order.id}-${item.id}`}>
-                            <div className="order-item-header">
-                              <div className="order-item-title">
-                                <span className="order-item-qty" aria-label={`Quantity ${item.quantity}`}>
-                                  {item.quantity}
-                                  <span aria-hidden="true">×</span>
-                                </span>
-                                <span className="order-item-name">{item.name}</span>
+                    <div className="order-card-main">
+                      {order.items.length > 0 ? (
+                        <ul className="order-items">
+                          {order.items.map((item) => (
+                            <li className="order-item" key={`${order.id}-${item.id}`}>
+                              <div className="order-item-header">
+                                <div className="order-item-title">
+                                  <span className="order-item-qty" aria-label={`Quantity ${item.quantity}`}>
+                                    {item.quantity}
+                                    <span aria-hidden="true">×</span>
+                                  </span>
+                                  <span className="order-item-name">{item.name}</span>
+                                </div>
+                                {item.price !== undefined ? (
+                                  <span className="order-item-price">
+                                    {formatCurrency(item.price, item.currency ?? order.currency ?? 'USD')}
+                                  </span>
+                                ) : null}
                               </div>
-                              {item.price !== undefined ? (
-                                <span className="order-item-price">
-                                  {formatCurrency(item.price, item.currency ?? order.currency ?? 'USD')}
-                                </span>
-                              ) : null}
-                            </div>
-                            {item.modifiers.length > 0 ? (
-                              <div className="order-item-modifiers-card">
-                                <p className="order-item-modifiers-title">Modifiers</p>
-                                <ul className="order-item-modifiers">
-                                  {item.modifiers.map((modifier, modifierIndex) => {
-                                    const rawQuantity = Number(modifier.quantity)
-                                    const quantity =
-                                      Number.isFinite(rawQuantity) && rawQuantity > 0
-                                        ? rawQuantity
-                                        : 1
+                              {item.modifiers.length > 0 ? (
+                                <div className="order-item-modifiers-card">
+                                  <p className="order-item-modifiers-title">Modifiers</p>
+                                  <ul className="order-item-modifiers">
+                                    {item.modifiers.map((modifier, modifierIndex) => {
+                                      const rawQuantity = Number(modifier.quantity)
+                                      const quantity =
+                                        Number.isFinite(rawQuantity) && rawQuantity > 0
+                                          ? rawQuantity
+                                          : 1
 
-                                    return (
-                                      <li
-                                        className="order-item-modifier"
-                                        key={`${item.id}-modifier-${modifierIndex}`}
-                                      >
-                                        <span
-                                          className="order-item-modifier-qty"
-                                          aria-label={`Quantity ${quantity}`}
+                                      return (
+                                        <li
+                                          className="order-item-modifier"
+                                          key={`${item.id}-modifier-${modifierIndex}`}
                                         >
-                                          {quantity}
-                                          <span aria-hidden="true">×</span>
-                                        </span>
-                                        <span className="order-item-modifier-name">
-                                          {modifier.name}
-                                        </span>
-                                      </li>
-                                    )
-                                  })}
-                                </ul>
-                              </div>
-                            ) : null}
-                            {item.notes ? <p className="order-item-notes">{item.notes}</p> : null}
-                          </li>
-                        ))}
-                      </ul>
-                    ) : (
-                      <p className="order-card-empty">No line items for this order.</p>
-                    )}
-                    {order.notes ? <p className="order-card-notes">Notes: {order.notes}</p> : null}
+                                          <span
+                                            className="order-item-modifier-qty"
+                                            aria-label={`Quantity ${quantity}`}
+                                          >
+                                            {quantity}
+                                            <span aria-hidden="true">×</span>
+                                          </span>
+                                          <span className="order-item-modifier-name">
+                                            {modifier.name}
+                                          </span>
+                                        </li>
+                                      )
+                                    })}
+                                  </ul>
+                                </div>
+                              ) : null}
+                              {item.notes ? <p className="order-item-notes">{item.notes}</p> : null}
+                            </li>
+                          ))}
+                        </ul>
+                      ) : (
+                        <p className="order-card-empty">No line items for this order.</p>
+                      )}
+                      {order.notes ? <p className="order-card-notes">Notes: {order.notes}</p> : null}
+                    </div>
                     {formattedTotal ? (
                       <footer className="order-card-footer">
                         <span className="order-card-total-label">Total</span>
