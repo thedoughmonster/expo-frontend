@@ -2655,25 +2655,88 @@ const fulfillmentStatusToClassName = (status) => {
 
   const normalized = status.trim().toUpperCase()
 
-  switch (normalized) {
-    case 'SENT':
-      return 'is-sent'
-    case 'IN PREPARATION':
-      return 'is-in-preparation'
-    case 'READY':
-      return 'is-ready'
-    default:
-      return ''
+  if (/\bSENT\b/.test(normalized)) {
+    return 'is-sent'
   }
+
+  if (/\bREADY\b/.test(normalized)) {
+    return 'is-ready'
+  }
+
+  if (/\bHOLD\b/.test(normalized)) {
+    return 'is-hold'
+  }
+
+  if (/\bNEW\b/.test(normalized)) {
+    return 'is-new'
+  }
+
+  if (/\bPREP/.test(normalized) || /\bCOOK/.test(normalized)) {
+    return 'is-in-preparation'
+  }
+
+  return ''
+}
+
+const FULFILLMENT_FILTERS = [
+  {
+    key: 'new',
+    label: 'New',
+    matches: (value) => /\bNEW\b/.test(value),
+  },
+  {
+    key: 'hold',
+    label: 'Hold',
+    matches: (value) => /\bHOLD\b/.test(value),
+  },
+  {
+    key: 'sent',
+    label: 'Sent',
+    matches: (value) => /\bSENT\b/.test(value),
+  },
+  {
+    key: 'ready',
+    label: 'Ready',
+    matches: (value) => /\bREADY\b/.test(value),
+  },
+]
+
+const normalizeStatusValue = (value) => {
+  if (typeof value !== 'string') {
+    return ''
+  }
+
+  return value.trim().toUpperCase()
+}
+
+const resolveFulfillmentFilterKey = (order) => {
+  if (!order) {
+    return null
+  }
+
+  const candidates = [order.fulfillmentStatus, order.status]
+    .map((value) => normalizeStatusValue(value))
+    .filter(Boolean)
+
+  for (const candidate of candidates) {
+    for (const filter of FULFILLMENT_FILTERS) {
+      if (filter.matches(candidate)) {
+        return filter.key
+      }
+    }
+  }
+
+  return null
 }
 
 function App() {
   const [orders, setOrders] = useState([])
-  const [modifiers, setModifiers] = useState([])
   const [isLoading, setIsLoading] = useState(false)
   const [isRefreshing, setIsRefreshing] = useState(false)
   const [error, setError] = useState(null)
-  const [showOnlyPreparing, setShowOnlyPreparing] = useState(false)
+  const [activeFulfillmentFilters, setActiveFulfillmentFilters] = useState(
+    () => new Set(FULFILLMENT_FILTERS.map(({ key }) => key)),
+  )
   const now = useNow(1000)
 
   const isMountedRef = useRef(true)
@@ -2752,16 +2815,11 @@ function App() {
             : rawOrders
 
         const normalizedOrders = normalizeOrders(filteredOrders, menuLookup, diningOptionLookup)
-        const payloadModifiers = normalizeModifiersFromPayload(ordersPayload)
-        const aggregatedModifiers =
-          payloadModifiers.length > 0 ? payloadModifiers : deriveModifiersFromOrders(normalizedOrders)
-
         if (!isMountedRef.current) {
           return
         }
 
         setOrders(normalizedOrders)
-        setModifiers(aggregatedModifiers)
       } catch (fetchError) {
         if (fetchError.name === 'AbortError' || !isMountedRef.current) {
           return
@@ -2771,7 +2829,6 @@ function App() {
 
         if (!silent) {
           setOrders([])
-          setModifiers([])
         }
       } finally {
         if (isMountedRef.current) {
@@ -2798,48 +2855,48 @@ function App() {
   }, [loadData])
 
   const visibleOrders = useMemo(() => {
-    if (!showOnlyPreparing) {
+    if (orders.length === 0) {
+      return []
+    }
+
+    const totalFilters = FULFILLMENT_FILTERS.length
+    const activeCount = activeFulfillmentFilters.size
+    const shouldApplyFilter = activeCount > 0 && activeCount < totalFilters
+
+    if (!shouldApplyFilter) {
+      if (activeCount === 0) {
+        return []
+      }
+
       return orders
     }
 
-    const completionIndicators = [
-      'sent',
-      'complete',
-      'completed',
-      'done',
-      'finished',
-      'picked',
-      'picked up',
-      'delivered',
-      'ready',
-      'served',
-      'collected',
-    ]
-
     return orders.filter((order) => {
-      const combinedStatus = [order.status, order.fulfillmentStatus]
-        .map((value) => (typeof value === 'string' ? value.toLowerCase() : ''))
-        .filter(Boolean)
-        .join(' ')
-
-      if (!combinedStatus) {
+      const filterKey = resolveFulfillmentFilterKey(order)
+      if (!filterKey) {
         return true
       }
 
-      return !completionIndicators.some((indicator) => combinedStatus.includes(indicator))
+      return activeFulfillmentFilters.has(filterKey)
     })
-  }, [orders, showOnlyPreparing])
+  }, [activeFulfillmentFilters, orders])
 
   const hasExistingOrders = orders.length > 0
   const hasVisibleOrders = visibleOrders.length > 0
   const isBusy = isLoading || isRefreshing
-  const filterToggleLabel = showOnlyPreparing ? 'Preparing Only' : 'All Orders'
-  const filterToggleTitle = showOnlyPreparing
-    ? 'Showing only orders currently in preparation. Click to view all orders.'
-    : 'Showing all orders. Click to view only orders in preparation.'
   const refreshAriaLabel = isBusy ? 'Refreshing orders' : 'Refresh orders'
-  const emptyStateMessage =
-    showOnlyPreparing && hasExistingOrders ? 'No orders currently in preparation.' : 'No orders available.'
+  let emptyStateMessage = 'No orders available.'
+  const totalFilters = FULFILLMENT_FILTERS.length
+  const activeFilterCount = activeFulfillmentFilters.size
+  const hasFilterRestriction = activeFilterCount > 0 && activeFilterCount < totalFilters
+
+  if (hasExistingOrders) {
+    if (activeFilterCount === 0) {
+      emptyStateMessage = 'Select at least one fulfillment status to view orders.'
+    } else if (hasFilterRestriction) {
+      emptyStateMessage = 'No orders match the selected filters.'
+    }
+  }
 
   const settingsTabs = useMemo(
     () => [
@@ -2864,10 +2921,19 @@ function App() {
 
   const activeTab = settingsTabs.find((tab) => tab.id === activeTabId) ?? settingsTabs[0]
 
-  const modifierItems = modifiers.length > 0 ? modifiers : []
+  const modifierItems = useMemo(() => deriveModifiersFromOrders(visibleOrders), [visibleOrders])
 
-  const toggleFilter = () => {
-    setShowOnlyPreparing((previous) => !previous)
+  const toggleFulfillmentFilter = (key) => {
+    setActiveFulfillmentFilters((previous) => {
+      const next = new Set(previous)
+      if (next.has(key)) {
+        next.delete(key)
+      } else {
+        next.add(key)
+      }
+
+      return next
+    })
   }
 
   const handleRefresh = () => {
@@ -2888,15 +2954,27 @@ function App() {
       <header className="top-bar">
         <h1>Order Dashboard</h1>
         <div className="top-bar-actions">
-          <button
-            type="button"
-            className={`filter-toggle${showOnlyPreparing ? ' is-active' : ''}`}
-            aria-pressed={showOnlyPreparing}
-            onClick={toggleFilter}
-            title={filterToggleTitle}
-          >
-            <span className="filter-toggle-label">{filterToggleLabel}</span>
-          </button>
+          <div className="top-bar-filters" role="group" aria-label="Filter orders by fulfillment status">
+            {FULFILLMENT_FILTERS.map(({ key, label }) => {
+              const isActive = activeFulfillmentFilters.has(key)
+              const title = isActive
+                ? `Showing ${label.toLowerCase()} orders. Click to hide these orders.`
+                : `Show orders marked as ${label.toLowerCase()}.`
+
+              return (
+                <button
+                  key={key}
+                  type="button"
+                  className={`filter-toggle${isActive ? ' is-active' : ''}`}
+                  aria-pressed={isActive}
+                  onClick={() => toggleFulfillmentFilter(key)}
+                  title={title}
+                >
+                  <span className="filter-toggle-label">{label}</span>
+                </button>
+              )
+            })}
+          </div>
           <button
             type="button"
             className="refresh-button"
