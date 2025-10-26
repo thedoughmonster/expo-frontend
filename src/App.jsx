@@ -2731,6 +2731,7 @@ const resolveFulfillmentFilterKey = (order) => {
 
 function App() {
   const [orders, setOrders] = useState([])
+  const [activeOrderIds, setActiveOrderIds] = useState(() => new Set())
   const [isLoading, setIsLoading] = useState(false)
   const [isRefreshing, setIsRefreshing] = useState(false)
   const [error, setError] = useState(null)
@@ -2921,7 +2922,83 @@ function App() {
 
   const activeTab = settingsTabs.find((tab) => tab.id === activeTabId) ?? settingsTabs[0]
 
-  const modifierItems = useMemo(() => deriveModifiersFromOrders(visibleOrders), [visibleOrders])
+  const ordersForModifiers = useMemo(() => {
+    if (activeOrderIds.size === 0) {
+      return visibleOrders
+    }
+
+    return visibleOrders.filter((order) => activeOrderIds.has(order.id))
+  }, [activeOrderIds, visibleOrders])
+
+  const modifierItems = useMemo(() => deriveModifiersFromOrders(ordersForModifiers), [ordersForModifiers])
+  const activeSelectionCount = activeOrderIds.size
+  const visibleOrderCount = visibleOrders.length
+  const selectionSummaryMessage =
+    activeSelectionCount > 0
+      ? `Showing modifiers for ${activeSelectionCount} selected ${activeSelectionCount === 1 ? 'order' : 'orders'}.`
+      : hasVisibleOrders
+        ? `Showing modifiers for all ${visibleOrderCount} visible ${visibleOrderCount === 1 ? 'order' : 'orders'}.`
+        : null
+
+  useEffect(() => {
+    setActiveOrderIds((previous) => {
+      if (previous.size === 0) {
+        return previous
+      }
+
+      const visibleIds = new Set(visibleOrders.map((order) => order.id))
+      let shouldUpdate = false
+      const next = new Set()
+
+      previous.forEach((id) => {
+        if (visibleIds.has(id)) {
+          next.add(id)
+        } else {
+          shouldUpdate = true
+        }
+      })
+
+      if (next.size !== previous.size) {
+        shouldUpdate = true
+      }
+
+      return shouldUpdate ? next : previous
+    })
+  }, [visibleOrders])
+
+  const toggleOrderActive = useCallback((orderId) => {
+    setActiveOrderIds((previous) => {
+      const next = new Set(previous)
+
+      if (next.has(orderId)) {
+        next.delete(orderId)
+      } else {
+        next.add(orderId)
+      }
+
+      return next
+    })
+  }, [])
+
+  const clearActiveOrders = useCallback(() => {
+    setActiveOrderIds((previous) => {
+      if (previous.size === 0) {
+        return previous
+      }
+
+      return new Set()
+    })
+  }, [])
+
+  const handleOrderKeyDown = useCallback(
+    (event, orderId) => {
+      if (event.key === 'Enter' || event.key === ' ') {
+        event.preventDefault()
+        toggleOrderActive(orderId)
+      }
+    },
+    [toggleOrderActive],
+  )
 
   const toggleFulfillmentFilter = (key) => {
     setActiveFulfillmentFilters((previous) => {
@@ -2954,100 +3031,138 @@ function App() {
       <header className="top-bar">
         <h1>Order Dashboard</h1>
         <div className="top-bar-actions">
-          <div className="top-bar-filters" role="group" aria-label="Filter orders by fulfillment status">
-            {FULFILLMENT_FILTERS.map(({ key, label }) => {
-              const isActive = activeFulfillmentFilters.has(key)
-              const title = isActive
-                ? `Showing ${label.toLowerCase()} orders. Click to hide these orders.`
-                : `Show orders marked as ${label.toLowerCase()}.`
+          <div className="top-bar-section">
+            <p className="top-bar-section-label">Fulfillment filters</p>
+            <div
+              className="top-bar-section-controls top-bar-filters"
+              role="group"
+              aria-label="Filter orders by fulfillment status"
+            >
+              {FULFILLMENT_FILTERS.map(({ key, label }) => {
+                const isActive = activeFulfillmentFilters.has(key)
+                const title = isActive
+                  ? `Showing ${label.toLowerCase()} orders. Click to hide these orders.`
+                  : `Show orders marked as ${label.toLowerCase()}.`
 
-              return (
-                <button
-                  key={key}
-                  type="button"
-                  className={`filter-toggle${isActive ? ' is-active' : ''}`}
-                  aria-pressed={isActive}
-                  onClick={() => toggleFulfillmentFilter(key)}
-                  title={title}
-                >
-                  <span className="filter-toggle-label">{label}</span>
-                </button>
-              )
-            })}
+                return (
+                  <button
+                    key={key}
+                    type="button"
+                    className={`filter-toggle${isActive ? ' is-active' : ''}`}
+                    aria-pressed={isActive}
+                    onClick={() => toggleFulfillmentFilter(key)}
+                    title={title}
+                  >
+                    <span className="filter-toggle-label">{label}</span>
+                  </button>
+                )
+              })}
+            </div>
           </div>
-          <button
-            type="button"
-            className="refresh-button"
-            onClick={handleRefresh}
-            disabled={isBusy}
-            aria-busy={isBusy}
-            title="Refresh orders"
-          >
-            <svg
-              aria-hidden="true"
-              width="22"
-              height="22"
-              viewBox="0 0 24 24"
-              fill="none"
-              xmlns="http://www.w3.org/2000/svg"
-              className={`refresh-icon${isBusy ? ' is-refreshing' : ''}`}
+          <div className="top-bar-section">
+            <p className="top-bar-section-label">Order selection</p>
+            <div
+              className="top-bar-section-controls top-bar-selection"
+              role="group"
+              aria-label="Order selection actions"
             >
-              <path
-                d="M21 4V9H16"
-                stroke="currentColor"
-                strokeWidth="1.5"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-              <path
-                d="M21 12A9 9 0 1 1 9.515 3.308"
-                stroke="currentColor"
-                strokeWidth="1.5"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </svg>
-            <span className="sr-only">{refreshAriaLabel}</span>
-          </button>
-          <button
-            type="button"
-            className="settings-button"
-            aria-haspopup="dialog"
-            aria-expanded={isSettingsOpen}
-            onClick={openSettings}
-            title="Open settings"
-          >
-            <span className="sr-only">Open settings</span>
-            <svg
-              aria-hidden="true"
-              width="22"
-              height="22"
-              viewBox="0 0 24 24"
-              fill="none"
-              xmlns="http://www.w3.org/2000/svg"
-              className="settings-icon"
-            >
-              <path
-                d="M12 15.25C13.7949 15.25 15.25 13.7949 15.25 12C15.25 10.2051 13.7949 8.75 12 8.75C10.2051 8.75 8.75 10.2051 8.75 12C8.75 13.7949 10.2051 15.25 12 15.25Z"
-                stroke="currentColor"
-                strokeWidth="1.5"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-              <path
-                d="M19.5 15.75C19.636 15.75 19.7596 15.8223 19.8218 15.9444L21.0361 18.375C21.1114 18.5258 21.0608 18.7103 20.9257 18.8026L18.5578 20.3989C18.4389 20.4801 18.2825 20.4737 18.1702 20.3839L16.6097 19.1257C16.4947 19.0324 16.3342 19.029 16.2171 19.1166C15.7774 19.4474 15.2905 19.7092 14.769 19.8932C14.6266 19.9437 14.5216 20.0749 14.5216 20.2269V22.1889C14.5216 22.3529 14.3927 22.4893 14.2296 22.5038L11.7151 22.7289C11.5544 22.7431 11.4061 22.6312 11.3713 22.4738L10.9191 20.4472C10.8817 20.2793 10.7308 20.1595 10.5599 20.1704C9.97075 20.2073 9.37912 20.1509 8.81311 20.0036C8.64882 19.961 8.47575 20.0417 8.39477 20.1913L7.22715 22.3366C7.1498 22.4819 6.9779 22.5448 6.82503 22.4777L4.47491 21.4506C4.32249 21.3836 4.24584 21.2048 4.30771 21.0529L5.16855 18.9168C5.23421 18.7596 5.17838 18.5779 5.03747 18.4926C4.5545 18.1972 4.1228 17.8227 3.76414 17.3845C3.66369 17.2623 3.48846 17.2207 3.343 17.2876L1.51891 18.1253C1.35893 18.1973 1.17159 18.1319 1.09958 17.9718L0.0888946 15.7189C0.0168836 15.5587 0.0823053 15.3716 0.242285 15.2995L2.10148 14.4699C2.24742 14.4041 2.32973 14.2447 2.28825 14.0901C2.13348 13.5126 2.06676 12.9163 2.09131 12.3233C2.09826 12.1708 1.98818 12.0404 1.83829 11.9936L-0.157454 11.3647C-0.315596 11.3147 -0.411032 11.1461 -0.361118 10.9884L0.339686 8.84765C0.389599 8.68996 0.558091 8.59435 0.715767 8.64426L2.70301 9.27319C2.85604 9.31962 3.01968 9.23242 3.08343 9.08316C3.33508 8.4868 3.67373 7.93057 4.08638 7.43849C4.19116 7.31431 4.1907 7.13546 4.08406 7.01221L2.64144 5.33478C2.52783 5.20574 2.52317 5.01111 2.63156 4.87794L4.27552 2.86067C4.38651 2.72473 4.58596 2.69566 4.73384 2.78728L6.56103 3.90406C6.69794 3.98748 6.8724 3.95307 6.97198 3.82788C7.36156 3.32972 7.81056 2.89831 8.3057 2.54719C8.43958 2.45177 8.47965 2.27362 8.40021 2.12978L7.35059 0.126441C7.26937 -0.0205983 7.32861 -0.202891 7.48234 -0.280213L9.59808 -1.3485C9.75231 -1.42618 9.93779 -1.36578 10.0118 -1.20788L11.0347 1.09515C11.1073 1.25183 11.2956 1.31955 11.4476 1.24904C12.0109 0.982019 12.6105 0.813052 13.2191 0.750485C13.3815 0.733152 13.5103 0.608612 13.5218 0.444739L13.7173 -2.20616C13.7277 -2.35235 13.8563 -2.46738 14.0026 -2.45671L16.509 -2.2759C16.664 -2.26501 16.7865 -2.13263 16.7774 -1.97796L16.6299 0.595144C16.6201 0.750435 16.732 0.894478 16.8846 0.913285C17.4669 0.986742 18.0353 1.15081 18.5697 1.40072C18.707 1.46632 18.8796 1.42332 18.9652 1.29628L20.205 -0.539574C20.2929 -0.669171 20.4679 -0.708089 20.6084 -0.628199L22.8093 0.707734C22.9479 0.787301 22.9956 0.966188 22.915 1.10476L21.7955 3.00041C21.7188 3.14125 21.7717 3.31291 21.9008 3.42232C22.3579 3.80512 22.7638 4.24676 23.1072 4.73756C23.2034 4.86925 23.3774 4.91479 23.5244 4.84594L25.4827 3.95436C25.6367 3.88263 25.8216 3.94335 25.8933 4.09733L27.0005 6.5247C27.0723 6.67869 27.0116 6.8635 26.8576 6.93523L24.9182 7.84311C24.7688 7.91234 24.6883 8.07683 24.7399 8.22848C24.9337 8.78283 25.0746 9.36636 25.1564 9.96063C25.1791 10.1239 25.3141 10.2426 25.4797 10.2398L27.481 10.2087C27.6403 10.2061 27.771 10.3351 27.7685 10.4944L27.7233 12.9994C27.7208 13.1587 27.5918 13.2895 27.4326 13.287L25.4295 13.2565C25.2642 13.2539 25.1293 13.3743 25.112 13.5362C25.0548 14.1358 24.9214 14.7248 24.7157 15.2878C24.6546 15.4508 24.7122 15.6366 24.8544 15.7222L26.647 16.786C26.7936 16.8746 26.8348 17.0543 26.7462 17.2009L25.3633 19.5136C25.2746 19.6604 25.0933 19.7066 24.9465 19.618L23.1771 18.5324C23.0341 18.4463 22.8516 18.4898 22.7657 18.6329C22.4525 19.1543 22.0815 19.6282 21.6653 20.0439C21.549 20.1603 21.5416 20.3423 21.6517 20.4677L22.9675 21.939C23.0839 22.0661 23.0862 22.2604 22.9726 22.3896L21.3299 24.4062C21.2186 24.5422 21.0192 24.5711 20.8724 24.4792L19.0476 23.3619C18.9105 23.2783 18.7336 23.3129 18.6345 23.4398C18.2598 23.9304 17.8307 24.3699 17.3628 24.7495C17.2267 24.8581 17.2042 25.0637 17.3095 25.2004L18.7404 27.1276C18.8385 27.2571 18.8038 27.4426 18.6744 27.5408L16.7173 28.9449C16.5793 29.0478 16.3844 29.0214 16.2856 28.8843L14.9688 27.0566C14.8823 26.9368 14.7101 26.9034 14.5769 26.9804C14.0955 27.259 13.5804 27.4692 13.0395 27.6057C12.8783 27.6461 12.7646 27.7865 12.7752 27.9507L12.928 30.4571C12.9379 30.6125 12.825 30.7569 12.6696 30.7667L10.1628 30.9171C10.0074 30.9269 9.87295 30.8066 9.86312 30.6513L9.70809 28.1397C9.69813 27.9843 9.56878 27.8604 9.41062 27.8592C8.81781 27.8545 8.2295 27.792 7.6581 27.6647C7.49707 27.6286 7.34102 27.7192 7.28911 27.8743L6.48292 30.2735C6.43103 30.4287 6.26405 30.5188 6.10661 30.463L3.7795 29.6436C3.62205 29.5878 3.53165 29.4176 3.58765 29.2602L4.40348 26.952C4.45644 26.7984 4.38358 26.6277 4.24062 26.5543C3.72944 26.2961 3.25744 25.9817 2.8395 25.6174C2.72296 25.5126 2.53838 25.5118 2.41514 25.6187L0.823312 26.9682C0.699591 27.0736 0.511539 27.0608 0.406122 26.9371L-1.31235 24.9163C-1.41777 24.7927 -1.405 24.6044 -1.28082 24.4908L0.401105 23.0481C0.527821 22.9341 0.535025 22.741 0.420976 22.615C0.026987 22.1706 -0.345525 21.6845 -0.660211 21.1667C-0.742829 21.0347 -0.913542 20.9925 -1.05715 21.0545L-2.88388 21.8432C-3.03479 21.9065 -3.2092 21.8343 -3.27247 21.6833L-4.34875 19.2859C-4.41165 19.1346 -4.3405 18.9611 -4.18933 18.8981L-2.38101 18.1446C-2.22837 18.0803 -2.14696 17.9168 -2.18968 17.7618C-2.35214 17.1786 -2.44784 16.5751 -2.47258 15.9661C-2.47833 15.8038 -2.60881 15.6775 -2.77091 15.6602L-4.77698 15.4359C-4.93642 15.4189 -5.04282 15.2706 -5.02586 15.1112L-4.79948 12.6027C-4.78225 12.444 -4.63331 12.3359 -4.47462 12.3541L-2.46876 12.5885C-2.30877 12.6064 -2.17559 12.486 -2.17062 12.3253C-2.14685 11.7314 -2.04186 11.1391 -1.85954 10.5727C-1.80819 10.4175 -1.88455 10.2487 -2.02969 10.1809L-3.77739 9.35192C-3.92112 9.28424 -3.98786 9.09758 -3.916 8.94494L-2.89798 6.61379C-2.82612 6.46115 -2.64072 6.40551 -2.48776 6.47608L-0.735405 7.28603C-0.582683 7.35628 -0.418507 7.27062 -0.354755 7.12135C-0.117039 6.53857 0.19082 5.9906 0.556306 5.48418C0.660145 5.34707 0.650325 5.15562 0.525328 5.04134L-1.0649 3.64921C-1.18837 3.54538 -1.19835 3.35761 -1.09452 3.23414L0.850424 0.986271C0.953664 0.863808 1.14232 0.855451 1.26645 0.959288L3.07728 2.46526C3.20141 2.5691 3.38918 2.57907 3.51265 2.47524C3.99747 2.07753 4.51342 1.73887 5.05636 1.46585C5.20864 1.38935 5.26591 1.20469 5.20227 1.05193L4.35237 -1.06166C4.28853 -1.21463 4.35194 -1.39274 4.50567 -1.45616L6.75074 -2.40267C6.90694 -2.46653 7.08854 -2.40356 7.15886 -2.24708L8.13725 0.0263559C8.2056 0.183071 8.39165 0.260331 8.54554 0.198846C9.10262 -0.0238982 9.69129 -0.176787 10.2964 -0.254307C10.4585 -0.274583 10.5836 -0.399031 10.5889 -0.56141L10.6666 -3.07176C10.6717 -3.23004 10.8004 -3.35575 10.9587 -3.3506L13.4666 -3.26833C13.6249 -3.26318 13.7515 -3.13638 13.7463 -2.97809L13.6668 -0.467071C13.6614 -0.304682 13.7871 -0.175992 13.9455 -0.176015C14.5312 -0.177131 15.1185 -0.128348 15.6957 -0.0195508"
-                stroke="currentColor"
-                strokeWidth="1.5"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </svg>
-          </button>
+              <span className="top-bar-selection-count" aria-live="polite">
+                {activeSelectionCount} selected
+              </span>
+              <button
+                type="button"
+                className="clear-selection-button"
+                onClick={clearActiveOrders}
+                disabled={activeSelectionCount === 0}
+                title="Clear selected orders"
+              >
+                Clear selections
+              </button>
+            </div>
+          </div>
+          <div className="top-bar-section">
+            <p className="top-bar-section-label">Dashboard tools</p>
+            <div className="top-bar-section-controls top-bar-utilities">
+              <button
+                type="button"
+                className="refresh-button"
+                onClick={handleRefresh}
+                disabled={isBusy}
+                aria-busy={isBusy}
+                title="Refresh orders"
+              >
+                <svg
+                  aria-hidden="true"
+                  width="22"
+                  height="22"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  xmlns="http://www.w3.org/2000/svg"
+                  className={`refresh-icon${isBusy ? ' is-refreshing' : ''}`}
+                >
+                  <path
+                    d="M21 4V9H16"
+                    stroke="currentColor"
+                    strokeWidth="1.5"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                  <path
+                    d="M21 12A9 9 0 1 1 9.515 3.308"
+                    stroke="currentColor"
+                    strokeWidth="1.5"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </svg>
+                <span className="sr-only">{refreshAriaLabel}</span>
+              </button>
+              <button
+                type="button"
+                className="settings-button"
+                aria-haspopup="dialog"
+                aria-expanded={isSettingsOpen}
+                onClick={openSettings}
+                title="Open settings"
+              >
+                <span className="sr-only">Open settings</span>
+                <svg
+                  aria-hidden="true"
+                  width="22"
+                  height="22"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  xmlns="http://www.w3.org/2000/svg"
+                  className="settings-icon"
+                >
+                  <path
+                    d="M12 15.25C13.7949 15.25 15.25 13.7949 15.25 12C15.25 10.2051 13.7949 8.75 12 8.75C10.2051 8.75 8.75 10.2051 8.75 12C8.75 13.7949 10.2051 15.25 12 15.25Z"
+                    stroke="currentColor"
+                    strokeWidth="1.5"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                  <path
+                    d="M19.4 15A1.65 1.65 0 0 0 20.24 13.1L21.24 11.3A1.5 1.5 0 0 0 20.7 9.33L18.91 8.33A1.65 1.65 0 0 0 17 7.49L16.62 5.5A1.5 1.5 0 0 0 15.13 4.3H12.87A1.5 1.5 0 0 0 11.38 5.5L11 7.49A1.65 1.65 0 0 0 9.09 8.33L7.3 9.33A1.5 1.5 0 0 0 6.76 11.3L7.76 13.1A1.65 1.65 0 0 0 8.6 15L8.24 17A1.5 1.5 0 0 0 9.74 18.2H12A1.65 1.65 0 0 0 13.91 19.04L14.29 21A1.5 1.5 0 0 0 15.78 22.2H18.04A1.5 1.5 0 0 0 19.54 21L19.92 19.04A1.65 1.65 0 0 0 21.83 18.2H24.09A1.5 1.5 0 0 0 25.59 17L25.97 15.04A1.65 1.65 0 0 0 27.88 14.2H30.14A1.5 1.5 0 0 0 31.64 13L32.02 11.04A1.65 1.65 0 0 0 33.93 10.2H36.19A1.5 1.5 0 0 0 37.69 9L38.07 7.04A1.65 1.65 0 0 0 39.98 6.2H42.24A1.5 1.5 0 0 0 43.74 5L44.12 3.04A1.65 1.65 0 0 0 46.03 2.2H48.29"
+                    stroke="currentColor"
+                    strokeWidth="1.5"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </svg>
+              </button>
+            </div>
+          </div>
         </div>
       </header>
       <div className="dashboard-body">
         <aside className="sidebar">
           <h2>Modifiers</h2>
+          {selectionSummaryMessage ? (
+            <p className="sidebar-selection-status" aria-live="polite">
+              {selectionSummaryMessage}
+            </p>
+          ) : null}
           {isLoading && modifierItems.length === 0 && !error ? (
             <p className="sidebar-status" aria-live="polite">
               Loading modifiers…
@@ -3097,6 +3212,11 @@ function App() {
           {hasVisibleOrders ? (
             <section className="orders-grid" aria-live="polite">
               {visibleOrders.map((order) => {
+                const isOrderActive = activeOrderIds.has(order.id)
+                const orderCardClasses = ['order-card']
+                if (isOrderActive) {
+                  orderCardClasses.push('is-active')
+                }
                 const formattedTotal = formatCurrency(order.total, order.currency ?? 'USD')
                 const statusClass = statusToClassName(order.status)
                 const elapsedStart = order.createdAt ?? order.createdAtRaw
@@ -3130,7 +3250,15 @@ function App() {
                 const hasTitlebarMeta = Boolean(order.diningOption || shouldShowFulfillmentStatus)
 
                 return (
-                  <article className="order-card" key={order.id}>
+                  <article
+                    className={orderCardClasses.join(' ')}
+                    key={order.id}
+                    role="button"
+                    tabIndex={0}
+                    aria-pressed={isOrderActive}
+                    onClick={() => toggleOrderActive(order.id)}
+                    onKeyDown={(event) => handleOrderKeyDown(event, order.id)}
+                  >
                     <header className="order-card-header">
                       <div className="order-card-titlebar">
                         <div className="order-card-titlebar-main">
