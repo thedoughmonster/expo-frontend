@@ -2377,6 +2377,25 @@ const statusToClassName = (status) => {
   return `order-status--${status.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`
 }
 
+const fulfillmentStatusToClassName = (status) => {
+  if (!status) {
+    return ''
+  }
+
+  const normalized = status.trim().toUpperCase()
+
+  switch (normalized) {
+    case 'SENT':
+      return 'is-sent'
+    case 'IN PREPARATION':
+      return 'is-in-preparation'
+    case 'READY':
+      return 'is-ready'
+    default:
+      return ''
+  }
+}
+
 function App() {
   const [orders, setOrders] = useState([])
   const [modifiers, setModifiers] = useState([])
@@ -2742,49 +2761,77 @@ function App() {
                     (!trimmedTabName || trimmedCustomerName.toLowerCase() !== trimmedTabName.toLowerCase()),
                 )
 
+                const displayCustomerName = trimmedTabName || trimmedCustomerName
+                const orderNumberLabel = order.displayId ? `Order number ${order.displayId}` : undefined
+                const fulfillmentBadgeClass = shouldShowFulfillmentStatus
+                  ? fulfillmentStatusToClassName(order.fulfillmentStatus)
+                  : ''
+                const fulfillmentBadgeClasses = ['order-fulfillment-badge']
+                if (fulfillmentBadgeClass) {
+                  fulfillmentBadgeClasses.push(fulfillmentBadgeClass)
+                }
+                const hasTitlebarMeta = Boolean(order.diningOption || shouldShowFulfillmentStatus)
+
                 return (
                   <article className="order-card" key={order.id}>
                     <header className="order-card-header">
-                      {trimmedTabName ? (
-                        <p className="order-card-customer" aria-label={`Customer ${trimmedTabName}`}>
-                          {trimmedTabName}
-                        </p>
-                      ) : null}
-                      <div className="order-card-heading">
-                        <div className="order-card-title-row">
-                          <h2 className="order-card-title">Order {order.displayId}</h2>
-                          {shouldShowFulfillmentStatus ? (
+                      <div className="order-card-titlebar">
+                        <div className="order-card-titlebar-main">
+                          {order.displayId ? (
+                            <span className="order-card-number" aria-label={orderNumberLabel}>
+                              {order.displayId}
+                            </span>
+                          ) : null}
+                          {displayCustomerName ? (
                             <span
-                              className="order-fulfillment-badge"
-                              aria-label={`Fulfillment status ${order.fulfillmentStatus}`}
+                              className="order-card-tabname"
+                              aria-label={`Customer ${displayCustomerName}`}
+                              title={displayCustomerName}
                             >
-                              {order.fulfillmentStatus}
+                              {displayCustomerName}
                             </span>
                           ) : null}
                         </div>
+                        {hasTitlebarMeta ? (
+                          <div className="order-card-titlebar-meta">
+                            {order.diningOption ? (
+                              <span
+                                className="order-card-dining"
+                                aria-label={`Dining option ${order.diningOption}`}
+                              >
+                                {order.diningOption}
+                              </span>
+                            ) : null}
+                            {shouldShowFulfillmentStatus ? (
+                              <span
+                                className={fulfillmentBadgeClasses.join(' ')}
+                                aria-label={`Fulfillment status ${order.fulfillmentStatus}`}
+                              >
+                                {order.fulfillmentStatus}
+                              </span>
+                            ) : null}
+                          </div>
+                        ) : null}
+                      </div>
+                      <div className="order-card-header-body">
                         {shouldShowCustomerSubtitle ? (
                           <p className="order-card-subtitle">for {order.customerName}</p>
                         ) : null}
-                      </div>
-                      <div className="order-card-meta">
-                        {order.status ? (
-                          <span className={`order-status-badge ${statusClass}`}>{order.status}</span>
-                        ) : null}
-                        {order.diningOption ? (
-                          <span className="order-card-dining" aria-label={`Dining option ${order.diningOption}`}>
-                            {order.diningOption}
-                          </span>
-                        ) : null}
-                        {timeLabel ? (
-                          <time className="order-card-time" dateTime={order.createdAt?.toISOString() ?? undefined}>
-                            {timeLabel}
-                          </time>
-                        ) : null}
-                        {elapsedDuration ? (
-                          <span className="order-card-timer" aria-live="polite">
-                            Elapsed {elapsedDuration}
-                          </span>
-                        ) : null}
+                        <div className="order-card-meta">
+                          {order.status ? (
+                            <span className={`order-status-badge ${statusClass}`}>{order.status}</span>
+                          ) : null}
+                          {timeLabel ? (
+                            <time className="order-card-time" dateTime={order.createdAt?.toISOString() ?? undefined}>
+                              {timeLabel}
+                            </time>
+                          ) : null}
+                          {elapsedDuration ? (
+                            <span className="order-card-timer" aria-live="polite">
+                              Elapsed {elapsedDuration}
+                            </span>
+                          ) : null}
+                        </div>
                       </div>
                     </header>
                     {elapsedLabel ? (
