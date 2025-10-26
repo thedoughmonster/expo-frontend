@@ -3348,6 +3348,9 @@ function App() {
                     orderCardClasses.push('is-active')
                   }
                   const widthHint = orderWidthHints[order.id]
+                  if (widthHint && widthHint > BASE_ORDER_CARD_WIDTH) {
+                    orderCardClasses.push('order-card--wide')
+                  }
                 const formattedTotal = formatCurrency(order.total, order.currency ?? 'USD')
                 const statusClass = statusToClassName(order.status)
                 const elapsedStart = order.createdAt ?? order.createdAtRaw

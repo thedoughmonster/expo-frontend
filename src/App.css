@@ -712,11 +712,27 @@
   list-style: none;
   margin: 0;
   padding: 0;
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  display: flex;
+  flex-direction: column;
   gap: 0.75rem;
   align-items: stretch;
-  grid-auto-rows: minmax(0, auto);
+}
+
+.order-card--wide .order-items {
+  display: block;
+  column-width: 280px;
+  column-gap: 0.75rem;
+  column-fill: balance;
+  gap: 0;
+}
+
+.order-card--wide .order-item {
+  break-inside: avoid;
+  margin-bottom: 0.75rem;
+}
+
+.order-card--wide .order-item:last-child {
+  margin-bottom: 0;
 }
 
 .order-item {
@@ -916,7 +932,14 @@
   }
 
   .order-items {
-    grid-template-columns: minmax(0, 1fr);
+    display: flex;
+    flex-direction: column;
+  }
+
+  .order-card--wide .order-items {
+    column-width: auto;
+    column-count: 1;
+    column-gap: 0;
   }
 
   .order-card-header {
