@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import './App.css'
 
 const ORDERS_ENDPOINT =
@@ -6,6 +6,11 @@ const ORDERS_ENDPOINT =
 const MENUS_ENDPOINT = 'https://doughmonster-worker.thedoughmonster.workers.dev/api/menus'
 const CONFIG_SNAPSHOT_ENDPOINT =
   'https://doughmonster-worker.thedoughmonster.workers.dev/api/config/snapshot'
+
+const BASE_ORDER_CARD_WIDTH = 320
+const ORDER_CARD_WIDTH_STEP = 220
+const MAX_ORDER_CARD_WIDTH = 720
+const ORDER_CARD_HEIGHT_BUFFER = 32
 
 const ensureArray = (value) => {
   if (Array.isArray(value)) {
@@ -2742,12 +2747,24 @@ function App() {
     () => new Set(FULFILLMENT_FILTERS.map(({ key }) => key)),
   )
   const now = useNow(1000)
+  const ordersBoardRef = useRef(null)
+  const orderCardRefs = useRef(new Map())
+  const pendingMeasureFrame = useRef(null)
+  const [orderWidthHints, setOrderWidthHints] = useState({})
 
   const isMountedRef = useRef(true)
 
   useEffect(() => {
     return () => {
       isMountedRef.current = false
+    }
+  }, [])
+
+  useEffect(() => {
+    return () => {
+      if (pendingMeasureFrame.current !== null && typeof window !== 'undefined') {
+        cancelAnimationFrame(pendingMeasureFrame.current)
+      }
     }
   }, [])
 
@@ -2942,6 +2959,115 @@ function App() {
       : hasVisibleOrders
         ? `Showing modifiers for all ${visibleOrderCount} visible ${visibleOrderCount === 1 ? 'order' : 'orders'}.`
         : null
+
+  const measureOrders = useCallback(() => {
+    const boardElement = ordersBoardRef.current
+    if (!boardElement) {
+      return
+    }
+
+    const availableHeight = Math.max(0, boardElement.clientHeight - ORDER_CARD_HEIGHT_BUFFER)
+    if (availableHeight <= 0) {
+      return
+    }
+
+    const nextHints = {}
+    const candidateWidths = []
+    for (let width = BASE_ORDER_CARD_WIDTH; width < MAX_ORDER_CARD_WIDTH; width += ORDER_CARD_WIDTH_STEP) {
+      candidateWidths.push(width)
+    }
+    candidateWidths.push(MAX_ORDER_CARD_WIDTH)
+
+    const visibleIds = visibleOrders.map((order) => order.id)
+
+    for (const orderId of visibleIds) {
+      const node = orderCardRefs.current.get(orderId)
+      if (!node) {
+        continue
+      }
+
+      let appliedWidth = BASE_ORDER_CARD_WIDTH
+      for (const candidate of candidateWidths) {
+        node.style.setProperty('--order-card-width', `${candidate}px`)
+        appliedWidth = candidate
+        const cardHeight = node.scrollHeight
+        if (cardHeight <= availableHeight) {
+          break
+        }
+      }
+
+      if (appliedWidth <= BASE_ORDER_CARD_WIDTH) {
+        node.style.removeProperty('--order-card-width')
+        continue
+      }
+
+      if (appliedWidth > MAX_ORDER_CARD_WIDTH) {
+        appliedWidth = MAX_ORDER_CARD_WIDTH
+        node.style.setProperty('--order-card-width', `${appliedWidth}px`)
+      }
+
+      nextHints[orderId] = appliedWidth
+    }
+
+    setOrderWidthHints((previous) => {
+      const previousKeys = Object.keys(previous)
+      const nextKeys = Object.keys(nextHints)
+      if (previousKeys.length === nextKeys.length && previousKeys.every((key) => previous[key] === nextHints[key])) {
+        return previous
+      }
+
+      return nextHints
+    })
+  }, [visibleOrders])
+
+  const queueMeasureOrders = useCallback(() => {
+    if (typeof window === 'undefined') {
+      measureOrders()
+      return
+    }
+
+    if (pendingMeasureFrame.current !== null) {
+      cancelAnimationFrame(pendingMeasureFrame.current)
+    }
+
+    pendingMeasureFrame.current = window.requestAnimationFrame(() => {
+      pendingMeasureFrame.current = null
+      measureOrders()
+    })
+  }, [measureOrders])
+
+  useLayoutEffect(() => {
+    queueMeasureOrders()
+  }, [queueMeasureOrders, visibleOrders])
+
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return undefined
+    }
+
+    const handleResize = () => {
+      queueMeasureOrders()
+    }
+
+    window.addEventListener('resize', handleResize)
+
+    return () => {
+      window.removeEventListener('resize', handleResize)
+    }
+  }, [queueMeasureOrders])
+
+  const registerOrderCardNode = useCallback(
+    (orderId, node) => {
+      if (node) {
+        orderCardRefs.current.set(orderId, node)
+      } else {
+        orderCardRefs.current.delete(orderId)
+      }
+
+      queueMeasureOrders()
+    },
+    [queueMeasureOrders],
+  )
 
   useEffect(() => {
     setActiveOrderIds((previous) => {
@@ -3213,7 +3339,7 @@ function App() {
             <section className="orders-state">{emptyStateMessage}</section>
           ) : null}
           {hasVisibleOrders ? (
-            <div className="orders-board">
+            <div className="orders-board" ref={ordersBoardRef}>
               <section className="orders-grid" aria-live="polite">
                 {visibleOrders.map((order) => {
                   const isOrderActive = activeOrderIds.has(order.id)
@@ -3221,6 +3347,7 @@ function App() {
                   if (isOrderActive) {
                     orderCardClasses.push('is-active')
                   }
+                  const widthHint = orderWidthHints[order.id]
                 const formattedTotal = formatCurrency(order.total, order.currency ?? 'USD')
                 const statusClass = statusToClassName(order.status)
                 const elapsedStart = order.createdAt ?? order.createdAtRaw
@@ -3253,16 +3380,18 @@ function App() {
                 }
                 const hasTitlebarMeta = Boolean(order.diningOption || shouldShowFulfillmentStatus)
 
-                return (
-                  <article
-                    className={orderCardClasses.join(' ')}
-                    key={order.id}
-                    role="button"
-                    tabIndex={0}
-                    aria-pressed={isOrderActive}
-                    onClick={() => toggleOrderActive(order.id)}
-                    onKeyDown={(event) => handleOrderKeyDown(event, order.id)}
-                  >
+                  return (
+                    <article
+                      className={orderCardClasses.join(' ')}
+                      key={order.id}
+                      role="button"
+                      tabIndex={0}
+                      aria-pressed={isOrderActive}
+                      onClick={() => toggleOrderActive(order.id)}
+                      onKeyDown={(event) => handleOrderKeyDown(event, order.id)}
+                      ref={(node) => registerOrderCardNode(order.id, node)}
+                      style={widthHint ? { '--order-card-width': `${widthHint}px` } : undefined}
+                    >
                     <header className="order-card-header">
                       <div className="order-card-titlebar">
                         <div className="order-card-titlebar-main">

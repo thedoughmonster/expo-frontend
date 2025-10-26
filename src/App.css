@@ -394,9 +394,11 @@
   gap: 1.25rem;
   width: max-content;
   min-height: 100%;
+  align-items: stretch;
 }
 
 .order-card {
+  --order-card-base-width: 320px;
   display: flex;
   flex-direction: column;
   gap: 0.85rem;
@@ -404,7 +406,10 @@
   border: 1px solid rgba(96, 165, 250, 0.25);
   border-radius: 0.9rem;
   padding: 1rem;
-  min-width: 0;
+  min-width: var(--order-card-base-width);
+  width: var(--order-card-width, var(--order-card-base-width));
+  max-width: min(720px, 100%);
+  flex: 0 0 var(--order-card-width, var(--order-card-base-width));
   box-shadow: 0 18px 28px -24px rgba(15, 23, 42, 0.9);
   overflow: hidden;
   cursor: pointer;
@@ -707,9 +712,11 @@
   list-style: none;
   margin: 0;
   padding: 0;
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
   gap: 0.75rem;
+  align-items: stretch;
+  grid-auto-rows: minmax(0, auto);
 }
 
 .order-item {
@@ -720,6 +727,7 @@
   background: rgba(15, 23, 42, 0.55);
   border-radius: 0.75rem;
   border: 1px solid rgba(59, 130, 246, 0.25);
+  min-height: 0;
 }
 
 .order-item-header {
@@ -883,17 +891,32 @@
     border-bottom: 1px solid #1e293b;
     max-height: none;
   }
-}
 
-@media (max-width: 520px) {
   .orders-board {
     overflow-x: visible;
   }
 
   .orders-grid {
+    width: 100%;
+  }
+
+  .order-card {
+    min-width: 0;
+    width: 100%;
+    max-width: 100%;
+    flex: 1 1 auto;
+  }
+}
+
+@media (max-width: 520px) {
+  .orders-grid {
     display: grid;
     grid-template-columns: 1fr;
     width: 100%;
+  }
+
+  .order-items {
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .order-card-header {
