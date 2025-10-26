@@ -2496,12 +2496,13 @@ const formatTimestamp = (date, fallback) => {
 }
 
 const getElapsedTimeParts = (start, end = new Date()) => {
-  if (!(start instanceof Date) || Number.isNaN(start.getTime())) {
+  const startDate = start instanceof Date ? start : parseDateLike(start)
+  if (!(startDate instanceof Date) || Number.isNaN(startDate.getTime())) {
     return null
   }
 
   const target = end instanceof Date && !Number.isNaN(end.getTime()) ? end : new Date()
-  const diffMs = Math.max(0, target.getTime() - start.getTime())
+  const diffMs = Math.max(0, target.getTime() - startDate.getTime())
   const totalSeconds = Math.floor(diffMs / 1000)
   const totalMinutes = Math.floor(totalSeconds / 60)
   const totalHours = Math.floor(totalMinutes / 60)
@@ -3020,11 +3021,12 @@ function App() {
               {visibleOrders.map((order) => {
                 const formattedTotal = formatCurrency(order.total, order.currency ?? 'USD')
                 const statusClass = statusToClassName(order.status)
+                const elapsedStart = order.createdAt ?? order.createdAtRaw
                 const timeLabel = formatTimestamp(order.createdAt, order.createdAtRaw)
-                const elapsedDuration = formatElapsedDuration(order.createdAt, now)
-                const elapsedTimerValue = formatElapsedTimer(order.createdAt, now)
-                const elapsedIsoDuration = formatElapsedIsoDuration(order.createdAt, now)
-                const elapsedLabel = formatElapsedLabel(order.createdAt, now)
+                const elapsedDuration = formatElapsedDuration(elapsedStart, now)
+                const elapsedTimerValue = formatElapsedTimer(elapsedStart, now)
+                const elapsedIsoDuration = formatElapsedIsoDuration(elapsedStart, now)
+                const elapsedLabel = formatElapsedLabel(elapsedStart, now)
                 const elapsedAriaLabel = elapsedLabel
                   ? `Elapsed time ${elapsedLabel}`
                   : elapsedDuration
