@@ -2447,13 +2447,16 @@ const deriveModifiersFromOrders = (orders) => {
 
   orders.forEach((order) => {
     order.items.forEach((item) => {
+      const itemQuantity = item.quantity && item.quantity > 0 ? item.quantity : 1
+
       item.modifiers.forEach((modifier) => {
         if (!modifier?.name) {
           return
         }
 
-        const quantity = modifier.quantity && modifier.quantity > 0 ? modifier.quantity : 1
-        const nextValue = (counts.get(modifier.name) ?? 0) + quantity
+        const modifierQuantity = modifier.quantity && modifier.quantity > 0 ? modifier.quantity : 1
+        const totalQuantity = modifierQuantity * itemQuantity
+        const nextValue = (counts.get(modifier.name) ?? 0) + totalQuantity
         counts.set(modifier.name, nextValue)
       })
     })
