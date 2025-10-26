@@ -411,18 +411,16 @@
   );
 }
 
-@supports selector(:has(*)) {
-  .order-card:has(.order-items > li:nth-child(7)) {
-    grid-column: span 2;
-  }
+.order-card[data-column-span='2'] {
+  grid-column: span 2;
+}
 
-  .order-card:has(.order-items > li:nth-child(13)) {
-    grid-column: span 3;
-  }
+.order-card[data-column-span='3'] {
+  grid-column: span 3;
+}
 
-  .order-card:has(.order-items > li:nth-child(19)) {
-    grid-column: span 4;
-  }
+.order-card[data-column-span='4'] {
+  grid-column: span 4;
 }
 
 .order-card:hover {

@@ -2744,6 +2744,8 @@ function App() {
   const now = useNow(1000)
 
   const isMountedRef = useRef(true)
+  const orderCardMainRefs = useRef(new Map())
+  const resizeObserverRef = useRef(null)
 
   useEffect(() => {
     return () => {
@@ -2901,6 +2903,96 @@ function App() {
       emptyStateMessage = 'No orders match the selected filters.'
     }
   }
+
+  const updateOrderCardColumnSpan = useCallback((target) => {
+    if (!target) {
+      return
+    }
+
+    const orderCard = target.closest('.order-card')
+    if (!orderCard) {
+      return
+    }
+
+    const rawOverflowRatio = target.scrollHeight / Math.max(target.clientHeight, 1)
+    const overflowRatio = Number.isFinite(rawOverflowRatio) ? rawOverflowRatio : 1
+    let desiredSpan = 1
+
+    if (overflowRatio >= 3.25) {
+      desiredSpan = 4
+    } else if (overflowRatio >= 2.25) {
+      desiredSpan = 3
+    } else if (overflowRatio >= 1.35) {
+      desiredSpan = 2
+    }
+
+    if (desiredSpan > 1) {
+      orderCard.dataset.columnSpan = String(desiredSpan)
+    } else {
+      delete orderCard.dataset.columnSpan
+    }
+  }, [])
+
+  const registerOrderCardMain = useCallback(
+    (orderId) => (node) => {
+      const map = orderCardMainRefs.current
+      const existingNode = map.get(orderId)
+
+      if (existingNode && existingNode !== node) {
+        if (resizeObserverRef.current) {
+          resizeObserverRef.current.unobserve(existingNode)
+        }
+        const existingCard = existingNode.closest('.order-card')
+        if (existingCard) {
+          delete existingCard.dataset.columnSpan
+        }
+        map.delete(orderId)
+      }
+
+      if (!node) {
+        map.delete(orderId)
+        return
+      }
+
+      map.set(orderId, node)
+
+      if (resizeObserverRef.current) {
+        resizeObserverRef.current.observe(node)
+        updateOrderCardColumnSpan(node)
+      }
+    },
+    [updateOrderCardColumnSpan],
+  )
+
+  useEffect(() => {
+    if (typeof ResizeObserver === 'undefined') {
+      return undefined
+    }
+
+    const observer = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        updateOrderCardColumnSpan(entry.target)
+      }
+    })
+
+    resizeObserverRef.current = observer
+
+    orderCardMainRefs.current.forEach((node) => {
+      observer.observe(node)
+      updateOrderCardColumnSpan(node)
+    })
+
+    return () => {
+      resizeObserverRef.current = null
+      observer.disconnect()
+      orderCardMainRefs.current.forEach((node) => {
+        const orderCard = node.closest('.order-card')
+        if (orderCard) {
+          delete orderCard.dataset.columnSpan
+        }
+      })
+    }
+  }, [updateOrderCardColumnSpan])
 
   const settingsTabs = useMemo(
     () => [
@@ -3341,7 +3433,10 @@ function App() {
                         In queue for <span className="order-card-elapsed-value">{elapsedLabel}</span>
                       </p>
                     ) : null}
-                    <div className="order-card-main">
+                    <div
+                      className="order-card-main"
+                      ref={registerOrderCardMain(order.id)}
+                    >
                       {order.items.length > 0 ? (
                         <ul className="order-items">
                           {order.items.map((item) => (
