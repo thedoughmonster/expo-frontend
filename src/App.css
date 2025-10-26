@@ -301,13 +301,6 @@
   box-shadow: inset 0 1px 0 rgba(148, 163, 184, 0.15);
 }
 
-.order-card-header-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-}
-
 .order-card-tab {
   font-size: 0.7rem;
   text-transform: uppercase;
@@ -335,11 +328,25 @@
   min-width: 0;
 }
 
+.order-card-title-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+}
+
+.order-card-title-row .order-fulfillment-badge {
+  margin-left: auto;
+  flex: 0 0 auto;
+}
+
 .order-card-title {
   margin: 0;
   font-size: 1.05rem;
   font-weight: 600;
   color: #f8fafc;
+  flex: 1 1 auto;
+  min-width: 0;
 }
 
 .order-card-subtitle {

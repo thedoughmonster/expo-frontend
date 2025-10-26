@@ -678,6 +678,215 @@ const collectStringValuesAtPaths = (source, paths) => {
   return values
 }
 
+const escapeRegexFragment = (value) =>
+  value
+    .trim()
+    .replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+    .replace(/\s+/g, '\\s*')
+
+const buildKeywordPattern = (keywords) => {
+  const fragments = keywords.map(escapeRegexFragment).filter(Boolean)
+  return fragments.length > 0 ? new RegExp(`(${fragments.join('|')})`) : null
+}
+
+const FULFILLMENT_STATUS_CANCELLATION_PATTERN = buildKeywordPattern([
+  'cancel',
+  'void',
+  'reject',
+  'declin',
+  'fail',
+  'refus',
+  'denied',
+  'problem',
+  'issue',
+  'error',
+])
+
+const FULFILLMENT_STATUS_DELAY_PATTERN = buildKeywordPattern([
+  'late',
+  'delay',
+  'behind',
+  'hold',
+  'held',
+  'stuck',
+])
+
+const FULFILLMENT_STATUS_PENDING_PATTERN = buildKeywordPattern([
+  'await',
+  'pending',
+  'pend',
+  'queue',
+  'queued',
+  'new',
+  'open',
+  'received',
+  'created',
+  'unassigned',
+  'not started',
+  'waiting',
+])
+
+const FULFILLMENT_STATUS_ACTIVE_PATTERN = buildKeywordPattern([
+  'in progress',
+  'prep',
+  'prepar',
+  'cook',
+  'bake',
+  'processing',
+  'working',
+  'accepted',
+  'acknowledged',
+  'confirm',
+  'start',
+  'started',
+  'sent',
+  'make',
+  'making',
+  'assembling',
+  'assembly',
+])
+
+const FULFILLMENT_STATUS_READY_PATTERN = buildKeywordPattern([
+  'ready',
+  'pickup',
+  'pick up',
+  'pick-up',
+  'bagged',
+  'packed',
+  'packag',
+  'awaiting pickup',
+  'waiting pickup',
+  'for pickup',
+  'for delivery',
+  'out for delivery',
+  'out for pickup',
+])
+
+const FULFILLMENT_STATUS_COMPLETE_PATTERN = buildKeywordPattern([
+  'complete',
+  'fulfilled',
+  'done',
+  'served',
+  'delivered',
+  'closed',
+  'finished',
+  'picked',
+  'collected',
+])
+
+const normalizeStatusComparisonValue = (value) =>
+  value
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+
+const classifyFulfillmentStatusCandidate = (value, index) => {
+  const stringValue = toStringValue(value)
+  if (!stringValue) {
+    return null
+  }
+
+  const trimmed = stringValue.trim()
+  if (!trimmed) {
+    return null
+  }
+
+  const comparison = normalizeStatusComparisonValue(trimmed)
+  if (!comparison) {
+    return null
+  }
+
+  let rank = 3
+
+  if (FULFILLMENT_STATUS_CANCELLATION_PATTERN.test(comparison)) {
+    rank = 0
+  } else if (FULFILLMENT_STATUS_DELAY_PATTERN.test(comparison)) {
+    rank = 1
+  } else if (FULFILLMENT_STATUS_PENDING_PATTERN.test(comparison)) {
+    rank = 2
+  } else if (FULFILLMENT_STATUS_ACTIVE_PATTERN.test(comparison)) {
+    rank = 3
+  } else if (FULFILLMENT_STATUS_READY_PATTERN.test(comparison)) {
+    rank = 4
+  } else if (FULFILLMENT_STATUS_COMPLETE_PATTERN.test(comparison)) {
+    rank = 5
+  }
+
+  return {
+    label: trimmed,
+    normalized: comparison,
+    rank,
+    index,
+  }
+}
+
+const formatFulfillmentStatusLabel = (value) => {
+  const stringValue = toStringValue(value)
+  if (!stringValue) {
+    return undefined
+  }
+
+  const normalized = stringValue.replace(/[\s_-]+/g, ' ').trim()
+  if (!normalized) {
+    return undefined
+  }
+
+  return normalized.toUpperCase()
+}
+
+const selectFulfillmentStatus = (candidates) => {
+  if (!candidates || candidates.length === 0) {
+    return undefined
+  }
+
+  const scored = []
+  const seen = new Set()
+
+  candidates.forEach((candidate, index) => {
+    if (!candidate) {
+      return
+    }
+
+    const classification = classifyFulfillmentStatusCandidate(candidate, index)
+    if (!classification) {
+      return
+    }
+
+    const dedupeKey = classification.normalized || classification.label.toLowerCase()
+    if (seen.has(dedupeKey)) {
+      return
+    }
+
+    seen.add(dedupeKey)
+    scored.push(classification)
+  })
+
+  if (scored.length === 0) {
+    const fallback = candidates.find((candidate) => typeof candidate === 'string' && candidate.trim())
+    return fallback ? formatFulfillmentStatusLabel(fallback) ?? fallback.trim() : undefined
+  }
+
+  scored.sort((a, b) => {
+    if (a.rank !== b.rank) {
+      return a.rank - b.rank
+    }
+
+    if (a.index !== b.index) {
+      return a.index - b.index
+    }
+
+    if (a.label.length !== b.label.length) {
+      return a.label.length - b.label.length
+    }
+
+    return a.label.localeCompare(b.label)
+  })
+
+  const best = scored[0]
+  return formatFulfillmentStatusLabel(best.label) ?? best.label
+}
+
 const buildDiningOptionLookup = (configPayload) => {
   const lookup = new Map()
 
@@ -1634,7 +1843,7 @@ const ORDER_DINING_OPTION_LABEL_PATHS = [
   'context.mode',
 ]
 
-const ORDER_FULFILLMENT_STATUS_KEYS = [
+const ORDER_FULFILLMENT_STATUS_BASE_FIELDS = [
   'fulfillmentStatus',
   'fulfillment_status',
   'fulfillmentStatus.name',
@@ -1661,6 +1870,73 @@ const ORDER_FULFILLMENT_STATUS_KEYS = [
   'serviceStatus',
   'service_status',
 ]
+
+const ORDER_FULFILLMENT_STATUS_EXTENDED_FIELDS = [
+  ...ORDER_FULFILLMENT_STATUS_BASE_FIELDS,
+  'status',
+  'state',
+  'progressStatus',
+  'progress_status',
+]
+
+const ORDER_FULFILLMENT_STATUS_COLLECTION_BASES = (() => {
+  const bases = new Set(['checks[]'])
+
+  ORDER_ITEM_COLLECTION_KEYS.forEach((key) => {
+    bases.add(key)
+  })
+
+  ORDER_ITEM_COLLECTION_KEYS.forEach((key) => {
+    ORDER_ITEM_MODIFIER_COLLECTION_KEYS.forEach((modifierKey) => {
+      bases.add(`${key}.${modifierKey}`)
+    })
+  })
+
+  const prefixes = [
+    '',
+    'order',
+    'data',
+    'attributes',
+    'payload',
+    'order.data',
+    'order.attributes',
+    'data.order',
+    'attributes.order',
+  ]
+  const combined = new Set()
+
+  bases.forEach((base) => {
+    prefixes.forEach((prefix) => {
+      if (!prefix) {
+        combined.add(base)
+      } else if (!base) {
+        combined.add(prefix)
+      } else {
+        combined.add(`${prefix}.${base}`)
+      }
+    })
+  })
+
+  prefixes.forEach((prefix) => {
+    if (prefix) {
+      combined.add(prefix)
+    }
+  })
+
+  return Array.from(combined)
+})()
+
+const ORDER_FULFILLMENT_STATUS_KEYS = (() => {
+  const keys = [...ORDER_FULFILLMENT_STATUS_BASE_FIELDS]
+
+  ORDER_FULFILLMENT_STATUS_COLLECTION_BASES.forEach((base) => {
+    ORDER_FULFILLMENT_STATUS_EXTENDED_FIELDS.forEach((field) => {
+      keys.push(`${base}.${field}`)
+    })
+  })
+
+  return Array.from(new Set(keys))
+})()
 
 const pickStringFromPaths = (source, keys) => {
   if (!source) {
@@ -1743,7 +2019,8 @@ const normalizeOrders = (rawOrders, menuLookup = new Map(), diningOptionLookup =
       pickValue(order, ['customer', 'customerName', 'customer_name', 'guest', 'client', 'user']),
     )
     const diningOption = resolveOrderDiningOption(order, diningOptionLookup)
-    const fulfillmentStatus = pickStringFromPaths(order, ORDER_FULFILLMENT_STATUS_KEYS)
+    const fulfillmentStatusCandidates = collectStringValuesAtPaths(order, ORDER_FULFILLMENT_STATUS_KEYS)
+    const fulfillmentStatus = selectFulfillmentStatus(fulfillmentStatusCandidates)
     const notes = toStringValue(pickValue(order, ['notes', 'note', 'specialInstructions', 'instructions']))
 
     const tabName = toStringValue(pickValue(order, ['tabName', 'tab_name']))
@@ -2425,20 +2702,20 @@ function App() {
                 return (
                   <article className="order-card" key={order.id}>
                     <header className="order-card-header">
-                      <div className="order-card-header-row">
-                        <div className="order-card-heading">
+                      <div className="order-card-heading">
+                        <div className="order-card-title-row">
                           <h2 className="order-card-title">Order {order.displayId}</h2>
-                          {order.customerName ? (
-                            <p className="order-card-subtitle">for {order.customerName}</p>
+                          {shouldShowFulfillmentStatus ? (
+                            <span
+                              className="order-fulfillment-badge"
+                              aria-label={`Fulfillment status ${order.fulfillmentStatus}`}
+                            >
+                              {order.fulfillmentStatus}
+                            </span>
                           ) : null}
                         </div>
-                        {shouldShowFulfillmentStatus ? (
-                          <span
-                            className="order-fulfillment-badge"
-                            aria-label={`Fulfillment status ${order.fulfillmentStatus}`}
-                          >
-                            {order.fulfillmentStatus}
-                          </span>
+                        {order.customerName ? (
+                          <p className="order-card-subtitle">for {order.customerName}</p>
                         ) : null}
                       </div>
                       <div className="order-card-meta">
