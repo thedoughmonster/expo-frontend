@@ -240,23 +240,29 @@
 
 .dashboard-body {
   flex: 1;
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(16rem, 22vw) minmax(0, 1fr);
+  align-items: stretch;
   min-height: 0;
   background: linear-gradient(135deg, rgba(15, 23, 42, 0.95), rgba(17, 24, 39, 0.95));
 }
 
 .sidebar {
-  flex: 0 1 24vw;
-  min-width: 12rem;
-  max-width: 18rem;
+  position: sticky;
+  top: 0;
+  align-self: start;
   display: flex;
   flex-direction: column;
+  gap: 0;
   padding: 1.5rem;
   background-color: #111827;
   border-right: 1px solid #1e293b;
   overflow-y: auto;
   overflow-x: hidden;
   color: #cbd5f5;
+  min-width: 0;
+  width: clamp(16rem, 22vw, 20rem);
+  max-height: calc(100vh - 64px);
 }
 
 .sidebar h2 {
@@ -339,7 +345,6 @@
 }
 
 .orders-area {
-  flex: 1;
   min-width: 0;
   padding: 1.5rem;
   background-color: rgba(30, 41, 59, 0.9);
@@ -347,6 +352,15 @@
   flex-direction: column;
   gap: 1.25rem;
   color: #e2e8f0;
+  overflow: hidden;
+}
+
+.orders-board {
+  flex: 1;
+  min-height: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding-bottom: 0.25rem;
 }
 
 .orders-state {
@@ -375,10 +389,11 @@
 }
 
 .orders-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  display: flex;
+  flex-wrap: nowrap;
   gap: 1.25rem;
-  width: 100%;
+  width: max-content;
+  min-height: 100%;
 }
 
 .order-card {
@@ -858,19 +873,27 @@
 
 @media (max-width: 720px) {
   .dashboard-body {
-    flex-direction: column;
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .sidebar {
-    max-width: 100%;
+    position: static;
+    width: 100%;
     border-right: none;
     border-bottom: 1px solid #1e293b;
+    max-height: none;
   }
 }
 
 @media (max-width: 520px) {
+  .orders-board {
+    overflow-x: visible;
+  }
+
   .orders-grid {
+    display: grid;
     grid-template-columns: 1fr;
+    width: 100%;
   }
 
   .order-card-header {

@@ -3213,13 +3213,14 @@ function App() {
             <section className="orders-state">{emptyStateMessage}</section>
           ) : null}
           {hasVisibleOrders ? (
-            <section className="orders-grid" aria-live="polite">
-              {visibleOrders.map((order) => {
-                const isOrderActive = activeOrderIds.has(order.id)
-                const orderCardClasses = ['order-card']
-                if (isOrderActive) {
-                  orderCardClasses.push('is-active')
-                }
+            <div className="orders-board">
+              <section className="orders-grid" aria-live="polite">
+                {visibleOrders.map((order) => {
+                  const isOrderActive = activeOrderIds.has(order.id)
+                  const orderCardClasses = ['order-card']
+                  if (isOrderActive) {
+                    orderCardClasses.push('is-active')
+                  }
                 const formattedTotal = formatCurrency(order.total, order.currency ?? 'USD')
                 const statusClass = statusToClassName(order.status)
                 const elapsedStart = order.createdAt ?? order.createdAtRaw
@@ -3408,7 +3409,8 @@ function App() {
                   </article>
                 )
               })}
-            </section>
+              </section>
+            </div>
           ) : null}
         </main>
       </div>
