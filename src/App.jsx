@@ -3262,149 +3262,156 @@ function App() {
                     onClick={() => toggleOrderActive(order.id)}
                     onKeyDown={(event) => handleOrderKeyDown(event, order.id)}
                   >
-                    <header className="order-card-header">
-                      <div className="order-card-titlebar">
-                        <div className="order-card-titlebar-main">
-                          {order.displayId ? (
-                            <span className="order-card-number" aria-label={orderNumberLabel}>
-                              {order.displayId}
-                            </span>
-                          ) : null}
-                          {displayCustomerName ? (
-                            <span
-                              className="order-card-tabname"
-                              aria-label={`Customer ${displayCustomerName}`}
-                              title={displayCustomerName}
-                            >
-                              {displayCustomerName}
-                            </span>
-                          ) : null}
-                        </div>
-                        {hasTitlebarMeta ? (
-                          <div className="order-card-titlebar-meta">
-                            {order.diningOption ? (
-                              <span
-                                className="order-card-dining"
-                                aria-label={`Dining option ${order.diningOption}`}
-                              >
-                                {order.diningOption}
+                    <div className="order-card-summary">
+                      <header className="order-card-header">
+                        <div className="order-card-titlebar">
+                          <div className="order-card-titlebar-main">
+                            {order.displayId ? (
+                              <span className="order-card-number" aria-label={orderNumberLabel}>
+                                {order.displayId}
                               </span>
                             ) : null}
-                            {shouldShowFulfillmentStatus ? (
+                            {displayCustomerName ? (
                               <span
-                                className={fulfillmentBadgeClasses.join(' ')}
-                                aria-label={`Fulfillment status ${order.fulfillmentStatus}`}
+                                className="order-card-tabname"
+                                aria-label={`Customer ${displayCustomerName}`}
+                                title={displayCustomerName}
                               >
-                                {order.fulfillmentStatus}
+                                {displayCustomerName}
                               </span>
                             ) : null}
                           </div>
-                        ) : null}
-                        {elapsedTimerValue ? (
-                          <div
-                            className="order-card-titlebar-timer"
-                            role="timer"
-                            aria-live="polite"
-                            aria-label={elapsedAriaLabel}
-                            title={elapsedLabel ?? elapsedDuration ?? undefined}
-                          >
-                            <span className="order-card-titlebar-timer-icon" aria-hidden="true">
-                              ⏱
-                            </span>
-                            <time
-                              className="order-card-titlebar-timer-value"
-                              dateTime={elapsedIsoDuration ?? undefined}
-                            >
-                              {elapsedTimerValue}
-                            </time>
-                          </div>
-                        ) : null}
-                      </div>
-                      <div className="order-card-header-body">
-                        {shouldShowCustomerSubtitle ? (
-                          <p className="order-card-subtitle">for {order.customerName}</p>
-                        ) : null}
-                        <div className="order-card-meta">
-                          {order.status ? (
-                            <span className={`order-status-badge ${statusClass}`}>{order.status}</span>
-                          ) : null}
-                          {timeLabel ? (
-                            <time className="order-card-time" dateTime={order.createdAt?.toISOString() ?? undefined}>
-                              {timeLabel}
-                            </time>
-                          ) : null}
-                        </div>
-                      </div>
-                    </header>
-                    {elapsedLabel ? (
-                      <p className="order-card-elapsed">
-                        In queue for <span className="order-card-elapsed-value">{elapsedLabel}</span>
-                      </p>
-                    ) : null}
-                    {order.items.length > 0 ? (
-                      <ul className="order-items">
-                        {order.items.map((item) => (
-                          <li className="order-item" key={`${order.id}-${item.id}`}>
-                            <div className="order-item-header">
-                              <div className="order-item-title">
-                                <span className="order-item-qty" aria-label={`Quantity ${item.quantity}`}>
-                                  {item.quantity}
-                                  <span aria-hidden="true">×</span>
+                          {hasTitlebarMeta ? (
+                            <div className="order-card-titlebar-meta">
+                              {order.diningOption ? (
+                                <span
+                                  className="order-card-dining"
+                                  aria-label={`Dining option ${order.diningOption}`}
+                                >
+                                  {order.diningOption}
                                 </span>
-                                <span className="order-item-name">{item.name}</span>
-                              </div>
-                              {item.price !== undefined ? (
-                                <span className="order-item-price">
-                                  {formatCurrency(item.price, item.currency ?? order.currency ?? 'USD')}
+                              ) : null}
+                              {shouldShowFulfillmentStatus ? (
+                                <span
+                                  className={fulfillmentBadgeClasses.join(' ')}
+                                  aria-label={`Fulfillment status ${order.fulfillmentStatus}`}
+                                >
+                                  {order.fulfillmentStatus}
                                 </span>
                               ) : null}
                             </div>
-                            {item.modifiers.length > 0 ? (
-                              <div className="order-item-modifiers-card">
-                                <p className="order-item-modifiers-title">Modifiers</p>
-                                <ul className="order-item-modifiers">
-                                  {item.modifiers.map((modifier, modifierIndex) => {
-                                    const rawQuantity = Number(modifier.quantity)
-                                    const quantity =
-                                      Number.isFinite(rawQuantity) && rawQuantity > 0
-                                        ? rawQuantity
-                                        : 1
-
-                                    return (
-                                      <li
-                                        className="order-item-modifier"
-                                        key={`${item.id}-modifier-${modifierIndex}`}
-                                      >
-                                        <span
-                                          className="order-item-modifier-qty"
-                                          aria-label={`Quantity ${quantity}`}
-                                        >
-                                          {quantity}
-                                          <span aria-hidden="true">×</span>
-                                        </span>
-                                        <span className="order-item-modifier-name">
-                                          {modifier.name}
-                                        </span>
-                                      </li>
-                                    )
-                                  })}
-                                </ul>
-                              </div>
+                          ) : null}
+                          {elapsedTimerValue ? (
+                            <div
+                              className="order-card-titlebar-timer"
+                              role="timer"
+                              aria-live="polite"
+                              aria-label={elapsedAriaLabel}
+                              title={elapsedLabel ?? elapsedDuration ?? undefined}
+                            >
+                              <span className="order-card-titlebar-timer-icon" aria-hidden="true">
+                                ⏱
+                              </span>
+                              <time
+                                className="order-card-titlebar-timer-value"
+                                dateTime={elapsedIsoDuration ?? undefined}
+                              >
+                                {elapsedTimerValue}
+                              </time>
+                            </div>
+                          ) : null}
+                        </div>
+                        <div className="order-card-header-body">
+                          {shouldShowCustomerSubtitle ? (
+                            <p className="order-card-subtitle">for {order.customerName}</p>
+                          ) : null}
+                          <div className="order-card-meta">
+                            {order.status ? (
+                              <span className={`order-status-badge ${statusClass}`}>{order.status}</span>
                             ) : null}
-                            {item.notes ? <p className="order-item-notes">{item.notes}</p> : null}
-                          </li>
-                        ))}
-                      </ul>
-                    ) : (
-                      <p className="order-card-empty">No line items for this order.</p>
-                    )}
-                    {order.notes ? <p className="order-card-notes">Notes: {order.notes}</p> : null}
-                    {formattedTotal ? (
-                      <footer className="order-card-footer">
-                        <span className="order-card-total-label">Total</span>
-                        <span className="order-card-total-value">{formattedTotal}</span>
-                      </footer>
-                    ) : null}
+                            {timeLabel ? (
+                              <time
+                                className="order-card-time"
+                                dateTime={order.createdAt?.toISOString() ?? undefined}
+                              >
+                                {timeLabel}
+                              </time>
+                            ) : null}
+                          </div>
+                        </div>
+                      </header>
+                      {elapsedLabel ? (
+                        <p className="order-card-elapsed">
+                          In queue for <span className="order-card-elapsed-value">{elapsedLabel}</span>
+                        </p>
+                      ) : null}
+                      {order.notes ? <p className="order-card-notes">Notes: {order.notes}</p> : null}
+                      {formattedTotal ? (
+                        <footer className="order-card-footer">
+                          <span className="order-card-total-label">Total</span>
+                          <span className="order-card-total-value">{formattedTotal}</span>
+                        </footer>
+                      ) : null}
+                    </div>
+                    <div className="order-card-items-panel">
+                      {order.items.length > 0 ? (
+                        <ul className="order-items">
+                          {order.items.map((item) => (
+                            <li className="order-item" key={`${order.id}-${item.id}`}>
+                              <div className="order-item-header">
+                                <div className="order-item-title">
+                                  <span className="order-item-qty" aria-label={`Quantity ${item.quantity}`}>
+                                    {item.quantity}
+                                    <span aria-hidden="true">×</span>
+                                  </span>
+                                  <span className="order-item-name">{item.name}</span>
+                                </div>
+                                {item.price !== undefined ? (
+                                  <span className="order-item-price">
+                                    {formatCurrency(item.price, item.currency ?? order.currency ?? 'USD')}
+                                  </span>
+                                ) : null}
+                              </div>
+                              {item.modifiers.length > 0 ? (
+                                <div className="order-item-modifiers-card">
+                                  <p className="order-item-modifiers-title">Modifiers</p>
+                                  <ul className="order-item-modifiers">
+                                    {item.modifiers.map((modifier, modifierIndex) => {
+                                      const rawQuantity = Number(modifier.quantity)
+                                      const quantity =
+                                        Number.isFinite(rawQuantity) && rawQuantity > 0
+                                          ? rawQuantity
+                                          : 1
+
+                                      return (
+                                        <li
+                                          className="order-item-modifier"
+                                          key={`${item.id}-modifier-${modifierIndex}`}
+                                        >
+                                          <span
+                                            className="order-item-modifier-qty"
+                                            aria-label={`Quantity ${quantity}`}
+                                          >
+                                            {quantity}
+                                            <span aria-hidden="true">×</span>
+                                          </span>
+                                          <span className="order-item-modifier-name">
+                                            {modifier.name}
+                                          </span>
+                                        </li>
+                                      )
+                                    })}
+                                  </ul>
+                                </div>
+                              ) : null}
+                              {item.notes ? <p className="order-item-notes">{item.notes}</p> : null}
+                            </li>
+                          ))}
+                        </ul>
+                      ) : (
+                        <p className="order-card-empty">No line items for this order.</p>
+                      )}
+                    </div>
                   </article>
                 )
               })}
