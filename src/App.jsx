@@ -141,6 +141,148 @@ const ORDER_ITEM_MODIFIER_COLLECTION_KEYS = [
   'requests.edges[].node',
 ]
 
+const ORDER_CREATED_AT_BASE_FIELDS = [
+  'createdAt',
+  'created_at',
+  'created',
+  'placedAt',
+  'placed_at',
+  'placed',
+  'submittedAt',
+  'submitted_at',
+  'submitted',
+  'submittedTime',
+  'submitted_time',
+  'submittedAtLocal',
+  'submitted_at_local',
+  'submittedAtUtc',
+  'submitted_at_utc',
+  'orderTime',
+  'order_time',
+  'orderDate',
+  'order_date',
+  'orderDateTime',
+  'order_datetime',
+  'startTime',
+  'start_time',
+  'startedAt',
+  'started_at',
+  'openedAt',
+  'opened_at',
+  'openedTime',
+  'opened_time',
+  'fireAt',
+  'fire_at',
+  'fireTime',
+  'fire_time',
+  'firedAt',
+  'fired_at',
+  'sentAt',
+  'sent_at',
+  'time',
+  'timestamp',
+]
+
+const ORDER_CREATED_AT_PRIMARY_PREFIXES = [
+  '',
+  'data.',
+  'attributes.',
+  'payload.',
+  'order.',
+  'order.data.',
+  'order.attributes.',
+  'order.payload.',
+  'details.',
+  'summary.',
+  'header.',
+  'ticket.',
+  'info.',
+  'meta.',
+  'metadata.',
+  'context.',
+  'timing.',
+  'timestamps.',
+  'timers.',
+]
+
+const ORDER_CREATED_AT_CHECK_PREFIXES = [
+  'checks[].',
+  'checks[].data.',
+  'checks[].attributes.',
+  'checks[].payload.',
+  'checks[].order.',
+  'checks[].order.data.',
+  'checks[].order.attributes.',
+  'checks[].summary.',
+  'checks[].details.',
+  'checks[].header.',
+  'checks[].info.',
+  'checks[].meta.',
+  'checks[].metadata.',
+  'checks[].context.',
+  'checks[].timing.',
+  'checks[].timestamps.',
+]
+
+const ORDER_STATUS_TIME_KEYS = [
+  'CREATED',
+  'CREATED_AT',
+  'PLACED',
+  'PLACED_AT',
+  'SUBMITTED',
+  'SUBMITTED_AT',
+  'ACKNOWLEDGED',
+  'ACKNOWLEDGED_AT',
+  'RECEIVED',
+  'RECEIVED_AT',
+  'NEW',
+  'OPEN',
+  'SENT',
+  'SENT_AT',
+  'ORDER_STARTED',
+  'ORDER_STARTED_AT',
+]
+
+const buildTimestampPaths = (prefixes, fields) => {
+  const paths = []
+
+  prefixes.forEach((prefix) => {
+    fields.forEach((field) => {
+      paths.push(`${prefix}${field}`)
+    })
+  })
+
+  return paths
+}
+
+const ORDER_CREATED_AT_PATH_DESCRIPTORS = (() => {
+  const descriptors = []
+  const seen = new Set()
+
+  const register = (paths, priority) => {
+    for (const path of paths) {
+      if (!path || seen.has(path)) {
+        continue
+      }
+
+      seen.add(path)
+      descriptors.push({ path, priority })
+    }
+  }
+
+  register(buildTimestampPaths(ORDER_CREATED_AT_PRIMARY_PREFIXES, ORDER_CREATED_AT_BASE_FIELDS), 0)
+  register(buildTimestampPaths(ORDER_CREATED_AT_CHECK_PREFIXES, ORDER_CREATED_AT_BASE_FIELDS), 1)
+  register(buildTimestampPaths(['statusTimes.', 'status_times.'], ORDER_STATUS_TIME_KEYS), 2)
+  register(buildTimestampPaths(['checks[].statusTimes.', 'checks[].status_times.'], ORDER_STATUS_TIME_KEYS), 3)
+  register(['statusTimes.*', 'status_times.*'], 4)
+  register(['checks[].statusTimes.*', 'checks[].status_times.*'], 5)
+  register(buildTimestampPaths(['events[].', 'history[].', 'activity[].', 'updates[].'], ORDER_CREATED_AT_BASE_FIELDS), 4)
+
+  return descriptors
+})()
+
+const ORDER_CREATED_AT_RAW_PATHS = ORDER_CREATED_AT_PATH_DESCRIPTORS.map((descriptor) => descriptor.path)
+
 const splitKeyPathSegments = (key) =>
   key
     .split('.')
@@ -693,6 +835,57 @@ const collectStringValuesAtPaths = (source, paths) => {
   }
 
   return values
+}
+
+const collectTimestampCandidates = (source, descriptors) => {
+  if (!source) {
+    return []
+  }
+
+  const candidates = []
+  const seen = new Set()
+
+  for (const descriptor of descriptors) {
+    const { path, priority = 0 } = descriptor ?? {}
+    if (!path) {
+      continue
+    }
+
+    const values = collectValuesAtKeyPath(source, path)
+    for (const value of values) {
+      const parsed = parseDateLike(value)
+      if (!parsed) {
+        continue
+      }
+
+      const timestamp = parsed.getTime()
+      if (Number.isNaN(timestamp)) {
+        continue
+      }
+
+      if (seen.has(timestamp)) {
+        continue
+      }
+
+      seen.add(timestamp)
+
+      candidates.push({
+        date: parsed,
+        raw: toStringValue(value) ?? parsed.toISOString(),
+        priority,
+      })
+    }
+  }
+
+  candidates.sort((a, b) => {
+    if (a.priority !== b.priority) {
+      return a.priority - b.priority
+    }
+
+    return a.date.getTime() - b.date.getTime()
+  })
+
+  return candidates
 }
 
 const escapeRegexFragment = (value) =>
@@ -2054,10 +2247,10 @@ const normalizeOrders = (rawOrders, menuLookup = new Map(), diningOptionLookup =
       pickStringFromPaths(order, ORDER_DISPLAY_ID_NESTED_KEYS)
 
     const status = toStringValue(pickValue(order, ['status', 'orderStatus', 'state', 'stage', 'fulfillment_status']))
-    const createdAtRaw =
-      pickValue(order, ['createdAt', 'created_at', 'placedAt', 'placed_at', 'timestamp', 'time', 'submitted_at']) ??
-      pickValue(order, ['timing.createdAt', 'timing.created_at'])
-    const createdAt = parseDateLike(createdAtRaw)
+    const timestampCandidates = collectTimestampCandidates(order, ORDER_CREATED_AT_PATH_DESCRIPTORS)
+    const primaryTimestamp = timestampCandidates[0]
+    const createdAt = primaryTimestamp?.date
+    const createdAtRaw = primaryTimestamp?.raw ?? pickStringFromPaths(order, ORDER_CREATED_AT_RAW_PATHS)
     const total = toNumber(
       pickValue(order, [
         'total',
@@ -2302,90 +2495,128 @@ const formatTimestamp = (date, fallback) => {
   }
 }
 
-const formatElapsedDuration = (start, end = new Date()) => {
+const getElapsedTimeParts = (start, end = new Date()) => {
   if (!(start instanceof Date) || Number.isNaN(start.getTime())) {
-    return undefined
+    return null
   }
 
   const target = end instanceof Date && !Number.isNaN(end.getTime()) ? end : new Date()
   const diffMs = Math.max(0, target.getTime() - start.getTime())
-  const totalSeconds = Math.floor(diffMs / 1000)
-  const hours = Math.floor(totalSeconds / 3600)
-  const minutes = Math.floor((totalSeconds % 3600) / 60)
-  const seconds = totalSeconds % 60
-
-  const pad = (value) => value.toString().padStart(2, '0')
-
-  if (hours > 0) {
-    return `${hours}:${pad(minutes)}:${pad(seconds)}`
-  }
-
-  return `${pad(minutes)}:${pad(seconds)}`
-}
-
-const formatElapsedTimer = (start, end = new Date()) => {
-  if (!(start instanceof Date) || Number.isNaN(start.getTime())) {
-    return undefined
-  }
-
-  const target = end instanceof Date && !Number.isNaN(end.getTime()) ? end : new Date()
-  const diffMs = Math.max(0, target.getTime() - start.getTime())
-  const totalSeconds = Math.floor(diffMs / 1000)
-  const totalMinutes = Math.floor(totalSeconds / 60)
-  const seconds = totalSeconds % 60
-
-  const padSeconds = seconds.toString().padStart(2, '0')
-  const minutesString = totalMinutes.toString().padStart(2, '0')
-
-  return `${minutesString}:${padSeconds}`
-}
-
-const formatElapsedLabel = (start, end = new Date()) => {
-  if (!(start instanceof Date) || Number.isNaN(start.getTime())) {
-    return undefined
-  }
-
-  const target = end instanceof Date && !Number.isNaN(end.getTime()) ? end : new Date()
-  const diffMs = Math.max(0, target.getTime() - start.getTime())
-
   const totalSeconds = Math.floor(diffMs / 1000)
   const totalMinutes = Math.floor(totalSeconds / 60)
   const totalHours = Math.floor(totalMinutes / 60)
   const totalDays = Math.floor(totalHours / 24)
 
-  const seconds = totalSeconds % 60
-  const minutes = totalMinutes % 60
-  const hours = totalHours % 24
+  return {
+    totalSeconds,
+    totalMinutes,
+    totalHours,
+    totalDays,
+    hours: totalHours % 24,
+    minutes: Math.floor((totalSeconds % 3600) / 60),
+    seconds: totalSeconds % 60,
+  }
+}
 
-  const parts = []
+const formatElapsedDuration = (start, end = new Date()) => {
+  const parts = getElapsedTimeParts(start, end)
+  if (!parts) {
+    return undefined
+  }
+
+  const pad = (value) => value.toString().padStart(2, '0')
+
+  if (parts.totalHours > 0) {
+    return `${parts.totalHours}:${pad(parts.minutes)}:${pad(parts.seconds)}`
+  }
+
+  return `${pad(parts.minutes)}:${pad(parts.seconds)}`
+}
+
+const formatElapsedTimer = (start, end = new Date()) => {
+  const parts = getElapsedTimeParts(start, end)
+  if (!parts) {
+    return undefined
+  }
+
+  const seconds = parts.seconds.toString().padStart(2, '0')
+  const minutes = parts.totalMinutes.toString().padStart(2, '0')
+
+  return `${minutes}:${seconds}`
+}
+
+const formatElapsedLabel = (start, end = new Date()) => {
+  const parts = getElapsedTimeParts(start, end)
+  if (!parts) {
+    return undefined
+  }
+
+  const { totalDays, totalHours, hours, totalMinutes, minutes, seconds } = parts
+  const labels = []
 
   if (totalDays > 0) {
-    parts.push(`${totalDays} day${totalDays === 1 ? '' : 's'}`)
+    labels.push(`${totalDays} day${totalDays === 1 ? '' : 's'}`)
   }
 
   if (totalHours > 0) {
     const hoursToInclude = totalDays > 0 ? hours : totalHours
     if (hoursToInclude > 0) {
-      parts.push(`${hoursToInclude} hour${hoursToInclude === 1 ? '' : 's'}`)
+      labels.push(`${hoursToInclude} hour${hoursToInclude === 1 ? '' : 's'}`)
     }
   }
 
-  if (totalMinutes > 0 && parts.length < 2) {
-    const minutesToInclude = parts.length > 0 ? minutes : totalMinutes
+  if (totalMinutes > 0 && labels.length < 2) {
+    const minutesToInclude = labels.length > 0 ? minutes : totalMinutes
     if (minutesToInclude > 0) {
-      parts.push(`${minutesToInclude} minute${minutesToInclude === 1 ? '' : 's'}`)
+      labels.push(`${minutesToInclude} minute${minutesToInclude === 1 ? '' : 's'}`)
     }
   }
 
-  if (parts.length === 0) {
+  if (labels.length === 0) {
     if (seconds > 0) {
-      parts.push(`${seconds} second${seconds === 1 ? '' : 's'}`)
+      labels.push(`${seconds} second${seconds === 1 ? '' : 's'}`)
     } else {
-      parts.push('moments')
+      labels.push('moments')
     }
   }
 
-  return parts.slice(0, 2).join(' ')
+  return labels.slice(0, 2).join(' ')
+}
+
+const formatElapsedIsoDuration = (start, end = new Date()) => {
+  const parts = getElapsedTimeParts(start, end)
+  if (!parts) {
+    return undefined
+  }
+
+  const { totalDays, hours, minutes, seconds } = parts
+  const dateSegments = []
+  const timeSegments = []
+
+  if (totalDays > 0) {
+    dateSegments.push(`${totalDays}D`)
+  }
+
+  if (hours > 0) {
+    timeSegments.push(`${hours}H`)
+  }
+
+  if (minutes > 0 || (timeSegments.length > 0 && seconds > 0)) {
+    timeSegments.push(`${minutes}M`)
+  }
+
+  if (seconds > 0 || (dateSegments.length === 0 && timeSegments.length === 0)) {
+    timeSegments.push(`${seconds}S`)
+  }
+
+  if (dateSegments.length === 0 && timeSegments.length === 0) {
+    timeSegments.push('0S')
+  }
+
+  const datePart = dateSegments.length > 0 ? dateSegments.join('') : ''
+  const timePart = timeSegments.length > 0 ? `T${timeSegments.join('')}` : ''
+
+  return `P${datePart}${timePart || 'T0S'}`
 }
 
 const useNow = (intervalMs = 1000) => {
@@ -2792,7 +3023,13 @@ function App() {
                 const timeLabel = formatTimestamp(order.createdAt, order.createdAtRaw)
                 const elapsedDuration = formatElapsedDuration(order.createdAt, now)
                 const elapsedTimerValue = formatElapsedTimer(order.createdAt, now)
+                const elapsedIsoDuration = formatElapsedIsoDuration(order.createdAt, now)
                 const elapsedLabel = formatElapsedLabel(order.createdAt, now)
+                const elapsedAriaLabel = elapsedLabel
+                  ? `Elapsed time ${elapsedLabel}`
+                  : elapsedDuration
+                    ? `Elapsed time ${elapsedDuration}`
+                    : undefined
                 const shouldShowFulfillmentStatus = Boolean(order.fulfillmentStatus)
                 const trimmedTabName = order.tabName?.trim()
                 const trimmedCustomerName = order.customerName?.trim()
@@ -2853,20 +3090,23 @@ function App() {
                           </div>
                         ) : null}
                         {elapsedTimerValue ? (
-                          <span
+                          <div
                             className="order-card-titlebar-timer"
                             role="timer"
                             aria-live="polite"
-                            aria-label={
-                              elapsedLabel
-                                ? `Elapsed time ${elapsedLabel}`
-                                : elapsedDuration
-                                  ? `Elapsed time ${elapsedDuration}`
-                                  : undefined
-                            }
+                            aria-label={elapsedAriaLabel}
+                            title={elapsedLabel ?? elapsedDuration ?? undefined}
                           >
-                            {elapsedTimerValue}
-                          </span>
+                            <span className="order-card-titlebar-timer-icon" aria-hidden="true">
+                              ⏱
+                            </span>
+                            <time
+                              className="order-card-titlebar-timer-value"
+                              dateTime={elapsedIsoDuration ?? undefined}
+                            >
+                              {elapsedTimerValue}
+                            </time>
+                          </div>
                         ) : null}
                       </div>
                       <div className="order-card-header-body">

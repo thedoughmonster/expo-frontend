@@ -334,11 +334,32 @@
 
 .order-card-titlebar-timer {
   align-self: flex-start;
-  font-size: 0.85rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.35rem 0.75rem;
+  border-radius: 999px;
+  background: rgba(251, 191, 36, 0.18);
+  border: 1px solid rgba(217, 119, 6, 0.45);
   color: #fef3c7;
+  font-size: 0.875rem;
   font-weight: 600;
   font-variant-numeric: tabular-nums;
   letter-spacing: 0.04em;
+  box-shadow: 0 6px 14px -10px rgba(251, 191, 36, 0.45);
+}
+
+.order-card-titlebar-timer-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.85rem;
+  color: #fcd34d;
+}
+
+.order-card-titlebar-timer-value {
+  line-height: 1;
+  color: inherit;
 }
 
 .order-card-number {
