@@ -1655,6 +1655,39 @@ const ORDER_DISPLAY_ID_PRIMARY_KEYS = [
   'name',
 ]
 
+const ORDER_TAB_NAME_PATHS = [
+  'tabName',
+  'tab_name',
+  'tab.name',
+  'data.tabName',
+  'data.tab_name',
+  'data.tab.name',
+  'attributes.tabName',
+  'attributes.tab_name',
+  'attributes.tab.name',
+  'order.tabName',
+  'order.tab_name',
+  'order.tab.name',
+  'payload.tabName',
+  'payload.tab_name',
+  'payload.tab.name',
+  'order.data.tabName',
+  'order.data.tab_name',
+  'order.attributes.tabName',
+  'order.attributes.tab_name',
+  'data.order.tabName',
+  'data.order.tab_name',
+  'checks[].tabName',
+  'checks[].tab_name',
+  'checks[].tab.name',
+  'checks[].data.tabName',
+  'checks[].data.tab_name',
+  'checks[].attributes.tabName',
+  'checks[].attributes.tab_name',
+  'checks[].header.tabName',
+  'checks[].header.tab_name',
+]
+
 const ORDER_DISPLAY_ID_NESTED_KEYS = [
   'attributes.displayId',
   'attributes.display_id',
@@ -2015,15 +2048,19 @@ const normalizeOrders = (rawOrders, menuLookup = new Map(), diningOptionLookup =
       ]),
     )
     const currency = toStringValue(pickValue(order, ['currency', 'currencyCode', 'totals.currency']))
-    const customerName = toStringValue(
+    let customerName = toStringValue(
       pickValue(order, ['customer', 'customerName', 'customer_name', 'guest', 'client', 'user']),
     )
+    const rawTabName = pickStringFromPaths(order, ORDER_TAB_NAME_PATHS)
+    if (!customerName && rawTabName) {
+      customerName = rawTabName
+    }
     const diningOption = resolveOrderDiningOption(order, diningOptionLookup)
     const fulfillmentStatusCandidates = collectStringValuesAtPaths(order, ORDER_FULFILLMENT_STATUS_KEYS)
     const fulfillmentStatus = selectFulfillmentStatus(fulfillmentStatusCandidates)
     const notes = toStringValue(pickValue(order, ['notes', 'note', 'specialInstructions', 'instructions']))
 
-    const tabName = toStringValue(pickValue(order, ['tabName', 'tab_name']))
+    const tabName = rawTabName ?? customerName
 
     return {
       id: guid ?? displayId ?? `order-${index}`,
@@ -2698,10 +2735,21 @@ function App() {
                 const elapsedDuration = formatElapsedDuration(order.createdAt, now)
                 const elapsedLabel = formatElapsedLabel(order.createdAt, now)
                 const shouldShowFulfillmentStatus = Boolean(order.fulfillmentStatus)
+                const trimmedTabName = order.tabName?.trim()
+                const trimmedCustomerName = order.customerName?.trim()
+                const shouldShowCustomerSubtitle = Boolean(
+                  trimmedCustomerName &&
+                    (!trimmedTabName || trimmedCustomerName.toLowerCase() !== trimmedTabName.toLowerCase()),
+                )
 
                 return (
                   <article className="order-card" key={order.id}>
                     <header className="order-card-header">
+                      {trimmedTabName ? (
+                        <p className="order-card-customer" aria-label={`Customer ${trimmedTabName}`}>
+                          {trimmedTabName}
+                        </p>
+                      ) : null}
                       <div className="order-card-heading">
                         <div className="order-card-title-row">
                           <h2 className="order-card-title">Order {order.displayId}</h2>
@@ -2714,7 +2762,7 @@ function App() {
                             </span>
                           ) : null}
                         </div>
-                        {order.customerName ? (
+                        {shouldShowCustomerSubtitle ? (
                           <p className="order-card-subtitle">for {order.customerName}</p>
                         ) : null}
                       </div>
