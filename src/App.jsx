@@ -122,6 +122,23 @@ const ORDER_ITEM_MODIFIER_COLLECTION_KEYS = [
   'modifications.nodes',
   'modifications.edges',
   'modifications.edges[].node',
+  'specialRequests',
+  'specialRequests.items',
+  'specialRequests.nodes',
+  'specialRequests.edges',
+  'specialRequests.edges[].node',
+  'specialRequest',
+  'special_request',
+  'special_requests',
+  'special_requests.items',
+  'special_requests.nodes',
+  'special_requests.edges',
+  'special_requests.edges[].node',
+  'requests',
+  'requests.items',
+  'requests.nodes',
+  'requests.edges',
+  'requests.edges[].node',
 ]
 
 const splitKeyPathSegments = (key) =>
@@ -1219,6 +1236,11 @@ const normalizeItemModifiers = (item, menuLookup) => {
     'extras',
     'toppings',
     'ingredients',
+    'specialRequests',
+    'special_requests',
+    'specialRequest',
+    'requests',
+    'request',
     'children',
     'childItems',
     'components',
@@ -2301,6 +2323,23 @@ const formatElapsedDuration = (start, end = new Date()) => {
   return `${pad(minutes)}:${pad(seconds)}`
 }
 
+const formatElapsedTimer = (start, end = new Date()) => {
+  if (!(start instanceof Date) || Number.isNaN(start.getTime())) {
+    return undefined
+  }
+
+  const target = end instanceof Date && !Number.isNaN(end.getTime()) ? end : new Date()
+  const diffMs = Math.max(0, target.getTime() - start.getTime())
+  const totalSeconds = Math.floor(diffMs / 1000)
+  const totalMinutes = Math.floor(totalSeconds / 60)
+  const seconds = totalSeconds % 60
+
+  const padSeconds = seconds.toString().padStart(2, '0')
+  const minutesString = totalMinutes.toString().padStart(2, '0')
+
+  return `${minutesString}:${padSeconds}`
+}
+
 const formatElapsedLabel = (start, end = new Date()) => {
   if (!(start instanceof Date) || Number.isNaN(start.getTime())) {
     return undefined
@@ -2752,6 +2791,7 @@ function App() {
                 const statusClass = statusToClassName(order.status)
                 const timeLabel = formatTimestamp(order.createdAt, order.createdAtRaw)
                 const elapsedDuration = formatElapsedDuration(order.createdAt, now)
+                const elapsedTimerValue = formatElapsedTimer(order.createdAt, now)
                 const elapsedLabel = formatElapsedLabel(order.createdAt, now)
                 const shouldShowFulfillmentStatus = Boolean(order.fulfillmentStatus)
                 const trimmedTabName = order.tabName?.trim()
@@ -2812,6 +2852,22 @@ function App() {
                             ) : null}
                           </div>
                         ) : null}
+                        {elapsedTimerValue ? (
+                          <span
+                            className="order-card-titlebar-timer"
+                            role="timer"
+                            aria-live="polite"
+                            aria-label={
+                              elapsedLabel
+                                ? `Elapsed time ${elapsedLabel}`
+                                : elapsedDuration
+                                  ? `Elapsed time ${elapsedDuration}`
+                                  : undefined
+                            }
+                          >
+                            {elapsedTimerValue}
+                          </span>
+                        ) : null}
                       </div>
                       <div className="order-card-header-body">
                         {shouldShowCustomerSubtitle ? (
@@ -2825,11 +2881,6 @@ function App() {
                             <time className="order-card-time" dateTime={order.createdAt?.toISOString() ?? undefined}>
                               {timeLabel}
                             </time>
-                          ) : null}
-                          {elapsedDuration ? (
-                            <span className="order-card-timer" aria-live="polite">
-                              Elapsed {elapsedDuration}
-                            </span>
                           ) : null}
                         </div>
                       </div>
