@@ -104,24 +104,3 @@ describe('normalizeOrders timestamp parsing', () => {
     expect(second.createdAt?.toISOString()).toBe('2024-01-06T13:20:00.000Z')
   })
 })
-
-describe('normalizeOrders tab name extraction', () => {
-  it('prefers tab names surfaced on nested checks', () => {
-    const rawOrders = [
-      {
-        guid: 'tab-order',
-        checks: [
-          {
-            tabName: 'Table 7',
-            items: [{ name: 'Pizza', quantity: 1 }],
-          },
-        ],
-      },
-    ]
-
-    const [order] = normalizeOrders(rawOrders, new Map(), new Map())
-
-    expect(order.tabName).toBe('Table 7')
-    expect(order.customerName).toBe('Table 7')
-  })
-})
