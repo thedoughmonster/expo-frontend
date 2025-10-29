@@ -119,4 +119,21 @@ describe('normalizeOrders tab names', () => {
 
     expect(order.tabName).toBe('Main Bar')
   })
+
+  it('extracts tab names nested under data attributes', () => {
+    const rawOrders = [
+      {
+        guid: 'order-nested-tab',
+        data: {
+          attributes: {
+            tabName: 'Window Counter',
+          },
+        },
+      },
+    ]
+
+    const [order] = normalizeOrders(rawOrders, new Map(), new Map())
+
+    expect(order.tabName).toBe('Window Counter')
+  })
 })
