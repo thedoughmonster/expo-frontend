@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import './App.css'
 
 const ORDERS_ENDPOINT =
-  'https://doughmonster-worker.thedoughmonster.workers.dev/api/orders/latest'
+  'https://doughmonster-worker.thedoughmonster.workers.dev/api/orders'
 const MENUS_ENDPOINT = 'https://doughmonster-worker.thedoughmonster.workers.dev/api/menus'
 const CONFIG_SNAPSHOT_ENDPOINT =
   'https://doughmonster-worker.thedoughmonster.workers.dev/api/config/snapshot'
@@ -2347,96 +2347,6 @@ const extractOrdersFromPayload = (payload) => {
   const deepOrders = collectOrdersFromCandidate(payload)
   if (deepOrders.length > 0) {
     return deepOrders
-  }
-
-  return []
-}
-
-const normalizeModifierEntry = (modifier, fallbackIndex) => {
-  if (!modifier) {
-    return null
-  }
-
-  if (typeof modifier === 'string') {
-    return { name: modifier, qty: 1 }
-  }
-
-  if (typeof modifier === 'number') {
-    return { name: `Modifier ${fallbackIndex + 1}`, qty: modifier }
-  }
-
-  if (typeof modifier === 'object') {
-    if ('name' in modifier || 'title' in modifier || 'label' in modifier) {
-      const name =
-        toStringValue(pickValue(modifier, ['name', 'title', 'label', 'modifier', 'value', 'description'])) ??
-        `Modifier ${fallbackIndex + 1}`
-      const qty =
-        toNumber(pickValue(modifier, ['qty', 'quantity', 'count', 'total', 'amount', 'value'])) ?? undefined
-      return {
-        name,
-        qty: qty && qty > 0 ? qty : 1,
-      }
-    }
-
-    const entries = Object.entries(modifier)
-    if (entries.length === 1) {
-      const [[entryName, entryQty]] = entries
-      const parsedQty = toNumber(entryQty)
-      return {
-        name: toStringValue(entryName) ?? `Modifier ${fallbackIndex + 1}`,
-        qty: parsedQty && parsedQty > 0 ? parsedQty : 1,
-      }
-    }
-  }
-
-  return null
-}
-
-const normalizeModifiersFromPayload = (payload) => {
-  if (!payload) {
-    return []
-  }
-
-  const candidateKeys = [
-    'modifiers',
-    'modifierSummary',
-    'modifier_summary',
-    'topModifiers',
-    'popularModifiers',
-    'data.modifiers',
-    'summary.modifiers',
-  ]
-
-  for (const key of candidateKeys) {
-    const candidate = pickValue(payload, [key])
-    if (!candidate) {
-      continue
-    }
-
-    const arrayForm = ensureArray(candidate)
-    if (arrayForm.length > 0) {
-      const normalized = arrayForm
-        .map((entry, index) => normalizeModifierEntry(entry, index))
-        .filter(Boolean)
-      if (normalized.length > 0) {
-        return normalized
-      }
-    }
-
-    if (candidate && typeof candidate === 'object') {
-      const normalized = Object.entries(candidate)
-        .map(([name, qty]) => {
-          const parsedQty = toNumber(qty)
-          return {
-            name,
-            qty: parsedQty && parsedQty > 0 ? parsedQty : 1,
-          }
-        })
-        .filter((entry) => entry.name)
-      if (normalized.length > 0) {
-        return normalized
-      }
-    }
   }
 
   return []
