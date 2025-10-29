@@ -62,7 +62,7 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
-  /api/orders/latest:
+  /api/orders:
     get:
       tags: [Orders]
       summary: Fetch the most recent Toast orders
@@ -151,7 +151,7 @@ paths:
       summary: Retrieve expanded order details with menu enrichment
       description: |
         Returns the most recent non-voided Toast orders enriched with menu metadata and normalized totals.
-        The endpoint internally calls `/api/orders/latest` and `/api/menus`, applies filtering, and returns
+        The endpoint internally calls `/api/orders` and `/api/menus`, applies filtering, and returns
         a deterministic list of expanded orders ready for presentation.
       parameters:
         - $ref: '#/components/parameters/OrdersDetailedLimit'
@@ -223,7 +223,7 @@ paths:
     get:
       tags: [Orders]
       summary: Retrieve orders and menus payloads together
-      description: Calls `/api/orders/latest` and `/api/menus`, returning their bodies unchanged inside a single payload.
+      description: Calls `/api/orders` and `/api/menus`, returning their bodies unchanged inside a single payload.
       responses:
         '200':
           description: Orders and menus were retrieved successfully.
@@ -403,7 +403,7 @@ components:
           const: true
         route:
           type: string
-          example: /api/orders/latest
+          example: /api/orders
         limit:
           type: integer
         detail:
@@ -484,7 +484,7 @@ components:
           const: false
         route:
           type: string
-          example: /api/orders/latest
+          example: /api/orders
         error:
           type: string
       additionalProperties: true
@@ -695,7 +695,7 @@ components:
           const: false
         route:
           type: string
-          example: /api/orders/latest
+          example: /api/orders
         error:
           type: string
       additionalProperties: true
