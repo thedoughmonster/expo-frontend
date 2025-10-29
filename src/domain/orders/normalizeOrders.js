@@ -446,6 +446,105 @@ const toStringValue = (value) => {
   return undefined
 }
 
+const looksLikeStructuredData = (value) => {
+  if (typeof value !== 'string') {
+    return false
+  }
+
+  const trimmed = value.trim()
+  if (!trimmed) {
+    return false
+  }
+
+  return (
+    (trimmed.startsWith('{') && trimmed.endsWith('}')) ||
+    (trimmed.startsWith('[') && trimmed.endsWith(']'))
+  )
+}
+
+const extractLabelFromStructuredValue = (value) => {
+  if (value === undefined || value === null) {
+    return undefined
+  }
+
+  if (typeof value === 'string') {
+    const trimmed = value.trim()
+    return trimmed ? trimmed : undefined
+  }
+
+  if (Array.isArray(value)) {
+    for (const entry of value) {
+      const extracted = extractLabelFromStructuredValue(entry)
+      if (extracted) {
+        return extracted
+      }
+    }
+
+    return undefined
+  }
+
+  if (typeof value === 'object') {
+    const preferredKeys = ['name', 'displayName', 'display_name', 'label', 'title', 'value']
+
+    for (const key of preferredKeys) {
+      const stringValue = toStringValue(value[key])
+      if (stringValue) {
+        const trimmed = stringValue.trim()
+        if (trimmed) {
+          return trimmed
+        }
+      }
+    }
+
+    for (const entry of Object.values(value)) {
+      const extracted = extractLabelFromStructuredValue(entry)
+      if (extracted) {
+        return extracted
+      }
+    }
+  }
+
+  return undefined
+}
+
+const parseStructuredCandidate = (value) => {
+  if (!looksLikeStructuredData(value)) {
+    return undefined
+  }
+
+  try {
+    return JSON.parse(value)
+  } catch {
+    return undefined
+  }
+}
+
+const selectPreferredStringCandidate = (candidates) => {
+  if (!Array.isArray(candidates) || candidates.length === 0) {
+    return undefined
+  }
+
+  for (const candidate of candidates) {
+    if (!looksLikeStructuredData(candidate)) {
+      return candidate
+    }
+  }
+
+  for (const candidate of candidates) {
+    const parsed = parseStructuredCandidate(candidate)
+    if (!parsed) {
+      continue
+    }
+
+    const extracted = extractLabelFromStructuredValue(parsed)
+    if (extracted) {
+      return extracted
+    }
+  }
+
+  return candidates[0]
+}
+
 const pickValue = (source, keys) => {
   if (!source) {
     return undefined
@@ -1721,7 +1820,8 @@ const normalizeOrders = (rawOrders, menuLookup = new Map(), diningOptionLookup =
     let customerName = toStringValue(
       pickValue(order, ['customer', 'customerName', 'customer_name', 'guest', 'client', 'user']),
     )
-    const rawTabName = collectStringValuesAtPaths(order, ORDER_TAB_NAME_PATHS)[0]
+    const tabNameCandidates = collectStringValuesAtPaths(order, ORDER_TAB_NAME_PATHS)
+    const rawTabName = selectPreferredStringCandidate(tabNameCandidates)
     if (!customerName && rawTabName) {
       customerName = rawTabName
     }
