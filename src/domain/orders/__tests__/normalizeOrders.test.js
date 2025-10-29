@@ -104,3 +104,19 @@ describe('normalizeOrders timestamp parsing', () => {
     expect(second.createdAt?.toISOString()).toBe('2024-01-06T13:20:00.000Z')
   })
 })
+
+describe('normalizeOrders tab names', () => {
+  it('prefers human-readable tab labels over serialized structures', () => {
+    const rawOrders = [
+      {
+        guid: 'order-tab',
+        tabName: { name: 'Main Bar' },
+        tab: { name: 'Main Bar' },
+      },
+    ]
+
+    const [order] = normalizeOrders(rawOrders, new Map(), new Map())
+
+    expect(order.tabName).toBe('Main Bar')
+  })
+})
