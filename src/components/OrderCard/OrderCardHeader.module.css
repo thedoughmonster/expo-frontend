@@ -102,19 +102,6 @@
   white-space: nowrap;
 }
 
-.headerBody {
-  display: flex;
-  flex-direction: column;
-  gap: 0.45rem;
-  padding: 0 1rem 0;
-}
-
-.subtitle {
-  margin: 0;
-  font-size: 0.85rem;
-  color: #cbd5f5;
-}
-
 .dining {
   display: inline-flex;
   align-items: center;

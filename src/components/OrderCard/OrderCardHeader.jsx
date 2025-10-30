@@ -1,5 +1,4 @@
 import { memo } from 'react'
-import OrderCardMeta from './OrderCardMeta'
 import styles from './OrderCardHeader.module.css'
 
 const OrderCardHeader = ({
@@ -8,18 +7,12 @@ const OrderCardHeader = ({
   orderNumberLabel,
   displayCustomerName,
   customerAriaLabel,
-  customerSubtitle,
-  showCustomerSubtitle,
   diningOption,
   showDiningOption,
   fulfillmentStatus,
   fulfillmentBadgeClassName,
   showFulfillmentStatus,
   hasTitlebarMeta,
-  status,
-  statusClassName,
-  timeLabel,
-  timeDateTime,
   elapsedAriaLabel,
   elapsedIsoDuration,
   elapsedTimerValue,
@@ -79,10 +72,6 @@ const OrderCardHeader = ({
           ) : null}
         </div>
       ) : null}
-    </div>
-    <div className={styles.headerBody}>
-      {showCustomerSubtitle ? <p className={styles.subtitle}>for {customerSubtitle}</p> : null}
-      <OrderCardMeta status={status} statusClassName={statusClassName} timeLabel={timeLabel} timeDateTime={timeDateTime} />
     </div>
   </header>
 )
