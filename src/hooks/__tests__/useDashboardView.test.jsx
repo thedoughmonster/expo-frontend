@@ -1,0 +1,83 @@
+import { act, renderHook, waitFor } from '@testing-library/react'
+import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest'
+import useDashboardView from '../useDashboardView'
+import * as ordersDataModule from '../useOrdersData'
+import { useFulfillmentFilters } from '../../viewContext/OrdersViewContext'
+import DashboardProviders from '../../viewContext/DashboardProviders'
+
+const mockOrders = [
+  { id: 'order-1', fulfillmentStatus: 'NEW' },
+  { id: 'order-2', fulfillmentStatus: 'READY' },
+]
+
+const createWrapper = () => ({ children }) => <DashboardProviders>{children}</DashboardProviders>
+
+describe('useDashboardView', () => {
+  const mockUseOrdersData = vi.spyOn(ordersDataModule, 'default')
+
+  beforeEach(() => {
+    const refreshMock = vi.fn()
+    mockUseOrdersData.mockReturnValue({
+      orders: mockOrders,
+      isLoading: false,
+      isRefreshing: false,
+      error: null,
+      refresh: refreshMock,
+    })
+  })
+
+  afterEach(() => {
+    mockUseOrdersData.mockReset()
+  })
+
+  it('derives visible orders and selection summaries', () => {
+    const refreshMock = vi.fn()
+    mockUseOrdersData.mockReturnValue({
+      orders: mockOrders,
+      isLoading: false,
+      isRefreshing: false,
+      error: null,
+      refresh: refreshMock,
+    })
+
+    const { result } = renderHook(() => useDashboardView(), { wrapper: createWrapper() })
+
+    expect(result.current.ordersAreaProps.visibleOrders).toHaveLength(2)
+    expect(result.current.sidebarProps.selectionSummaryMessage).toBe(
+      'Showing modifiers for all 2 visible orders.',
+    )
+
+    act(() => {
+      result.current.topBarProps.onRefresh()
+    })
+
+    expect(refreshMock).toHaveBeenCalledWith({ silent: true })
+  })
+
+  it('removes selections for orders that are no longer visible', async () => {
+    const { result } = renderHook(
+      () => {
+        const dashboard = useDashboardView()
+        const filters = useFulfillmentFilters()
+
+        return { dashboard, filters }
+      },
+      { wrapper: createWrapper() },
+    )
+
+    act(() => {
+      result.current.dashboard.ordersAreaProps.toggleOrderActive('order-1')
+    })
+
+    expect(result.current.dashboard.ordersAreaProps.activeOrderIds.has('order-1')).toBe(true)
+
+    act(() => {
+      result.current.filters.toggleFulfillmentFilter('new')
+    })
+
+    await waitFor(() => {
+      expect(result.current.dashboard.ordersAreaProps.visibleOrders).toHaveLength(1)
+      expect(result.current.dashboard.ordersAreaProps.activeOrderIds.has('order-1')).toBe(false)
+    })
+  })
+})
