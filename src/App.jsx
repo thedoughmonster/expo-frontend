@@ -1,15 +1,9 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import './App.css'
-import { extractOrderGuid, extractOrdersFromPayload, normalizeOrders, parseDateLike } from './domain/orders/normalizeOrders'
-import { buildDiningOptionLookup, buildMenuItemLookup, extractUnfulfilledOrderGuids } from './domain/menus/menuLookup'
+import { parseDateLike } from './domain/orders/normalizeOrders'
 import { FULFILLMENT_FILTERS, fulfillmentStatusToClassName, resolveFulfillmentFilterKey } from './domain/status/fulfillmentFilters'
+import useOrdersData from './hooks/useOrdersData'
 
-
-const ORDERS_ENDPOINT =
-  'https://doughmonster-worker.thedoughmonster.workers.dev/api/orders'
-const MENUS_ENDPOINT = 'https://doughmonster-worker.thedoughmonster.workers.dev/api/menus'
-const CONFIG_SNAPSHOT_ENDPOINT =
-  'https://doughmonster-worker.thedoughmonster.workers.dev/api/config/snapshot'
 
 const deriveModifiersFromOrders = (orders) => {
   const counts = new Map()
@@ -221,130 +215,12 @@ const statusToClassName = (status) => {
 }
 
 function App() {
-  const [orders, setOrders] = useState([])
+  const { orders, isLoading, isRefreshing, error, refresh } = useOrdersData()
   const [activeOrderIds, setActiveOrderIds] = useState(() => new Set())
-  const [isLoading, setIsLoading] = useState(false)
-  const [isRefreshing, setIsRefreshing] = useState(false)
-  const [error, setError] = useState(null)
   const [activeFulfillmentFilters, setActiveFulfillmentFilters] = useState(
     () => new Set(FULFILLMENT_FILTERS.map(({ key }) => key)),
   )
   const now = useNow(1000)
-
-  const isMountedRef = useRef(true)
-
-  useEffect(() => {
-    return () => {
-      isMountedRef.current = false
-    }
-  }, [])
-
-  const loadData = useCallback(
-    async ({ silent = false, signal } = {}) => {
-      if (signal?.aborted || !isMountedRef.current) {
-        return
-      }
-
-      if (silent) {
-        setIsRefreshing(true)
-      } else {
-        setIsLoading(true)
-      }
-
-      setError(null)
-
-      try {
-        const configPromise = (async () => {
-          try {
-            const response = await fetch(CONFIG_SNAPSHOT_ENDPOINT, { signal })
-            if (!response.ok) {
-              return null
-            }
-
-            return await response.json()
-          } catch (configError) {
-            if (configError?.name === 'AbortError') {
-              return null
-            }
-
-            return null
-          }
-        })()
-
-        const [ordersResponse, menusResponse] = await Promise.all([
-          fetch(ORDERS_ENDPOINT, { signal }),
-          fetch(MENUS_ENDPOINT, { signal }),
-        ])
-
-        if (!ordersResponse.ok) {
-          throw new Error(`Orders request failed with status ${ordersResponse.status}`)
-        }
-
-        if (!menusResponse.ok) {
-          throw new Error(`Menus request failed with status ${menusResponse.status}`)
-        }
-
-        const [ordersPayload, menusPayload, configPayload] = await Promise.all([
-          ordersResponse.json(),
-          menusResponse.json(),
-          configPromise,
-        ])
-
-        if (signal?.aborted || !isMountedRef.current) {
-          return
-        }
-
-        const rawOrders = extractOrdersFromPayload(ordersPayload)
-        const menuLookup = buildMenuItemLookup(menusPayload)
-        const diningOptionLookup = buildDiningOptionLookup(configPayload)
-        const outstandingGuids = extractUnfulfilledOrderGuids(menusPayload)
-        const filteredOrders =
-          outstandingGuids.size > 0
-            ? rawOrders.filter((order) => {
-                const guid = extractOrderGuid(order)
-                return guid ? outstandingGuids.has(guid) : false
-              })
-            : rawOrders
-
-        const normalizedOrders = normalizeOrders(filteredOrders, menuLookup, diningOptionLookup)
-        if (!isMountedRef.current) {
-          return
-        }
-
-        setOrders(normalizedOrders)
-      } catch (fetchError) {
-        if (fetchError.name === 'AbortError' || !isMountedRef.current) {
-          return
-        }
-
-        setError(fetchError)
-
-        if (!silent) {
-          setOrders([])
-        }
-      } finally {
-        if (isMountedRef.current) {
-          if (silent) {
-            setIsRefreshing(false)
-          } else {
-            setIsLoading(false)
-            setIsRefreshing(false)
-          }
-        }
-      }
-    },
-    [],
-  )
-
-  useEffect(() => {
-    const controller = new AbortController()
-
-    loadData({ silent: false, signal: controller.signal })
-
-    return () => {
-      controller.abort()
-    }
-  }, [loadData])
 
   const visibleOrders = useMemo(() => {
     if (orders.length === 0) {
@@ -505,7 +381,7 @@ function App() {
   }
 
   const handleRefresh = () => {
-    loadData({ silent: hasExistingOrders })
+    refresh({ silent: hasExistingOrders })
   }
 
   const openSettings = () => {
