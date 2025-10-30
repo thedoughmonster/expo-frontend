@@ -19,6 +19,20 @@ const createMenuLookup = () =>
     ],
   ])
 
+const createModifierMetadataLookup = () =>
+  new Map([
+    [
+      'mod-123',
+      {
+        groupName: 'Toppings',
+        groupId: 'group-1',
+        groupOrder: 0,
+        optionOrder: 1,
+        optionName: 'Extra Cheese',
+      },
+    ],
+  ])
+
 describe('normalizeItemModifiers', () => {
   it('aggregates nested modifiers while honoring menu lookups', () => {
     const item = {
@@ -34,12 +48,23 @@ describe('normalizeItemModifiers', () => {
       ],
     }
 
-    const result = normalizeItemModifiers(item, createMenuLookup())
+    const result = normalizeItemModifiers(
+      item,
+      createMenuLookup(),
+      createModifierMetadataLookup(),
+    )
 
     expect(result).toEqual([
       {
+        id: 'mod-123',
+        identifier: 'mod-123',
         name: 'Extra Cheese',
         quantity: 3,
+        groupName: 'Toppings',
+        groupId: 'group-1',
+        groupOrder: 0,
+        optionOrder: 1,
+        optionName: 'Extra Cheese',
       },
     ])
   })
@@ -96,7 +121,7 @@ describe('normalizeOrders timestamp parsing', () => {
       },
     ]
 
-    const [first, second] = normalizeOrders(rawOrders, new Map(), new Map())
+    const [first, second] = normalizeOrders(rawOrders, new Map(), new Map(), new Map())
 
     expect(first.guid).toBe('00000000-0000-0000-0000-000000000001')
     expect(first.createdAt).toBeInstanceOf(Date)
@@ -115,7 +140,7 @@ describe('normalizeOrders tab names', () => {
       },
     ]
 
-    const [order] = normalizeOrders(rawOrders, new Map(), new Map())
+    const [order] = normalizeOrders(rawOrders, new Map(), new Map(), new Map())
 
     expect(order.tabName).toBe('Main Bar')
   })
@@ -132,7 +157,7 @@ describe('normalizeOrders tab names', () => {
       },
     ]
 
-    const [order] = normalizeOrders(rawOrders, new Map(), new Map())
+    const [order] = normalizeOrders(rawOrders, new Map(), new Map(), new Map())
 
     expect(order.tabName).toBe('Window Counter')
   })
@@ -149,7 +174,7 @@ describe('normalizeOrders tab names', () => {
       },
     ]
 
-    const [order] = normalizeOrders(rawOrders, new Map(), new Map())
+    const [order] = normalizeOrders(rawOrders, new Map(), new Map(), new Map())
 
     expect(order.tabName).toBe('Zac')
   })

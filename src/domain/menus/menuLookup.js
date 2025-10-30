@@ -8,6 +8,14 @@ import {
   extractOrderGuid,
 } from '../orders/normalizeOrders'
 
+const toFiniteOrder = (value) => {
+  if (Number.isFinite(value) && value >= 0) {
+    return value
+  }
+
+  return undefined
+}
+
 const DINING_OPTION_COLLECTION_PATHS = [
   'data.diningOptions',
   'data.dining_options',
@@ -298,6 +306,187 @@ const buildMenuItemLookup = (menuPayload) => {
   return lookup
 }
 
+const buildModifierMetadataLookup = (menuPayload) => {
+  const lookup = new Map()
+
+  if (!menuPayload || typeof menuPayload !== 'object') {
+    return lookup
+  }
+
+  const root = menuPayload?.menu ?? menuPayload
+
+  if (!root || typeof root !== 'object') {
+    return lookup
+  }
+
+  const groupReferences = root?.modifierGroupReferences
+  const optionReferences = root?.modifierOptionReferences
+
+  if (!groupReferences || typeof groupReferences !== 'object') {
+    return lookup
+  }
+
+  const groupOrderLookup = new Map()
+  let nextGroupOrder = 0
+
+  const recordGroupEncounter = (rawReference) => {
+    if (rawReference === undefined || rawReference === null) {
+      return
+    }
+
+    let identifier
+
+    if (typeof rawReference === 'object') {
+      identifier = toStringValue(
+        pickValue(rawReference, ['referenceId', 'reference_id', 'guid', 'id']),
+      )
+    } else {
+      identifier = toStringValue(rawReference)
+    }
+
+    if (!identifier) {
+      return
+    }
+
+    const trimmed = identifier.trim()
+    if (!trimmed) {
+      return
+    }
+
+    if (!groupOrderLookup.has(trimmed)) {
+      groupOrderLookup.set(trimmed, nextGroupOrder)
+      nextGroupOrder += 1
+    }
+  }
+
+  const visitMenuNode = (node) => {
+    if (!node) {
+      return
+    }
+
+    if (Array.isArray(node)) {
+      node.forEach(visitMenuNode)
+      return
+    }
+
+    if (typeof node !== 'object') {
+      return
+    }
+
+    Object.entries(node).forEach(([key, value]) => {
+      if (key === 'modifierGroupReferences' || key === 'modifier_group_references') {
+        const candidates = ensureArray(value)
+        if (candidates.length === 0 && value && typeof value === 'object') {
+          recordGroupEncounter(value)
+        } else {
+          candidates.forEach(recordGroupEncounter)
+        }
+      }
+
+      visitMenuNode(value)
+    })
+  }
+
+  const menus = ensureArray(root?.menus)
+  menus.forEach(visitMenuNode)
+
+  const applyMetadata = (identifier, metadata) => {
+    const normalized = toStringValue(identifier)
+    if (!normalized) {
+      return
+    }
+
+    const trimmed = normalized.trim()
+    if (!trimmed) {
+      return
+    }
+
+    const existing = lookup.get(trimmed)
+    if (!existing) {
+      lookup.set(trimmed, metadata)
+      return
+    }
+
+    const existingRank =
+      (Number.isFinite(existing.groupOrder) ? existing.groupOrder : Number.POSITIVE_INFINITY) * 100000 +
+      (Number.isFinite(existing.optionOrder) ? existing.optionOrder : Number.POSITIVE_INFINITY)
+    const nextRank =
+      (Number.isFinite(metadata.groupOrder) ? metadata.groupOrder : Number.POSITIVE_INFINITY) * 100000 +
+      (Number.isFinite(metadata.optionOrder) ? metadata.optionOrder : Number.POSITIVE_INFINITY)
+
+    if (nextRank < existingRank) {
+      lookup.set(trimmed, metadata)
+    }
+  }
+
+  Object.entries(groupReferences).forEach(([groupKey, groupValue]) => {
+    if (!groupValue || typeof groupValue !== 'object') {
+      return
+    }
+
+    const groupReference = toStringValue(groupValue.referenceId ?? groupKey)
+    const groupIdentifier = toStringValue(groupValue.guid) ?? groupReference ?? groupKey
+    const groupName =
+      toStringValue(groupValue.name) ??
+      toStringValue(groupValue.posName) ??
+      toStringValue(groupValue.displayName)
+    const groupOrder = toFiniteOrder(
+      groupOrderLookup.get(groupReference?.trim?.() ?? groupReference ?? groupKey) ??
+        groupOrderLookup.get(groupIdentifier ?? '') ??
+        groupOrderLookup.get(groupKey),
+    )
+
+    const optionRefs = ensureArray(groupValue.modifierOptionReferences)
+
+    optionRefs.forEach((optionReference, optionIndex) => {
+      const optionReferenceKey = toStringValue(optionReference)
+      if (!optionReferenceKey) {
+        return
+      }
+
+      const optionRecord =
+        optionReferences?.[optionReferenceKey] ?? optionReferences?.[String(optionReferenceKey)]
+
+      const optionName =
+        toStringValue(optionRecord?.kitchenName) ??
+        toStringValue(optionRecord?.name) ??
+        toStringValue(optionRecord?.posName) ??
+        toStringValue(optionRecord?.displayName)
+
+      const metadata = {
+        groupName: groupName ?? undefined,
+        groupId: groupIdentifier ?? undefined,
+        groupOrder,
+        optionOrder: toFiniteOrder(optionIndex),
+        optionName: optionName ?? undefined,
+      }
+
+      const identifiers = new Set()
+      identifiers.add(optionReferenceKey)
+
+      if (optionRecord && typeof optionRecord === 'object') {
+        ;[
+          optionRecord.referenceId,
+          optionRecord.guid,
+          optionRecord.masterId,
+          optionRecord.multiLocationId,
+          optionRecord.sku,
+          optionRecord.plu,
+        ].forEach((candidate) => {
+          const normalizedCandidate = toStringValue(candidate)
+          if (normalizedCandidate) {
+            identifiers.add(normalizedCandidate)
+          }
+        })
+      }
+
+      identifiers.forEach((identifier) => applyMetadata(identifier, metadata))
+    })
+  })
+
+  return lookup
+}
+
 const extractUnfulfilledOrderGuids = (menuPayload) => {
   const unfulfilled = new Set()
 
@@ -367,4 +556,9 @@ const extractUnfulfilledOrderGuids = (menuPayload) => {
   return unfulfilled
 }
 
-export { buildDiningOptionLookup, buildMenuItemLookup, extractUnfulfilledOrderGuids }
+export {
+  buildDiningOptionLookup,
+  buildMenuItemLookup,
+  buildModifierMetadataLookup,
+  extractUnfulfilledOrderGuids,
+}

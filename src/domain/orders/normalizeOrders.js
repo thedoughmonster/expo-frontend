@@ -10,6 +10,14 @@ const ensureArray = (value) => {
   return []
 }
 
+const toFiniteOrder = (value) => {
+  if (Number.isFinite(value) && value >= 0) {
+    return value
+  }
+
+  return undefined
+}
+
 const ORDER_ITEM_COLLECTION_KEYS = [
   'items',
   'line_items',
@@ -877,7 +885,7 @@ const MODIFIER_IDENTIFIER_KEYS = [
   'choice_id',
 ]
 
-const normalizeItemModifiers = (item, menuLookup) => {
+const normalizeItemModifiers = (item, menuLookup, modifierMetadataLookup = new Map()) => {
   if (!item || typeof item !== 'object') {
     return []
   }
@@ -1110,19 +1118,41 @@ const normalizeItemModifiers = (item, menuLookup) => {
         name,
         quantity: normalizedQuantity,
         priority: priority ?? Number.POSITIVE_INFINITY,
+        identifier: identifier ?? undefined,
       })
       return
     }
 
     const existing = aggregated.get(key)
     existing.quantity += normalizedQuantity
+    if (!existing.identifier && identifier) {
+      existing.identifier = identifier
+    }
     if ((priority ?? Number.POSITIVE_INFINITY) < existing.priority && name) {
       existing.name = name
       existing.priority = priority ?? Number.POSITIVE_INFINITY
     }
   })
 
-  return Array.from(aggregated.values()).map(({ name, quantity }) => ({ name, quantity }))
+  const metadataLookup = modifierMetadataLookup instanceof Map ? modifierMetadataLookup : new Map()
+
+  return Array.from(aggregated.values()).map(({ name, quantity, identifier }) => {
+    const metadata = identifier ? metadataLookup.get(identifier) : undefined
+    const normalizedGroupOrder = toFiniteOrder(metadata?.groupOrder)
+    const normalizedOptionOrder = toFiniteOrder(metadata?.optionOrder)
+
+    return {
+      id: identifier ?? (name ? name.trim().toLowerCase() : undefined),
+      identifier: identifier ?? undefined,
+      name,
+      quantity,
+      groupName: metadata?.groupName ?? undefined,
+      groupId: metadata?.groupId ?? metadata?.groupName ?? undefined,
+      groupOrder: normalizedGroupOrder,
+      optionOrder: normalizedOptionOrder,
+      optionName: metadata?.optionName ?? undefined,
+    }
+  })
 }
 
 const ORDER_ITEM_IDENTIFIER_KEYS = [
@@ -1259,7 +1289,7 @@ const hasItemHints = (value) => {
   })
 }
 
-const normalizeOrderItems = (order, menuLookup) => {
+const normalizeOrderItems = (order, menuLookup, modifierMetadataLookup) => {
   if (!order || typeof order !== 'object') {
     return []
   }
@@ -1318,7 +1348,7 @@ const normalizeOrderItems = (order, menuLookup) => {
     const price = toNumber(pickValue(item, ORDER_ITEM_PRICE_KEYS))
     const currency = toStringValue(pickValue(item, ['currency', 'currencyCode']))
     const notes = toStringValue(pickValue(item, ['notes', 'note', 'specialInstructions', 'instructions']))
-    const modifiers = normalizeItemModifiers(item, menuLookup)
+    const modifiers = normalizeItemModifiers(item, menuLookup, modifierMetadataLookup)
 
     let rawIdentifier
     for (const key of ORDER_ITEM_IDENTIFIER_KEYS) {
@@ -1799,7 +1829,12 @@ const extractOrdersFromPayload = (payload) => {
   return []
 }
 
-const normalizeOrders = (rawOrders, menuLookup = new Map(), diningOptionLookup = new Map()) => {
+const normalizeOrders = (
+  rawOrders,
+  menuLookup = new Map(),
+  diningOptionLookup = new Map(),
+  modifierMetadataLookup = new Map(),
+) => {
   const collection = ensureArray(rawOrders)
 
   const normalizedWithIndex = collection.map((order, index) => {
@@ -1858,7 +1893,7 @@ const normalizeOrders = (rawOrders, menuLookup = new Map(), diningOptionLookup =
       fulfillmentStatus,
       notes,
       tabName,
-      items: normalizeOrderItems(order, menuLookup),
+      items: normalizeOrderItems(order, menuLookup, modifierMetadataLookup),
       originalIndex: index,
     }
   }).filter(Boolean)

@@ -7,6 +7,7 @@ import {
 import {
   buildDiningOptionLookup,
   buildMenuItemLookup,
+  buildModifierMetadataLookup,
   extractUnfulfilledOrderGuids,
 } from '../domain/menus/menuLookup'
 
@@ -107,6 +108,7 @@ const useOrdersData = () => {
 
         const rawOrders = extractOrdersFromPayload(ordersPayload)
         const menuLookup = buildMenuItemLookup(menusPayload)
+        const modifierMetadataLookup = buildModifierMetadataLookup(menusPayload)
         const diningOptionLookup = buildDiningOptionLookup(configPayload)
         const outstandingGuids = extractUnfulfilledOrderGuids(menusPayload)
         const filteredOrders =
@@ -117,7 +119,12 @@ const useOrdersData = () => {
               })
             : rawOrders
 
-        const normalizedOrders = normalizeOrders(filteredOrders, menuLookup, diningOptionLookup)
+        const normalizedOrders = normalizeOrders(
+          filteredOrders,
+          menuLookup,
+          diningOptionLookup,
+          modifierMetadataLookup,
+        )
 
         if (!isMountedRef.current || signal.aborted) {
           return
