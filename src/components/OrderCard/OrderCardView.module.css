@@ -1,0 +1,54 @@
+.elapsed {
+  margin: 0;
+  font-size: 0.85rem;
+  color: #facc15;
+  font-weight: 500;
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.35rem;
+}
+
+.elapsedValue {
+  font-variant-numeric: tabular-nums;
+  color: #fcd34d;
+}
+
+.empty {
+  margin: 0;
+  font-size: 0.85rem;
+  color: #cbd5f5;
+  background: rgba(148, 163, 184, 0.12);
+  border-radius: 0.65rem;
+  padding: 0.6rem 0.75rem;
+  border: 1px solid rgba(148, 163, 184, 0.2);
+}
+
+.notes {
+  margin: 0;
+  font-size: 0.85rem;
+  color: #f8fafc;
+  background: rgba(30, 64, 175, 0.45);
+  border: 1px solid rgba(59, 130, 246, 0.35);
+  border-radius: 0.65rem;
+  padding: 0.6rem 0.75rem;
+}
+
+.footer {
+  margin-top: auto;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-top: 0.75rem;
+  border-top: 1px solid rgba(59, 130, 246, 0.25);
+  font-weight: 600;
+  color: #f8fafc;
+  font-size: 0.95rem;
+}
+
+.totalLabel {
+  opacity: 0.85;
+}
+
+.totalValue {
+  font-variant-numeric: tabular-nums;
+}
