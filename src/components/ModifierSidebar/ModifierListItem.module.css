@@ -1,0 +1,49 @@
+.item {
+  display: flex;
+  align-items: stretch;
+  width: 100%;
+  border-radius: 0.5rem;
+  overflow: hidden;
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.12), rgba(37, 99, 235, 0.08));
+  border: 1px solid rgba(59, 130, 246, 0.2);
+  color: #e2e8f0;
+  font-size: 0.875rem;
+}
+
+.quantity {
+  display: flex;
+  align-items: center;
+  gap: 0.2rem;
+  padding: 0.35rem 0.65rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: #bfdbfe;
+  background-color: rgba(37, 99, 235, 0.32);
+  min-width: 2.5rem;
+}
+
+.quantityValue {
+  display: inline-block;
+}
+
+.quantityMultiplier {
+  padding-left: 0.1rem;
+}
+
+.content {
+  flex: 1;
+  min-width: 0;
+  padding: 0.35rem 0.65rem;
+  display: flex;
+  align-items: center;
+}
+
+.name {
+  flex: 1;
+  min-width: 0;
+  font-weight: 500;
+  color: inherit;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  line-height: 1.1;
+}
