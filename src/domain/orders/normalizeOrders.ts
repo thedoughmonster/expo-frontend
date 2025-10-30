@@ -437,30 +437,55 @@ const getSelectionName = (
   selection: ToastSelection,
   identifiers: string[],
   menuLookup?: MenuLookup,
+  options?: { preferKitchenName?: boolean },
 ): string | undefined => {
+  const preferKitchenName = options?.preferKitchenName ?? false
   const direct = toStringValue(selection.displayName)?.trim()
-  if (direct) {
+
+  if (!preferKitchenName && direct) {
     return direct
   }
 
-  if (!menuLookup) {
-    return undefined
-  }
+  if (menuLookup) {
+    let fallback: string | undefined
 
-  for (const identifier of identifiers) {
-    const entry = menuLookup.get(identifier)
-    if (!entry) {
-      continue
+    for (const identifier of identifiers) {
+      const entry = menuLookup.get(identifier)
+      if (!entry) {
+        continue
+      }
+
+      const kitchenName = toStringValue(entry.kitchenName)?.trim()
+      const generalName =
+        toStringValue(entry.displayName)?.trim() ??
+        toStringValue(entry.posName)?.trim() ??
+        toStringValue(entry.fallbackName)?.trim() ??
+        kitchenName
+
+      if (preferKitchenName) {
+        if (kitchenName) {
+          return kitchenName
+        }
+
+        if (!fallback && generalName) {
+          fallback = generalName
+        }
+
+        continue
+      }
+
+      const menuName = kitchenName ?? generalName
+      if (menuName) {
+        return menuName
+      }
     }
 
-    const menuName =
-      entry.kitchenName ?? entry.displayName ?? entry.posName ?? entry.fallbackName
-    if (menuName) {
-      return menuName
+    if (preferKitchenName) {
+      return fallback ?? direct ?? undefined
     }
   }
 
-  return undefined
+  return direct ?? undefined
 }
 
 const aggregateModifiers = (
@@ -531,8 +556,16 @@ const aggregateModifiers = (
 
     const typedModifier = modifier as unknown as ToastSelection
     const identifiers = getSelectionIdentifiers(typedModifier)
+    const metadataIdentifier = modifierMetadataLookup
+      ? identifiers.find((id) => modifierMetadataLookup.has(id))
+      : undefined
+    const metadata = metadataIdentifier
+      ? modifierMetadataLookup?.get(metadataIdentifier)
+      : undefined
+    const metadataName = toStringValue(metadata?.optionName)?.trim()
     const name =
-      getSelectionName(typedModifier, identifiers, menuLookup) ??
+      metadataName ??
+      getSelectionName(typedModifier, identifiers, menuLookup, { preferKitchenName: true }) ??
       toStringValue(typedModifier.displayName)?.trim()
 
     if (!name) {
@@ -540,12 +573,6 @@ const aggregateModifiers = (
     }
 
     const quantity = toNumber(typedModifier.quantity) ?? 1
-    const metadataIdentifier = modifierMetadataLookup
-      ? identifiers.find((id) => modifierMetadataLookup.has(id))
-      : undefined
-    const metadata = metadataIdentifier
-      ? modifierMetadataLookup?.get(metadataIdentifier)
-      : undefined
     const normalizedQuantity = quantity > 0 ? quantity : 1
 
     upsert(metadataIdentifier, name, normalizedQuantity, metadata)

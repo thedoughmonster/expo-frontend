@@ -46,7 +46,7 @@ const createModifierMetadataLookup = () =>
         groupId: 'protein-group',
         groupOrder: 0,
         optionOrder: 1,
-        optionName: 'DM Pork Sausage',
+        optionName: 'Sausage',
       },
     ],
     [
@@ -56,7 +56,7 @@ const createModifierMetadataLookup = () =>
         groupId: 'cheese-group',
         groupOrder: 1,
         optionOrder: 0,
-        optionName: 'American Cheese',
+        optionName: 'Cheese',
       },
     ],
   ])
@@ -165,24 +165,64 @@ describe('normalizeItemModifiers', () => {
       {
         id: 'mod-1-option',
         identifier: 'mod-1-option',
-        name: 'DM Pork Sausage',
+        name: 'Sausage',
         quantity: 1,
         groupName: 'Proteins',
         groupId: 'protein-group',
         groupOrder: 0,
         optionOrder: 1,
-        optionName: 'DM Pork Sausage',
+        optionName: 'Sausage',
       },
       {
         id: 'mod-2-option',
         identifier: 'mod-2-option',
-        name: 'American Cheese',
+        name: 'Cheese',
         quantity: 3,
         groupName: 'Cheese',
         groupId: 'cheese-group',
         groupOrder: 1,
         optionOrder: 0,
-        optionName: 'American Cheese',
+        optionName: 'Cheese',
+      },
+    ])
+  })
+
+  it('prefers kitchen names from the menu lookup when metadata is unavailable', () => {
+    const selection = {
+      modifiers: [
+        {
+          guid: 'modifier-instance-4',
+          item: { guid: 'mod-3-option' },
+          displayName: 'Pepper Jack Cheese',
+          quantity: 1,
+        },
+      ],
+    }
+
+    const menuLookup = new Map([
+      [
+        'mod-3-option',
+        {
+          kitchenName: 'Pepperjack',
+          displayName: 'Pepper Jack Cheese',
+          fallbackName: 'Pepper Jack Cheese',
+        },
+      ],
+    ])
+
+    const result = normalizeItemModifiers(selection, menuLookup)
+
+    expect(result).toEqual([
+      {
+        id: 'pepperjack',
+        identifier: undefined,
+        name: 'Pepperjack',
+        quantity: 1,
+        groupName: undefined,
+        groupId: undefined,
+        groupOrder: undefined,
+        optionOrder: undefined,
+        optionName: undefined,
       },
     ])
   })
@@ -259,24 +299,24 @@ describe('normalizeOrders', () => {
             {
               id: 'mod-1-option',
               identifier: 'mod-1-option',
-              name: 'DM Pork Sausage',
+              name: 'Sausage',
               quantity: 1,
               groupName: 'Proteins',
               groupId: 'protein-group',
               groupOrder: 0,
               optionOrder: 1,
-              optionName: 'DM Pork Sausage',
+              optionName: 'Sausage',
             },
             {
               id: 'mod-2-option',
               identifier: 'mod-2-option',
-              name: 'American Cheese',
+              name: 'Cheese',
               quantity: 3,
               groupName: 'Cheese',
               groupId: 'cheese-group',
               groupOrder: 1,
               optionOrder: 0,
-              optionName: 'American Cheese',
+              optionName: 'Cheese',
             },
           ],
         },

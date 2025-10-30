@@ -28,20 +28,38 @@ const OrderCardHeader = ({
 }) => (
   <header className={styles.header}>
     <div className={`${styles.titlebar} ${isActive ? styles.titlebarActive : ''}`.trim()}>
-      <div className={styles.titlebarMain}>
-        {orderNumber ? (
-          <span className={styles.number} aria-label={orderNumberLabel}>
-            {orderNumber}
-          </span>
-        ) : null}
-        {displayCustomerName ? (
-          <span
-            className={styles.tabName}
-            aria-label={customerAriaLabel}
-            title={displayCustomerName}
+      <div className={styles.titlebarRow}>
+        <div className={styles.titlebarMain}>
+          {orderNumber ? (
+            <span className={styles.number} aria-label={orderNumberLabel}>
+              {orderNumber}
+            </span>
+          ) : null}
+          {displayCustomerName ? (
+            <span
+              className={styles.tabName}
+              aria-label={customerAriaLabel}
+              title={displayCustomerName}
+            >
+              {displayCustomerName}
+            </span>
+          ) : null}
+        </div>
+        {showElapsedTimer ? (
+          <div
+            className={styles.titlebarTimer}
+            role="timer"
+            aria-live="polite"
+            aria-label={elapsedAriaLabel}
+            title={elapsedTitle || undefined}
           >
-            {displayCustomerName}
-          </span>
+            <span className={styles.titlebarTimerIcon} aria-hidden="true">
+              ⏱
+            </span>
+            <time className={styles.titlebarTimerValue} dateTime={elapsedIsoDuration}>
+              {elapsedTimerValue}
+            </time>
+          </div>
         ) : null}
       </div>
       {hasTitlebarMeta ? (
@@ -59,22 +77,6 @@ const OrderCardHeader = ({
               {fulfillmentStatus}
             </span>
           ) : null}
-        </div>
-      ) : null}
-      {showElapsedTimer ? (
-        <div
-          className={styles.titlebarTimer}
-          role="timer"
-          aria-live="polite"
-          aria-label={elapsedAriaLabel}
-          title={elapsedTitle || undefined}
-        >
-          <span className={styles.titlebarTimerIcon} aria-hidden="true">
-            ⏱
-          </span>
-          <time className={styles.titlebarTimerValue} dateTime={elapsedIsoDuration}>
-            {elapsedTimerValue}
-          </time>
         </div>
       ) : null}
     </div>
