@@ -1,0 +1,41 @@
+.sidebar {
+  flex: 0 1 24vw;
+  min-width: 12rem;
+  max-width: 18rem;
+  display: flex;
+  flex-direction: column;
+  padding: 1.5rem;
+  background-color: #111827;
+  border-right: 1px solid #1e293b;
+  overflow-y: auto;
+  overflow-x: hidden;
+  color: #cbd5f5;
+}
+
+.title {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+  color: #f8fafc;
+}
+
+.selectionStatus {
+  margin: 0.5rem 0 0;
+  font-size: 0.8rem;
+  color: #a5b4fc;
+  font-weight: 500;
+}
+
+.status {
+  margin: 1rem 0 0;
+  font-size: 0.875rem;
+  color: #94a3b8;
+}
+
+@media (max-width: 720px) {
+  .sidebar {
+    max-width: 100%;
+    border-right: none;
+    border-bottom: 1px solid #1e293b;
+  }
+}

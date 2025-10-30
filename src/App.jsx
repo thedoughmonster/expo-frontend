@@ -1,37 +1,13 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import './App.css'
 import DashboardLayout from './components/DashboardLayout'
+import ModifierSidebarContainer from './components/ModifierSidebar/ModifierSidebarContainer'
 import { TopBarContainer } from './components/TopBar'
 import { parseDateLike } from './domain/orders/normalizeOrders'
 import { FULFILLMENT_FILTERS, fulfillmentStatusToClassName, resolveFulfillmentFilterKey } from './domain/status/fulfillmentFilters'
 import useOrdersData from './hooks/useOrdersData'
 import { OrdersViewProvider, useFulfillmentFilters, useSelectionState } from './viewContext/OrdersViewContext'
 
-
-const deriveModifiersFromOrders = (orders) => {
-  const counts = new Map()
-
-  orders.forEach((order) => {
-    order.items.forEach((item) => {
-      const itemQuantity = item.quantity && item.quantity > 0 ? item.quantity : 1
-
-      item.modifiers.forEach((modifier) => {
-        if (!modifier?.name) {
-          return
-        }
-
-        const modifierQuantity = modifier.quantity && modifier.quantity > 0 ? modifier.quantity : 1
-        const totalQuantity = modifierQuantity * itemQuantity
-        const nextValue = (counts.get(modifier.name) ?? 0) + totalQuantity
-        counts.set(modifier.name, nextValue)
-      })
-    })
-  })
-
-  return Array.from(counts.entries())
-    .map(([name, qty]) => ({ name, qty }))
-    .sort((a, b) => b.qty - a.qty)
-}
 
 const formatCurrency = (value, currency = 'USD') => {
   if (value === undefined || value === null) {
@@ -298,7 +274,6 @@ function DashboardView() {
     return visibleOrders.filter((order) => activeOrderIds.has(order.id))
   }, [activeOrderIds, visibleOrders])
 
-  const modifierItems = useMemo(() => deriveModifiersFromOrders(ordersForModifiers), [ordersForModifiers])
   const activeSelectionCount = activeOrderIds.size
   const visibleOrderCount = visibleOrders.length
   const selectionSummaryMessage =
@@ -366,44 +341,12 @@ function DashboardView() {
   )
 
   const sidebarContent = (
-    <aside className="sidebar">
-      <h2>Modifiers</h2>
-      {selectionSummaryMessage ? (
-        <p className="sidebar-selection-status" aria-live="polite">
-          {selectionSummaryMessage}
-        </p>
-      ) : null}
-      {isLoading && modifierItems.length === 0 && !error ? (
-        <p className="sidebar-status" aria-live="polite">
-          Loading modifiers…
-        </p>
-      ) : null}
-      {!isLoading && error ? (
-        <p className="sidebar-status" role="alert">
-          Unable to load modifiers.
-        </p>
-      ) : null}
-      {!isLoading && !error && modifierItems.length === 0 ? (
-        <p className="sidebar-status">No modifiers found.</p>
-      ) : null}
-      {modifierItems.length > 0 ? (
-        <ul className="modifier-list">
-          {modifierItems.map(({ name, qty }) => (
-            <li className="modifier-item" key={name}>
-              <div className="modifier-qty" aria-label={`Quantity ${qty}`}>
-                <span className="modifier-qty-value">{qty}</span>
-                <span aria-hidden="true" className="qty-multiplier">
-                  ×
-                </span>
-              </div>
-              <div className="modifier-content">
-                <span className="modifier-name">{name}</span>
-              </div>
-            </li>
-          ))}
-        </ul>
-      ) : null}
-    </aside>
+    <ModifierSidebarContainer
+      error={error}
+      isLoading={isLoading}
+      orders={ordersForModifiers}
+      selectionSummaryMessage={selectionSummaryMessage}
+    />
   )
 
   const ordersArea = (
