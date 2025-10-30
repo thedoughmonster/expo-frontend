@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo } from 'react'
 import './App.css'
 import DashboardLayout from './components/DashboardLayout'
 import OrdersAreaContainer from './components/OrdersArea/OrdersAreaContainer'
@@ -7,6 +7,8 @@ import { TopBarContainer } from './components/TopBar'
 import { FULFILLMENT_FILTERS, resolveFulfillmentFilterKey } from './domain/status/fulfillmentFilters'
 import useOrdersData from './hooks/useOrdersData'
 import { OrdersViewProvider, useFulfillmentFilters, useSelectionState } from './viewContext/OrdersViewContext'
+import SettingsModalContainer from './components/SettingsModal/SettingsModalContainer'
+import { SettingsModalProvider } from './components/SettingsModal/SettingsModalContext'
 
 
 function DashboardView() {
@@ -75,11 +77,6 @@ function DashboardView() {
     [],
   )
 
-  const [isSettingsOpen, setSettingsOpen] = useState(false)
-  const [activeTabId, setActiveTabId] = useState(settingsTabs[0].id)
-
-  const activeTab = settingsTabs.find((tab) => tab.id === activeTabId) ?? settingsTabs[0]
-
   const ordersForModifiers = useMemo(() => {
     if (activeOrderIds.size === 0) {
       return visibleOrders
@@ -124,21 +121,10 @@ function DashboardView() {
     refresh({ silent: hasExistingOrders })
   }, [hasExistingOrders, refresh])
 
-  const openSettings = useCallback(() => {
-    setActiveTabId(settingsTabs[0].id)
-    setSettingsOpen(true)
-  }, [settingsTabs])
-
-  const closeSettings = useCallback(() => {
-    setSettingsOpen(false)
-  }, [])
-
   const topBar = (
     <TopBarContainer
       title="Order Dashboard"
       isBusy={isBusy}
-      isSettingsOpen={isSettingsOpen}
-      onOpenSettings={openSettings}
       onRefresh={handleRefresh}
       refreshAriaLabel={refreshAriaLabel}
     />
@@ -166,71 +152,12 @@ function DashboardView() {
   )
 
   return (
-    <>
-      <DashboardLayout topBar={topBar} sidebar={sidebarContent} ordersArea={ordersArea} />
-      {isSettingsOpen && (
-        <div className="modal-backdrop" role="presentation" onClick={closeSettings}>
-          <div
-            className="settings-modal"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="settings-modal-title"
-            onClick={(event) => event.stopPropagation()}
-          >
-            <div className="settings-modal-header">
-              <h2 id="settings-modal-title">Dashboard Settings</h2>
-              <button
-                type="button"
-                className="modal-close-button"
-                onClick={closeSettings}
-                aria-label="Close settings"
-              >
-                ×
-              </button>
-            </div>
-            <div className="settings-modal-body">
-              <div className="settings-tabs" role="tablist" aria-label="Settings tabs">
-                {settingsTabs.map((tab) => (
-                  <button
-                    key={tab.id}
-                    type="button"
-                    role="tab"
-                    aria-selected={tab.id === activeTab.id}
-                    aria-controls={`settings-tabpanel-${tab.id}`}
-                    id={`settings-tab-${tab.id}`}
-                    className={`settings-tab${tab.id === activeTab.id ? ' is-active' : ''}`}
-                    onClick={() => setActiveTabId(tab.id)}
-                  >
-                    {tab.label}
-                  </button>
-                ))}
-              </div>
-              <div
-                className="settings-tabpanel"
-                role="tabpanel"
-                id={`settings-tabpanel-${activeTab.id}`}
-                aria-labelledby={`settings-tab-${activeTab.id}`}
-              >
-                <p>{activeTab.description}</p>
-                <ul className="settings-placeholder-list">
-                  <li>Placeholder option A</li>
-                  <li>Placeholder option B</li>
-                  <li>Placeholder option C</li>
-                </ul>
-              </div>
-            </div>
-            <div className="settings-modal-footer">
-              <button type="button" className="modal-primary-button" disabled>
-                Save Changes
-              </button>
-              <button type="button" className="modal-secondary-button" onClick={closeSettings}>
-                Cancel
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-    </>
+    <SettingsModalProvider tabs={settingsTabs}>
+      <>
+        <DashboardLayout topBar={topBar} sidebar={sidebarContent} ordersArea={ordersArea} />
+        <SettingsModalContainer title="Dashboard Settings" />
+      </>
+    </SettingsModalProvider>
   )
 }
 
