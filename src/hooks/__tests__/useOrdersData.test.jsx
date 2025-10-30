@@ -44,23 +44,31 @@ describe('useOrdersData', () => {
   it('loads orders on mount and exposes resolved state', async () => {
     const orderGuid = '12345678-abcd-1234-abcd-abcdefabcdef'
     const ordersPayload = {
+      ok: true,
       orders: [
         {
           guid: orderGuid,
-          status: 'OPEN',
-          createdAt: '2025-01-01T10:15:00Z',
-          total: 42.5,
-          currency: 'USD',
-          diningOptionGuid: 'pickup-guid',
-          items: [
+          displayNumber: '21',
+          approvalStatus: 'APPROVED',
+          openedDate: '2025-01-01T10:15:00Z',
+          diningOption: { guid: 'pickup-guid' },
+          checks: [
             {
-              id: 'menu-item-1',
-              name: 'Pizza',
-              quantity: 1,
-              modifiers: [
+              guid: 'check-1',
+              displayNumber: '21',
+              createdDate: '2025-01-01T10:15:00Z',
+              totalAmount: 42.5,
+              paymentStatus: 'OPEN',
+              selections: [
                 {
-                  name: 'Extra Cheese',
+                  guid: 'selection-1',
+                  displayName: 'Pizza',
                   quantity: 1,
+                  price: 42.5,
+                  fulfillmentStatus: 'NEW',
+                  modifiers: [
+                    { guid: 'modifier-1', displayName: 'Extra Cheese', quantity: 1 },
+                  ],
                 },
               ],
             },
@@ -74,7 +82,7 @@ describe('useOrdersData', () => {
         diningOptions: [
           {
             guid: 'pickup-guid',
-            name: 'Pickup',
+            displayName: 'Pickup',
           },
         ],
       },
@@ -112,26 +120,44 @@ describe('useOrdersData', () => {
 
   it('flags refreshing state for silent refresh without clearing existing orders', async () => {
     const firstOrdersPayload = {
+      ok: true,
       orders: [
         {
           guid: '12345678-abcd-1234-abcd-abcdefabcdef',
-          status: 'OPEN',
-          createdAt: '2025-01-01T10:15:00Z',
-          total: 42.5,
-          currency: 'USD',
-          items: [],
+          displayNumber: '10',
+          approvalStatus: 'APPROVED',
+          openedDate: '2025-01-01T10:15:00Z',
+          checks: [
+            {
+              guid: 'check-1',
+              displayNumber: '10',
+              createdDate: '2025-01-01T10:15:00Z',
+              totalAmount: 42.5,
+              paymentStatus: 'OPEN',
+              selections: [],
+            },
+          ],
         },
       ],
     }
     const refreshedOrdersPayload = {
+      ok: true,
       orders: [
         {
           guid: 'abcdef12-3456-7890-abcd-abcdefabcdef',
-          status: 'READY',
-          createdAt: '2025-01-01T11:00:00Z',
-          total: 18.5,
-          currency: 'USD',
-          items: [],
+          displayNumber: '11',
+          approvalStatus: 'READY',
+          openedDate: '2025-01-01T11:00:00Z',
+          checks: [
+            {
+              guid: 'check-2',
+              displayNumber: '11',
+              createdDate: '2025-01-01T11:00:00Z',
+              totalAmount: 18.5,
+              paymentStatus: 'READY',
+              selections: [],
+            },
+          ],
         },
       ],
     }

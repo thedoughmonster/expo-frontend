@@ -3,18 +3,36 @@ import {
   normalizeItemModifiers,
   normalizeOrders,
   resolveOrderDiningOption,
+  extractOrdersFromPayload,
 } from '../normalizeOrders'
 import { buildDiningOptionLookup } from '../../menus/menuLookup'
 
 const createMenuLookup = () =>
   new Map([
     [
-      'mod-123',
+      'mod-1',
       {
-        kitchenName: 'Extra Cheese',
+        kitchenName: 'Sausage',
+        posName: 'Sausage',
+        displayName: 'DM Pork Sausage',
+        fallbackName: 'Sausage',
+      },
+    ],
+    [
+      'mod-2',
+      {
+        kitchenName: 'Cheese',
         posName: 'Cheese',
-        displayName: 'Extra Cheese',
+        displayName: 'American Cheese',
         fallbackName: 'Cheese',
+      },
+    ],
+    [
+      'selection-1',
+      {
+        kitchenName: 'Build-A-Brekky',
+        displayName: 'Build-A-Brekky',
+        fallbackName: 'Build-A-Brekky',
       },
     ],
   ])
@@ -22,160 +40,245 @@ const createMenuLookup = () =>
 const createModifierMetadataLookup = () =>
   new Map([
     [
-      'mod-123',
+      'mod-1',
       {
-        groupName: 'Toppings',
-        groupId: 'group-1',
+        groupName: 'Proteins',
+        groupId: 'protein-group',
         groupOrder: 0,
         optionOrder: 1,
-        optionName: 'Extra Cheese',
+        optionName: 'DM Pork Sausage',
+      },
+    ],
+    [
+      'mod-2',
+      {
+        groupName: 'Cheese',
+        groupId: 'cheese-group',
+        groupOrder: 1,
+        optionOrder: 0,
+        optionName: 'American Cheese',
       },
     ],
   ])
 
-describe('normalizeItemModifiers', () => {
-  it('aggregates nested modifiers while honoring menu lookups', () => {
-    const item = {
-      modifiers: [
-        { name: 'Extra Cheese', quantity: 1 },
-        { modifierGuid: 'mod-123', quantity: 2 },
+const createDiningOptionLookup = () =>
+  buildDiningOptionLookup({
+    data: {
+      diningOptions: [
         {
-          selectedModifiers: [
-            { modifier_guid: 'mod-123', quantity: 1 },
-            { name: 'extra cheese', quantity: 3 },
+          guid: 'dine-in-guid',
+          displayName: 'Dine In',
+          code: 'DINEIN',
+        },
+        {
+          guid: 'takeout-guid',
+          displayName: 'Take Out',
+          code: 'TAKEOUT',
+        },
+      ],
+    },
+  })
+
+const createCanonicalOrder = () => ({
+  guid: 'order-1',
+  displayNumber: '21',
+  approvalStatus: 'APPROVED',
+  openedDate: '2025-10-30T15:11:24.500+0000',
+  createdDate: '2025-10-30T15:11:24.648+0000',
+  diningOption: { guid: 'dine-in-guid' },
+  checks: [
+    {
+      guid: 'check-1',
+      displayNumber: '21',
+      openedDate: '2025-10-30T15:11:24.500+0000',
+      createdDate: '2025-10-30T15:11:24.643+0000',
+      totalAmount: 16.38,
+      paymentStatus: 'PAID',
+      tabName: 'Danielle Lemons',
+      customer: { firstName: 'Danielle', lastName: 'Lemons' },
+      diningOption: { guid: 'dine-in-guid' },
+      selections: [
+        {
+          guid: 'selection-1',
+          displayName: 'Build-A-Brekky',
+          quantity: 1,
+          price: 6.25,
+          fulfillmentStatus: 'READY',
+          modifiers: [
+            { guid: 'mod-1', displayName: 'DM Pork Sausage', quantity: 1 },
+            { guid: 'mod-2', displayName: 'American Cheese', quantity: 2 },
+            { guid: 'mod-2', displayName: 'American Cheese', quantity: 1 },
           ],
         },
+      ],
+    },
+  ],
+})
+
+describe('normalizeItemModifiers', () => {
+  it('aggregates modifier quantities and merges metadata', () => {
+    const selection = {
+      modifiers: [
+        { guid: 'mod-1', displayName: 'DM Pork Sausage', quantity: 1 },
+        { guid: 'mod-2', displayName: 'American Cheese', quantity: 2 },
+        { guid: 'mod-2', displayName: 'American Cheese', quantity: 1 },
       ],
     }
 
     const result = normalizeItemModifiers(
-      item,
+      selection,
       createMenuLookup(),
       createModifierMetadataLookup(),
     )
 
     expect(result).toEqual([
       {
-        id: 'mod-123',
-        identifier: 'mod-123',
-        name: 'Extra Cheese',
-        quantity: 3,
-        groupName: 'Toppings',
-        groupId: 'group-1',
+        id: 'mod-1',
+        identifier: 'mod-1',
+        name: 'DM Pork Sausage',
+        quantity: 1,
+        groupName: 'Proteins',
+        groupId: 'protein-group',
         groupOrder: 0,
         optionOrder: 1,
-        optionName: 'Extra Cheese',
+        optionName: 'DM Pork Sausage',
+      },
+      {
+        id: 'mod-2',
+        identifier: 'mod-2',
+        name: 'American Cheese',
+        quantity: 3,
+        groupName: 'Cheese',
+        groupId: 'cheese-group',
+        groupOrder: 1,
+        optionOrder: 0,
+        optionName: 'American Cheese',
       },
     ])
   })
 })
 
 describe('resolveOrderDiningOption', () => {
-  it('uses lookup metadata to resolve identifiers and labels', () => {
-    const configPayload = {
-      data: {
-        diningOptions: [
-          {
-            guid: 'dine-in-guid',
-            displayName: 'Dine In',
-            names: { en: 'Dine In' },
-            code: 'DINEIN',
-          },
-          {
-            guid: 'takeout-guid',
-            displayName: 'Take Out',
-            names: { en: 'Takeout' },
-            code: 'TAKEOUT',
-          },
-        ],
-      },
-    }
+  it('uses GUIDs from the payload to resolve labels via lookup', () => {
+    const lookup = createDiningOptionLookup()
+    const order = createCanonicalOrder()
 
-    const lookup = buildDiningOptionLookup(configPayload)
-
-    const order = {
-      diningOptionGuid: 'takeout-guid',
-      diningOption: { label: 'Pick Up' },
-    }
-
-    expect(resolveOrderDiningOption(order, lookup)).toBe('Take Out')
+    expect(resolveOrderDiningOption(order, lookup)).toBe('Dine In')
   })
 })
 
-describe('normalizeOrders timestamp parsing', () => {
-  it('extracts the earliest prioritized timestamp and sorts results', () => {
-    const rawOrders = [
-      {
-        guid: '11111111-1111-1111-1111-111111111111',
-        created_at: '2024-01-06T13:20:00Z',
-        items: [{ name: 'Item', quantity: 1 }],
-      },
-      {
-        guid: '00000000-0000-0000-0000-000000000001',
-        checks: [
-          {
-            items: [{ name: 'Nested', quantity: 2 }],
-            createdAt: '2024-01-05T12:00:00Z',
-          },
-        ],
-      },
-    ]
+describe('normalizeOrders', () => {
+  it('normalizes a canonical Toast order payload', () => {
+    const order = createCanonicalOrder()
 
-    const [first, second] = normalizeOrders(rawOrders, new Map(), new Map(), new Map())
+    const [normalized] = normalizeOrders(
+      [order],
+      createMenuLookup(),
+      createDiningOptionLookup(),
+      createModifierMetadataLookup(),
+    )
 
-    expect(first.guid).toBe('00000000-0000-0000-0000-000000000001')
-    expect(first.createdAt).toBeInstanceOf(Date)
-    expect(first.createdAt?.toISOString()).toBe('2024-01-05T12:00:00.000Z')
-    expect(second.createdAt?.toISOString()).toBe('2024-01-06T13:20:00.000Z')
-  })
-})
-
-describe('normalizeOrders tab names', () => {
-  it('prefers human-readable tab labels over serialized structures', () => {
-    const rawOrders = [
-      {
-        guid: 'order-tab',
-        tabName: { name: 'Main Bar' },
-        tab: { name: 'Main Bar' },
-      },
-    ]
-
-    const [order] = normalizeOrders(rawOrders, new Map(), new Map(), new Map())
-
-    expect(order.tabName).toBe('Main Bar')
-  })
-
-  it('extracts tab names nested under data attributes', () => {
-    const rawOrders = [
-      {
-        guid: 'order-nested-tab',
-        data: {
-          attributes: {
-            tabName: 'Window Counter',
-          },
+    expect(normalized).toEqual({
+      id: 'order-1',
+      displayId: '21',
+      guid: 'order-1',
+      status: 'APPROVED',
+      createdAt: new Date('2025-10-30T15:11:24.500+0000'),
+      createdAtRaw: '2025-10-30T15:11:24.500+0000',
+      total: 16.38,
+      currency: undefined,
+      customerName: 'Danielle Lemons',
+      diningOption: 'Dine In',
+      fulfillmentStatus: 'READY',
+      notes: undefined,
+      tabName: 'Danielle Lemons',
+      items: [
+        {
+          id: 'selection-1',
+          name: 'Build-A-Brekky',
+          quantity: 1,
+          price: 6.25,
+          currency: undefined,
+          notes: undefined,
+          modifiers: [
+            {
+              id: 'mod-1',
+              identifier: 'mod-1',
+              name: 'DM Pork Sausage',
+              quantity: 1,
+              groupName: 'Proteins',
+              groupId: 'protein-group',
+              groupOrder: 0,
+              optionOrder: 1,
+              optionName: 'DM Pork Sausage',
+            },
+            {
+              id: 'mod-2',
+              identifier: 'mod-2',
+              name: 'American Cheese',
+              quantity: 3,
+              groupName: 'Cheese',
+              groupId: 'cheese-group',
+              groupOrder: 1,
+              optionOrder: 0,
+              optionName: 'American Cheese',
+            },
+          ],
         },
-      },
-    ]
-
-    const [order] = normalizeOrders(rawOrders, new Map(), new Map(), new Map())
-
-    expect(order.tabName).toBe('Window Counter')
+      ],
+    })
   })
 
-  it('falls back to check-level tab names when present', () => {
-    const rawOrders = [
-      {
-        guid: 'order-check-tab',
-        checks: [
-          {
-            tabName: 'Zac',
-          },
-        ],
-      },
-    ]
+  it('handles selections without modifiers gracefully', () => {
+    const order = createCanonicalOrder()
+    order.checks[0].selections[0].modifiers = null
 
-    const [order] = normalizeOrders(rawOrders, new Map(), new Map(), new Map())
+    const [normalized] = normalizeOrders([
+      order,
+    ])
 
-    expect(order.tabName).toBe('Zac')
+    expect(normalized.items[0].modifiers).toEqual([])
+  })
+
+  it('sorts orders by resolved timestamps and ignores null values', () => {
+    const earlyOrder = createCanonicalOrder()
+    earlyOrder.guid = 'order-early'
+    earlyOrder.openedDate = null
+    earlyOrder.createdDate = null
+    earlyOrder.checks[0].openedDate = null
+    earlyOrder.checks[0].createdDate = '2025-10-30T10:00:00.000Z'
+
+    const laterOrder = createCanonicalOrder()
+    laterOrder.guid = 'order-late'
+    laterOrder.openedDate = '2025-10-30T12:00:00.000Z'
+
+    const normalized = normalizeOrders([laterOrder, earlyOrder])
+
+    expect(normalized.map((order) => order.id)).toEqual(['order-early', 'order-late'])
+  })
+})
+
+describe('extractOrdersFromPayload', () => {
+  it('returns orders from the canonical worker payload', () => {
+    const order = createCanonicalOrder()
+
+    const payload = {
+      ok: true,
+      orders: [order],
+      data: [order],
+    }
+
+    expect(extractOrdersFromPayload(payload)).toEqual([order])
+  })
+
+  it('falls back to the data array when orders are absent', () => {
+    const order = createCanonicalOrder()
+
+    const payload = {
+      ok: true,
+      data: [order],
+    }
+
+    expect(extractOrdersFromPayload(payload)).toEqual([order])
   })
 })
