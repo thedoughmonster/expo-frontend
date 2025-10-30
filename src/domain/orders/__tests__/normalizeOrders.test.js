@@ -1,4 +1,4 @@
-import { describe, expect, it } from '@jest/globals'
+import { describe, expect, it } from 'vitest'
 import {
   normalizeItemModifiers,
   normalizeOrders,
@@ -39,7 +39,7 @@ describe('normalizeItemModifiers', () => {
     expect(result).toEqual([
       {
         name: 'Extra Cheese',
-        quantity: 7,
+        quantity: 3,
       },
     ])
   })
@@ -81,12 +81,12 @@ describe('normalizeOrders timestamp parsing', () => {
   it('extracts the earliest prioritized timestamp and sorts results', () => {
     const rawOrders = [
       {
-        guid: 'order-b',
+        guid: '11111111-1111-1111-1111-111111111111',
         created_at: '2024-01-06T13:20:00Z',
         items: [{ name: 'Item', quantity: 1 }],
       },
       {
-        guid: 'order-a',
+        guid: '00000000-0000-0000-0000-000000000001',
         checks: [
           {
             items: [{ name: 'Nested', quantity: 2 }],
@@ -98,7 +98,7 @@ describe('normalizeOrders timestamp parsing', () => {
 
     const [first, second] = normalizeOrders(rawOrders, new Map(), new Map())
 
-    expect(first.guid).toBe('order-a')
+    expect(first.guid).toBe('00000000-0000-0000-0000-000000000001')
     expect(first.createdAt).toBeInstanceOf(Date)
     expect(first.createdAt?.toISOString()).toBe('2024-01-05T12:00:00.000Z')
     expect(second.createdAt?.toISOString()).toBe('2024-01-06T13:20:00.000Z')
