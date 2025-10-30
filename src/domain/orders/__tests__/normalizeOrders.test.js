@@ -136,4 +136,21 @@ describe('normalizeOrders tab names', () => {
 
     expect(order.tabName).toBe('Window Counter')
   })
+
+  it('falls back to check-level tab names when present', () => {
+    const rawOrders = [
+      {
+        guid: 'order-check-tab',
+        checks: [
+          {
+            tabName: 'Zac',
+          },
+        ],
+      },
+    ]
+
+    const [order] = normalizeOrders(rawOrders, new Map(), new Map())
+
+    expect(order.tabName).toBe('Zac')
+  })
 })
