@@ -1,0 +1,57 @@
+.card {
+  margin-top: 0.5rem;
+  background: rgba(59, 130, 246, 0.15);
+  border: 1px solid rgba(59, 130, 246, 0.35);
+  border-radius: 0.5rem;
+  padding: 0.55rem 0.65rem;
+  display: grid;
+  gap: 0.45rem;
+}
+
+.title {
+  margin: 0;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-weight: 600;
+  color: rgba(191, 219, 254, 0.95);
+}
+
+.list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.35rem;
+  color: #cbd5f5;
+  font-size: 0.8rem;
+}
+
+.modifier {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.modifierQty {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.5rem;
+  font-variant-numeric: tabular-nums;
+  background: rgba(37, 99, 235, 0.45);
+  color: #f8fafc;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  padding: 0.15rem 0.35rem;
+}
+
+.modifierQtyMultiplier {
+  margin-left: 0.1rem;
+  font-size: 0.7rem;
+}
+
+.modifierName {
+  font-weight: 500;
+}

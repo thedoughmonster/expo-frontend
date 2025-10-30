@@ -1,0 +1,36 @@
+.orderCard {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.15), rgba(14, 165, 233, 0.08));
+  border: 1px solid rgba(96, 165, 250, 0.25);
+  border-radius: 0.9rem;
+  padding: 1rem;
+  min-width: 0;
+  box-shadow: 0 18px 28px -24px rgba(15, 23, 42, 0.9);
+  overflow: hidden;
+  cursor: pointer;
+  transition: border-color 180ms ease, box-shadow 180ms ease, background 180ms ease, transform 180ms ease;
+}
+
+.orderCard:hover {
+  border-color: rgba(96, 165, 250, 0.45);
+  box-shadow: 0 20px 36px -24px rgba(37, 99, 235, 0.8);
+  transform: translateY(-1px);
+}
+
+.orderCard:focus-visible {
+  outline: 2px solid rgba(56, 189, 248, 0.85);
+  outline-offset: 3px;
+}
+
+.orderCardActive {
+  background: linear-gradient(135deg, rgba(34, 197, 94, 0.28), rgba(59, 130, 246, 0.18));
+  border-color: rgba(134, 239, 172, 0.6);
+  box-shadow: 0 24px 42px -22px rgba(16, 185, 129, 0.6);
+}
+
+.orderCardActive:hover {
+  border-color: rgba(134, 239, 172, 0.75);
+  transform: translateY(-2px);
+}
