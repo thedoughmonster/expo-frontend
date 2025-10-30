@@ -1,17 +1,24 @@
 import ModifierListItem from './ModifierListItem'
 import styles from './ModifierList.module.css'
 
-const ModifierList = ({ items }) => {
-  if (!items || items.length === 0) {
+const ModifierList = ({ groups }) => {
+  if (!groups || groups.length === 0) {
     return null
   }
 
   return (
-    <ul className={styles.list}>
-      {items.map((item) => (
-        <ModifierListItem key={item.name} name={item.name} qty={item.qty} />
+    <div className={styles.list}>
+      {groups.map((group) => (
+        <section key={group.id ?? group.name} className={styles.group}>
+          <h3 className={styles.groupTitle}>{group.name}</h3>
+          <ul className={styles.groupItems}>
+            {group.items.map((item) => (
+              <ModifierListItem key={item.id ?? item.name} name={item.name} qty={item.qty} />
+            ))}
+          </ul>
+        </section>
       ))}
-    </ul>
+    </div>
   )
 }
 
