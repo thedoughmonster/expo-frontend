@@ -1,18 +1,13 @@
 import { useCallback } from 'react'
 import { FULFILLMENT_FILTERS } from '../../domain/status/fulfillmentFilters'
 import { useFulfillmentFilters, useSelectionState } from '../../viewContext/OrdersViewContext'
+import { useSettingsModal } from '../SettingsModal/SettingsModalContext'
 import TopBarView from './TopBarView'
 
-const TopBarContainer = ({
-  title,
-  isBusy,
-  isSettingsOpen,
-  onOpenSettings,
-  onRefresh,
-  refreshAriaLabel,
-}) => {
+const TopBarContainer = ({ title, isBusy, onRefresh, refreshAriaLabel }) => {
   const { activeFulfillmentFilters, toggleFulfillmentFilter } = useFulfillmentFilters()
   const { activeOrderIds, clearSelection } = useSelectionState()
+  const { open: openSettings, isOpen: isSettingsOpen } = useSettingsModal()
 
   const selectionCount = activeOrderIds.size
   const isClearSelectionDisabled = selectionCount === 0
@@ -33,8 +28,8 @@ const TopBarContainer = ({
   }, [onRefresh])
 
   const handleOpenSettings = useCallback(() => {
-    onOpenSettings?.()
-  }, [onOpenSettings])
+    openSettings()
+  }, [openSettings])
 
   return (
     <TopBarView
