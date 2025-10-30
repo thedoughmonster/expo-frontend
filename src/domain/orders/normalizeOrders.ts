@@ -479,11 +479,12 @@ const aggregateModifiers = (
     identifier: string | undefined,
     name: string,
     quantity: number,
+    metadata?: ModifierMetadata,
   ) => {
-    const key = identifier ?? normalizeLookupKey(name) ?? name.toLowerCase()
+    const normalizedNameKey = normalizeLookupKey(name) ?? name.toLowerCase()
+    const key = identifier ?? normalizedNameKey
     const existing = aggregated.get(key)
     if (!existing) {
-      const metadata = identifier ? modifierMetadataLookup?.get(identifier) : undefined
       aggregated.set(key, {
         id: identifier ?? key,
         identifier,
@@ -503,6 +504,24 @@ const aggregateModifiers = (
       existing.identifier = identifier
       existing.id = identifier
     }
+
+    if (metadata) {
+      if (!existing.groupName && metadata.groupName) {
+        existing.groupName = metadata.groupName
+      }
+      if (!existing.groupId && (metadata.groupId ?? metadata.groupName)) {
+        existing.groupId = metadata.groupId ?? metadata.groupName
+      }
+      if (existing.groupOrder === undefined && metadata.groupOrder !== undefined) {
+        existing.groupOrder = metadata.groupOrder
+      }
+      if (existing.optionOrder === undefined && metadata.optionOrder !== undefined) {
+        existing.optionOrder = metadata.optionOrder
+      }
+      if (!existing.optionName && metadata.optionName) {
+        existing.optionName = metadata.optionName
+      }
+    }
   }
 
   modifiers.forEach((modifier) => {
@@ -521,8 +540,15 @@ const aggregateModifiers = (
     }
 
     const quantity = toNumber(typedModifier.quantity) ?? 1
-    const identifier = identifiers[0]
-    upsert(identifier, name, quantity > 0 ? quantity : 1)
+    const metadataIdentifier = modifierMetadataLookup
+      ? identifiers.find((id) => modifierMetadataLookup.has(id))
+      : undefined
+    const metadata = metadataIdentifier
+      ? modifierMetadataLookup?.get(metadataIdentifier)
+      : undefined
+    const normalizedQuantity = quantity > 0 ? quantity : 1
+
+    upsert(metadataIdentifier, name, normalizedQuantity, metadata)
   })
 
   return Array.from(aggregated.values())
