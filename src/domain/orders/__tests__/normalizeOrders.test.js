@@ -187,6 +187,46 @@ describe('normalizeItemModifiers', () => {
     ])
   })
 
+  it('normalizes modifier quantity relative to the parent selection quantity', () => {
+    const selection = {
+      quantity: 2,
+      modifiers: [
+        {
+          guid: 'modifier-instance-4',
+          item: { guid: 'mod-4-option' },
+          displayName: 'Glazed',
+          quantity: 2,
+        },
+      ],
+    }
+
+    const menuLookup = new Map([
+      [
+        'mod-4-option',
+        {
+          kitchenName: 'Glazed',
+          displayName: 'Glazed Donut',
+        },
+      ],
+    ])
+
+    const result = normalizeItemModifiers(selection, menuLookup)
+
+    expect(result).toEqual([
+      {
+        id: 'glazed',
+        identifier: undefined,
+        name: 'Glazed',
+        quantity: 1,
+        groupName: undefined,
+        groupId: undefined,
+        groupOrder: undefined,
+        optionOrder: undefined,
+        optionName: undefined,
+      },
+    ])
+  })
+
   it('prefers kitchen names from the menu lookup when metadata is unavailable', () => {
     const selection = {
       modifiers: [

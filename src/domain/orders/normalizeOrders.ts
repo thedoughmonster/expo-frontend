@@ -499,6 +499,8 @@ const aggregateModifiers = (
   }
 
   const aggregated = new Map<string, NormalizedModifier>()
+  const parentQuantityRaw = toNumber(selection.quantity)
+  const parentQuantity = parentQuantityRaw && parentQuantityRaw > 0 ? parentQuantityRaw : 1
 
   const upsert = (
     identifier: string | undefined,
@@ -572,8 +574,10 @@ const aggregateModifiers = (
       return
     }
 
-    const quantity = toNumber(typedModifier.quantity) ?? 1
-    const normalizedQuantity = quantity > 0 ? quantity : 1
+    const rawQuantity = toNumber(typedModifier.quantity)
+    const totalQuantity = rawQuantity && rawQuantity > 0 ? rawQuantity : parentQuantity
+    const perItemQuantity = totalQuantity / parentQuantity
+    const normalizedQuantity = perItemQuantity > 0 ? perItemQuantity : 1
 
     upsert(metadataIdentifier, name, normalizedQuantity, metadata)
   })
