@@ -3,6 +3,7 @@ import './App.css'
 import { parseDateLike } from './domain/orders/normalizeOrders'
 import { FULFILLMENT_FILTERS, fulfillmentStatusToClassName, resolveFulfillmentFilterKey } from './domain/status/fulfillmentFilters'
 import useOrdersData from './hooks/useOrdersData'
+import { OrdersViewProvider, useFulfillmentFilters, useSelectionState } from './viewContext/OrdersViewContext'
 
 
 const deriveModifiersFromOrders = (orders) => {
@@ -214,12 +215,10 @@ const statusToClassName = (status) => {
   return `order-status--${status.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`
 }
 
-function App() {
+function DashboardView() {
   const { orders, isLoading, isRefreshing, error, refresh } = useOrdersData()
-  const [activeOrderIds, setActiveOrderIds] = useState(() => new Set())
-  const [activeFulfillmentFilters, setActiveFulfillmentFilters] = useState(
-    () => new Set(FULFILLMENT_FILTERS.map(({ key }) => key)),
-  )
+  const { activeFulfillmentFilters, toggleFulfillmentFilter } = useFulfillmentFilters()
+  const { activeOrderIds, toggleOrderActive, clearSelection } = useSelectionState()
   const now = useNow(1000)
 
   const visibleOrders = useMemo(() => {
@@ -308,54 +307,27 @@ function App() {
         : null
 
   useEffect(() => {
-    setActiveOrderIds((previous) => {
-      if (previous.size === 0) {
-        return previous
+    if (activeOrderIds.size === 0) {
+      return
+    }
+
+    const visibleIds = new Set(visibleOrders.map((order) => order.id))
+    const idsToRemove = []
+
+    activeOrderIds.forEach((id) => {
+      if (!visibleIds.has(id)) {
+        idsToRemove.push(id)
       }
-
-      const visibleIds = new Set(visibleOrders.map((order) => order.id))
-      let shouldUpdate = false
-      const next = new Set()
-
-      previous.forEach((id) => {
-        if (visibleIds.has(id)) {
-          next.add(id)
-        } else {
-          shouldUpdate = true
-        }
-      })
-
-      if (next.size !== previous.size) {
-        shouldUpdate = true
-      }
-
-      return shouldUpdate ? next : previous
     })
-  }, [visibleOrders])
 
-  const toggleOrderActive = useCallback((orderId) => {
-    setActiveOrderIds((previous) => {
-      const next = new Set(previous)
+    if (idsToRemove.length === 0) {
+      return
+    }
 
-      if (next.has(orderId)) {
-        next.delete(orderId)
-      } else {
-        next.add(orderId)
-      }
-
-      return next
+    idsToRemove.forEach((id) => {
+      toggleOrderActive(id)
     })
-  }, [])
-
-  const clearActiveOrders = useCallback(() => {
-    setActiveOrderIds((previous) => {
-      if (previous.size === 0) {
-        return previous
-      }
-
-      return new Set()
-    })
-  }, [])
+  }, [activeOrderIds, toggleOrderActive, visibleOrders])
 
   const handleOrderKeyDown = useCallback(
     (event, orderId) => {
@@ -366,19 +338,6 @@ function App() {
     },
     [toggleOrderActive],
   )
-
-  const toggleFulfillmentFilter = (key) => {
-    setActiveFulfillmentFilters((previous) => {
-      const next = new Set(previous)
-      if (next.has(key)) {
-        next.delete(key)
-      } else {
-        next.add(key)
-      }
-
-      return next
-    })
-  }
 
   const handleRefresh = () => {
     refresh({ silent: hasExistingOrders })
@@ -439,7 +398,7 @@ function App() {
               <button
                 type="button"
                 className="clear-selection-button"
-                onClick={clearActiveOrders}
+                onClick={clearSelection}
                 disabled={activeSelectionCount === 0}
                 title="Clear selected orders"
               >
@@ -839,6 +798,14 @@ function App() {
         </div>
       )}
     </div>
+  )
+}
+
+function App() {
+  return (
+    <OrdersViewProvider>
+      <DashboardView />
+    </OrdersViewProvider>
   )
 }
 
