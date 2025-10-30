@@ -10,7 +10,7 @@ const CONFIG_SNAPSHOT_ENDPOINT =
 
 const originalFetch = global.fetch
 
-const NoStrictModeWrapper = ({ children }) => children
+const NoStrictModeWrapper = ({ children }) => <>{children}</>
 
 const createFetchResponse = (payload, { ok = true, status = 200 } = {}) => ({
   ok,
