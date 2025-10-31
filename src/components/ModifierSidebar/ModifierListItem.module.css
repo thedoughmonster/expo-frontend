@@ -2,24 +2,24 @@
   display: flex;
   align-items: stretch;
   width: 100%;
-  border-radius: 0.5rem;
+  border-radius: 0.45rem;
   overflow: hidden;
   background: linear-gradient(135deg, rgba(59, 130, 246, 0.12), rgba(37, 99, 235, 0.08));
   border: 1px solid rgba(59, 130, 246, 0.2);
   color: #e2e8f0;
-  font-size: 0.875rem;
+  font-size: 0.84rem;
 }
 
 .quantity {
   display: flex;
   align-items: center;
   gap: 0.2rem;
-  padding: 0.35rem 0.65rem;
+  padding: 0.3rem 0.55rem;
   font-weight: 600;
   font-variant-numeric: tabular-nums;
   color: #bfdbfe;
   background-color: rgba(37, 99, 235, 0.32);
-  min-width: 2.5rem;
+  min-width: 2.25rem;
 }
 
 .quantityValue {
@@ -33,7 +33,7 @@
 .content {
   flex: 1;
   min-width: 0;
-  padding: 0.35rem 0.65rem;
+  padding: 0.3rem 0.55rem;
   display: flex;
   align-items: center;
 }

@@ -3,11 +3,11 @@
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 1rem;
-  padding: 0.75rem 1.5rem;
-  min-height: 64px;
+  gap: 0.85rem;
+  padding: 0.6rem 1.25rem;
+  min-height: 56px;
   flex-wrap: wrap;
-  row-gap: 0.75rem;
+  row-gap: 0.65rem;
   background-color: #111827;
   border-bottom: 1px solid #1e293b;
   color: #f8fafc;
@@ -16,7 +16,7 @@
 
 .title {
   margin: 0;
-  font-size: 1.25rem;
+  font-size: 1.1rem;
   font-weight: 600;
   color: inherit;
 }
@@ -24,9 +24,9 @@
 .actions {
   display: flex;
   align-items: flex-start;
-  gap: 1.25rem;
+  gap: 1rem;
   margin-left: auto;
   flex-wrap: wrap;
   justify-content: flex-end;
-  row-gap: 1rem;
+  row-gap: 0.85rem;
 }

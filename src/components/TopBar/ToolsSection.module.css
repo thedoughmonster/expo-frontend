@@ -2,13 +2,13 @@
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  gap: 0.4rem;
+  gap: 0.35rem;
   min-width: 0;
 }
 
 .label {
   margin: 0;
-  font-size: 0.7rem;
+  font-size: 0.68rem;
   font-weight: 600;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -18,7 +18,7 @@
 .controls {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: 0.45rem;
   flex-wrap: wrap;
 }
 
@@ -27,11 +27,11 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 42px;
-  height: 42px;
+  width: 36px;
+  height: 36px;
   border-radius: 50%;
   border: 1px solid rgba(96, 165, 250, 0.35);
-  background: rgba(30, 64, 175, 0.35);
+  background: rgba(30, 64, 175, 0.32);
   color: #dbeafe;
   cursor: pointer;
   transition: background-color 150ms ease, border-color 150ms ease, color 150ms ease, transform 150ms ease;
@@ -66,9 +66,9 @@
 
 .refreshIcon {
   display: block;
-  width: 30px;
-  height: 30px;
-  font-size: 30px;
+  width: 26px;
+  height: 26px;
+  font-size: 26px;
   transition: transform 200ms ease;
 }
 
@@ -88,7 +88,7 @@
 
 .settingsIcon {
   display: block;
-  width: 30px;
-  height: 30px;
-  font-size: 30px;
+  width: 26px;
+  height: 26px;
+  font-size: 26px;
 }
