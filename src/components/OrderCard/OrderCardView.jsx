@@ -5,8 +5,6 @@ import styles from './OrderCardView.module.css'
 
 const OrderCardView = ({
   className,
-  style,
-  articleRef,
   isActive,
   onClick,
   onKeyDown,
@@ -39,8 +37,6 @@ const OrderCardView = ({
 }) => (
   <article
     className={className}
-    style={style}
-    ref={articleRef}
     role="button"
     tabIndex={0}
     aria-pressed={isActive}
@@ -71,7 +67,13 @@ const OrderCardView = ({
       elapsedTitle={elapsedTitle}
       showElapsedTimer={Boolean(elapsedTimerValue)}
     />
-    {hasItems ? <OrderItemsList items={items} /> : <p className={styles.empty}>No line items for this order.</p>}
+    {hasItems ? (
+      <div className={styles.items}>
+        <OrderItemsList items={items} />
+      </div>
+    ) : (
+      <p className={styles.empty}>No line items for this order.</p>
+    )}
     {hasNotes ? <p className={styles.notes}>Notes: {notes}</p> : null}
     {showFooter ? (
       <footer className={styles.footer}>

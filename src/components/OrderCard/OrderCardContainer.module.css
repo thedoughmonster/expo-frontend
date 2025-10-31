@@ -1,19 +1,17 @@
 .orderCard {
-  --order-card-columns: 1;
-  --order-card-column-gap: 1rem;
-  display: grid;
-  grid-template-columns: repeat(var(--order-card-columns), minmax(0, 1fr));
-  grid-column: span var(--order-card-columns);
-  row-gap: 0.85rem;
-  column-gap: var(--order-card-column-gap);
-  align-content: start;
-  grid-auto-rows: minmax(0, max-content);
+  --order-card-item-column-width: 240px;
+  --order-card-item-column-gap: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+  align-items: stretch;
   background: linear-gradient(135deg, rgba(59, 130, 246, 0.15), rgba(14, 165, 233, 0.08));
   border: 1px solid rgba(96, 165, 250, 0.25);
   border-radius: 0.9rem;
   padding: 1rem;
   min-width: 0;
   max-height: 100%;
+  height: 100%;
   box-shadow: 0 18px 28px -24px rgba(15, 23, 42, 0.9);
   overflow: hidden;
   cursor: pointer;
