@@ -1,4 +1,5 @@
 import type { components } from '../../api/types'
+import { sortModifiersByMenuOrder } from './sortModifiersByMenuOrder'
 
 export type ToastOrder = components['schemas']['ToastOrder']
 export type ToastCheck = components['schemas']['ToastCheck']
@@ -582,7 +583,7 @@ const aggregateModifiers = (
     upsert(metadataIdentifier, name, normalizedQuantity, metadata)
   })
 
-  return Array.from(aggregated.values())
+  return Array.from(aggregated.values()).sort(sortModifiersByMenuOrder)
 }
 
 export const normalizeItemModifiers = (

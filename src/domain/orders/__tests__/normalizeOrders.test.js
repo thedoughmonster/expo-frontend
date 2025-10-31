@@ -187,6 +187,77 @@ describe('normalizeItemModifiers', () => {
     ])
   })
 
+  it('sorts modifiers by group and option order when metadata is available', () => {
+    const selection = {
+      modifiers: [
+        {
+          guid: 'modifier-instance-b',
+          item: { guid: 'mod-b-option' },
+          displayName: 'Broccoli',
+          quantity: 1,
+        },
+        {
+          guid: 'modifier-instance-a',
+          item: { guid: 'mod-a-option' },
+          displayName: 'Arugula',
+          quantity: 1,
+        },
+        {
+          guid: 'modifier-instance-c',
+          item: { guid: 'mod-c-option' },
+          displayName: 'Chipotle Mayo',
+          quantity: 1,
+        },
+      ],
+    }
+
+    const metadataLookup = new Map([
+      [
+        'mod-a-option',
+        {
+          groupName: 'Veggies',
+          groupId: 'veggies-group',
+          groupOrder: 2,
+          optionOrder: 1,
+          optionName: 'Arugula',
+        },
+      ],
+      [
+        'mod-b-option',
+        {
+          groupName: 'Veggies',
+          groupId: 'veggies-group',
+          groupOrder: 2,
+          optionOrder: 0,
+          optionName: 'Broccoli',
+        },
+      ],
+      [
+        'mod-c-option',
+        {
+          groupName: 'Sauces',
+          groupId: 'sauces-group',
+          groupOrder: 1,
+          optionOrder: 3,
+          optionName: 'Chipotle Mayo',
+        },
+      ],
+    ])
+
+    const result = normalizeItemModifiers(selection, undefined, metadataLookup)
+
+    expect(result.map((modifier) => modifier.name)).toEqual([
+      'Chipotle Mayo',
+      'Broccoli',
+      'Arugula',
+    ])
+    expect(result.map((modifier) => modifier.groupName)).toEqual([
+      'Sauces',
+      'Veggies',
+      'Veggies',
+    ])
+  })
+
   it('normalizes modifier quantity relative to the parent selection quantity', () => {
     const selection = {
       quantity: 2,

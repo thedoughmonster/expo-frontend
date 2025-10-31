@@ -1,9 +1,8 @@
 import { useMemo } from 'react'
 import ModifierSidebarView from './ModifierSidebarView'
+import { sortModifiersByMenuOrder, toMenuOrderValue } from '../../domain/orders/sortModifiersByMenuOrder'
 
 const DEFAULT_GROUP_NAME = 'Other modifiers'
-
-const toOrderValue = (value) => (Number.isFinite(value) && value >= 0 ? value : Number.POSITIVE_INFINITY)
 
 const normalizeKey = (value) => {
   if (typeof value === 'string') {
@@ -33,7 +32,7 @@ const deriveModifiersFromOrders = (orders) => {
         const modifierQuantity = Number.isFinite(modifier.quantity) && modifier.quantity > 0 ? modifier.quantity : 1
         const totalQuantity = modifierQuantity * itemQuantity
 
-        const groupOrder = toOrderValue(modifier.groupOrder)
+        const groupOrder = toMenuOrderValue(modifier.groupOrder)
         const groupName = modifier.groupName?.trim() || DEFAULT_GROUP_NAME
         const groupKey = normalizeKey(modifier.groupId ?? modifier.groupName) ?? normalizeKey(groupName) ?? '__other__'
 
@@ -56,7 +55,7 @@ const deriveModifiersFromOrders = (orders) => {
           group.name = groupName
         }
 
-        const optionOrder = toOrderValue(modifier.optionOrder)
+        const optionOrder = toMenuOrderValue(modifier.optionOrder)
         const itemKey = normalizeKey(modifier.identifier) ?? normalizeKey(modifier.name) ?? `${group.items.size}`
 
         if (!group.items.has(itemKey)) {
@@ -85,15 +84,7 @@ const deriveModifiersFromOrders = (orders) => {
     .map((group) => {
       const items = Array.from(group.items.values())
         .filter((item) => item.name && item.qty > 0)
-        .sort((a, b) => {
-          const orderA = toOrderValue(a.order)
-          const orderB = toOrderValue(b.order)
-          if (orderA !== orderB) {
-            return orderA - orderB
-          }
-
-          return a.name.localeCompare(b.name)
-        })
+        .sort(sortModifiersByMenuOrder)
 
       return {
         id: group.id ?? group.name,
@@ -104,8 +95,8 @@ const deriveModifiersFromOrders = (orders) => {
     })
     .filter((group) => group.items.length > 0)
     .sort((a, b) => {
-      const orderA = toOrderValue(a.order)
-      const orderB = toOrderValue(b.order)
+      const orderA = toMenuOrderValue(a.order)
+      const orderB = toMenuOrderValue(b.order)
       if (orderA !== orderB) {
         return orderA - orderB
       }
