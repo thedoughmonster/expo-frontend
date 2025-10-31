@@ -65,8 +65,8 @@
 }
 
 .refreshIcon {
-  width: 20px;
-  height: 20px;
+  width: 28px;
+  height: 28px;
   transition: transform 200ms ease;
 }
 
@@ -86,6 +86,6 @@
 
 .settingsIcon {
   display: block;
-  width: 20px;
-  height: 20px;
+  width: 28px;
+  height: 28px;
 }

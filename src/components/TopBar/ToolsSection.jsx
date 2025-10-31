@@ -29,8 +29,8 @@ const ToolsSection = React.memo(
           >
             <svg
               aria-hidden="true"
-              width="22"
-              height="22"
+              width="28"
+              height="28"
               viewBox="0 0 24 24"
               fill="none"
               xmlns="http://www.w3.org/2000/svg"
@@ -57,8 +57,8 @@ const ToolsSection = React.memo(
             <span className="sr-only">Open settings</span>
             <svg
               aria-hidden="true"
-              width="22"
-              height="22"
+              width="28"
+              height="28"
               viewBox="0 0 24 24"
               fill="none"
               xmlns="http://www.w3.org/2000/svg"
