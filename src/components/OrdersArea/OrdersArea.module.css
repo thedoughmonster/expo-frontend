@@ -1,5 +1,6 @@
 .ordersArea {
   flex: 1;
+  min-height: 0;
   min-width: 0;
   padding: 1.5rem;
   background-color: rgba(30, 41, 59, 0.9);
@@ -7,6 +8,7 @@
   flex-direction: column;
   gap: 1.25rem;
   color: #e2e8f0;
+  overflow-y: auto;
 }
 
 .ordersState {
