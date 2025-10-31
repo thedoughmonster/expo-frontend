@@ -1,7 +1,11 @@
 import { useCallback, useEffect, useMemo } from 'react'
 import { FULFILLMENT_FILTERS, resolveFulfillmentFilterKey } from '../domain/status/fulfillmentFilters'
 import useOrdersData from './useOrdersData'
-import { useFulfillmentFilters, useSelectionState } from '../viewContext/OrdersViewContext'
+import {
+  useFulfillmentFilters,
+  usePrepStationFilter,
+  useSelectionState,
+} from '../viewContext/OrdersViewContext'
 
 const DASHBOARD_TITLE = 'Order Dashboard'
 const SETTINGS_MODAL_TITLE = 'Dashboard Settings'
@@ -10,6 +14,7 @@ const useDashboardView = () => {
   const { orders, isLoading, isRefreshing, error, refresh } = useOrdersData()
   const { activeFulfillmentFilters } = useFulfillmentFilters()
   const { activeOrderIds, toggleOrderActive } = useSelectionState()
+  const { activePrepStationId } = usePrepStationFilter()
 
   const visibleOrders = useMemo(() => {
     if (orders.length === 0) {
@@ -20,23 +25,29 @@ const useDashboardView = () => {
     const activeCount = activeFulfillmentFilters.size
     const shouldApplyFilter = activeCount > 0 && activeCount < totalFilters
 
+    let baseOrders = orders
+
     if (!shouldApplyFilter) {
       if (activeCount === 0) {
-        return []
+        baseOrders = []
       }
+    } else {
+      baseOrders = orders.filter((order) => {
+        const filterKey = resolveFulfillmentFilterKey(order)
+        if (!filterKey) {
+          return true
+        }
 
-      return orders
+        return activeFulfillmentFilters.has(filterKey)
+      })
     }
 
-    return orders.filter((order) => {
-      const filterKey = resolveFulfillmentFilterKey(order)
-      if (!filterKey) {
-        return true
-      }
+    if (!activePrepStationId) {
+      return baseOrders
+    }
 
-      return activeFulfillmentFilters.has(filterKey)
-    })
-  }, [activeFulfillmentFilters, orders])
+    return baseOrders.filter((order) => order.prepStationGuids?.includes(activePrepStationId))
+  }, [activeFulfillmentFilters, activePrepStationId, orders])
 
   const hasExistingOrders = orders.length > 0
   const hasVisibleOrders = visibleOrders.length > 0
@@ -47,6 +58,8 @@ const useDashboardView = () => {
   const activeFilterCount = activeFulfillmentFilters.size
   const hasFilterRestriction = activeFilterCount > 0 && activeFilterCount < totalFilters
 
+  const hasPrepStationFilter = Boolean(activePrepStationId)
+
   const emptyStateMessage = useMemo(() => {
     if (!hasExistingOrders) {
       return 'No orders available.'
@@ -56,12 +69,26 @@ const useDashboardView = () => {
       return 'Select at least one fulfillment status to view orders.'
     }
 
+    if (hasPrepStationFilter && hasFilterRestriction && !hasVisibleOrders) {
+      return 'No orders match the selected prep station and fulfillment filters.'
+    }
+
+    if (hasPrepStationFilter && !hasVisibleOrders) {
+      return 'No orders match the selected prep station.'
+    }
+
     if (hasFilterRestriction && !hasVisibleOrders) {
       return 'No orders match the selected filters.'
     }
 
     return 'No orders available.'
-  }, [activeFilterCount, hasExistingOrders, hasFilterRestriction, hasVisibleOrders])
+  }, [
+    activeFilterCount,
+    hasExistingOrders,
+    hasFilterRestriction,
+    hasPrepStationFilter,
+    hasVisibleOrders,
+  ])
 
   const ordersForModifiers = useMemo(() => {
     if (activeOrderIds.size === 0) {

@@ -6,6 +6,14 @@ const SettingsTabPanel = memo(({ tab }) => {
     return null
   }
 
+  const content = (typeof tab.render === 'function' ? tab.render() : tab.content) ?? (
+    <ul className={styles.placeholderList}>
+      <li>Placeholder option A</li>
+      <li>Placeholder option B</li>
+      <li>Placeholder option C</li>
+    </ul>
+  )
+
   return (
     <div
       className={styles.settingsTabPanel}
@@ -13,12 +21,8 @@ const SettingsTabPanel = memo(({ tab }) => {
       id={`settings-tabpanel-${tab.id}`}
       aria-labelledby={`settings-tab-${tab.id}`}
     >
-      <p className={styles.description}>{tab.description}</p>
-      <ul className={styles.placeholderList}>
-        <li>Placeholder option A</li>
-        <li>Placeholder option B</li>
-        <li>Placeholder option C</li>
-      </ul>
+      {tab.description ? <p className={styles.description}>{tab.description}</p> : null}
+      {content}
     </div>
   )
 })

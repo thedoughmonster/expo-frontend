@@ -128,6 +128,7 @@ const MENU_ITEM_ID_KEYS = [
 const MENU_KITCHEN_NAME_KEYS = ['kitchenName', 'kitchen_name']
 const MENU_POS_NAME_KEYS = ['posName', 'pos_name', 'posDisplayName', 'pos_display_name']
 const MENU_DISPLAY_NAME_KEYS = ['displayName', 'display_name', 'label', 'title']
+const MENU_PREP_STATION_KEYS = ['prepStations', 'prep_stations']
 
 const ORDER_CONTEXT_REGEX = /(order|ticket)/i
 const OUTSTANDING_KEY_HINTS = [
@@ -286,11 +287,28 @@ const buildMenuItemLookup = (menuPayload) => {
     const fallbackName =
       toStringValue(pickValue(node, ['name', 'description'])) ?? displayName ?? posName ?? kitchenName
 
+    const rawPrepStations = pickValue(node, MENU_PREP_STATION_KEYS)
+    const prepStationValues = ensureArray(rawPrepStations)
+      .map((value) => toStringValue(value)?.trim())
+      .filter(Boolean)
+
     if (identifier && (kitchenName || posName || displayName || fallbackName)) {
       const menuOrderIndex = nextMenuOrderIndex
       nextMenuOrderIndex += 1
 
       const existing = lookup.get(identifier) ?? {}
+      const existingPrepStations = Array.isArray(existing.prepStations)
+        ? existing.prepStations.filter((value) => typeof value === 'string' && value.trim())
+        : []
+
+      const prepStationSet = new Set(existingPrepStations)
+      prepStationValues.forEach((value) => {
+        if (value) {
+          prepStationSet.add(value)
+        }
+      })
+
+      const prepStations = prepStationSet.size > 0 ? Array.from(prepStationSet) : undefined
 
       const nextValue = {
         kitchenName: existing.kitchenName ?? kitchenName ?? undefined,
@@ -299,6 +317,7 @@ const buildMenuItemLookup = (menuPayload) => {
         fallbackName: existing.fallbackName ?? fallbackName ?? undefined,
         menuOrderIndex:
           existing.menuOrderIndex ?? (Number.isFinite(menuOrderIndex) ? menuOrderIndex : undefined),
+        prepStations,
       }
 
       lookup.set(identifier, nextValue)

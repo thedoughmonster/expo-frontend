@@ -18,6 +18,7 @@ export function OrdersViewProvider({ children }) {
     () => new Set(FULFILLMENT_FILTERS.map(({ key }) => key)),
   )
   const [activeOrderIds, setActiveOrderIds] = useState(() => new Set())
+  const [activePrepStationId, setActivePrepStationId] = useState(null)
 
   const toggleFulfillmentFilter = useCallback((key) => {
     setActiveFulfillmentFilters((previous) => {
@@ -57,6 +58,29 @@ export function OrdersViewProvider({ children }) {
     })
   }, [])
 
+  const selectPrepStation = useCallback(
+    (prepStationId) => {
+      setActivePrepStationId((previous) => {
+        if (prepStationId === previous) {
+          return previous
+        }
+
+        return prepStationId ?? null
+      })
+    },
+    [setActivePrepStationId],
+  )
+
+  const clearPrepStation = useCallback(() => {
+    setActivePrepStationId((previous) => {
+      if (previous === null) {
+        return previous
+      }
+
+      return null
+    })
+  }, [setActivePrepStationId])
+
   const value = useMemo(
     () => ({
       activeFulfillmentFilters,
@@ -64,6 +88,9 @@ export function OrdersViewProvider({ children }) {
       activeOrderIds,
       toggleOrderActive,
       clearSelection,
+      activePrepStationId,
+      selectPrepStation,
+      clearPrepStation,
     }),
     [
       activeFulfillmentFilters,
@@ -71,6 +98,9 @@ export function OrdersViewProvider({ children }) {
       activeOrderIds,
       toggleOrderActive,
       clearSelection,
+      activePrepStationId,
+      selectPrepStation,
+      clearPrepStation,
     ],
   )
 
@@ -92,5 +122,14 @@ export const useSelectionState = () => {
   return useMemo(
     () => ({ activeOrderIds, toggleOrderActive, clearSelection }),
     [activeOrderIds, toggleOrderActive, clearSelection],
+  )
+}
+
+export const usePrepStationFilter = () => {
+  const { activePrepStationId, selectPrepStation, clearPrepStation } = useOrdersViewContext()
+
+  return useMemo(
+    () => ({ activePrepStationId, selectPrepStation, clearPrepStation }),
+    [activePrepStationId, selectPrepStation, clearPrepStation],
   )
 }
