@@ -5,6 +5,8 @@ import styles from './OrderCardView.module.css'
 
 const OrderCardView = ({
   className,
+  style,
+  articleRef,
   isActive,
   onClick,
   onKeyDown,
@@ -37,6 +39,8 @@ const OrderCardView = ({
 }) => (
   <article
     className={className}
+    style={style}
+    ref={articleRef}
     role="button"
     tabIndex={0}
     aria-pressed={isActive}
