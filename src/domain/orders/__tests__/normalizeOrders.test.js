@@ -1,11 +1,12 @@
 import { describe, expect, it } from 'vitest'
 import {
   normalizeItemModifiers,
+  normalizeOrderItems,
   normalizeOrders,
   resolveOrderDiningOption,
   extractOrdersFromPayload,
 } from '../normalizeOrders'
-import { buildDiningOptionLookup } from '../../menus/menuLookup'
+import { buildDiningOptionLookup, buildMenuItemLookup } from '../../menus/menuLookup'
 
 const createMenuLookup = () =>
   new Map([
@@ -128,6 +129,51 @@ const createCanonicalOrder = () => ({
       ],
     },
   ],
+  })
+
+describe('normalizeOrderItems', () => {
+  it('sorts items using menu order indices with stable results', () => {
+    const menuPayload = {
+      menus: [
+        {
+          menuItems: [
+            { guid: 'menu-item-1', displayName: 'Bagel' },
+            { guid: 'menu-item-2', displayName: 'Toast' },
+          ],
+        },
+      ],
+    }
+
+    const menuLookup = buildMenuItemLookup(menuPayload)
+
+    const order = {
+      checks: [
+        {
+          selections: [
+            {
+              guid: 'selection-2',
+              displayName: 'Toast',
+              quantity: 1,
+              item: { guid: 'menu-item-2' },
+            },
+            {
+              guid: 'selection-1',
+              displayName: 'Bagel',
+              quantity: 1,
+              item: { guid: 'menu-item-1' },
+            },
+          ],
+        },
+      ],
+    }
+
+    const first = normalizeOrderItems(order, menuLookup)
+    const second = normalizeOrderItems(order, menuLookup)
+
+    expect(first).toEqual(second)
+    expect(first.map((item) => item.name)).toEqual(['Bagel', 'Toast'])
+    expect(first.map((item) => item.menuOrderIndex)).toEqual([0, 1])
+  })
 })
 
 describe('normalizeItemModifiers', () => {

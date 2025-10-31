@@ -10,6 +10,7 @@ export type MenuLookupEntry = {
   posName?: string
   displayName?: string
   fallbackName?: string
+  menuOrderIndex?: number
 }
 
 export type ModifierMetadata = {
@@ -43,6 +44,7 @@ export type NormalizedOrderItem = {
   currency?: string
   modifiers: NormalizedModifier[]
   notes?: string
+  menuOrderIndex?: number
 }
 
 export type NormalizedOrder = {
@@ -609,6 +611,17 @@ const buildItem = (
   const price = toNumber(selection.price) ?? toNumber(selection.receiptLinePrice)
   const notes = toStringValue((selection as Record<string, unknown>).notes)?.trim()
 
+  let menuOrderIndex: number | undefined
+  if (menuLookup) {
+    for (const identifier of identifiers) {
+      const lookupEntry = menuLookup.get(identifier)
+      if (lookupEntry && Number.isFinite(lookupEntry.menuOrderIndex)) {
+        menuOrderIndex = lookupEntry.menuOrderIndex
+        break
+      }
+    }
+  }
+
   return {
     id: selection.guid ?? identifiers[0] ?? name,
     name,
@@ -617,6 +630,7 @@ const buildItem = (
     currency: undefined,
     modifiers: normalizeItemModifiers(selection, menuLookup, modifierMetadataLookup),
     notes: notes || undefined,
+    menuOrderIndex,
   }
 }
 
@@ -645,7 +659,33 @@ export const normalizeOrderItems = (
     })
   })
 
-  return items
+  const collator = new Intl.Collator(undefined, { numeric: true, sensitivity: 'base' })
+
+  const getNameKey = (item: NormalizedOrderItem) => item.name?.trim() ?? ''
+  const getIdKey = (item: NormalizedOrderItem) => item.id?.toString?.() ?? ''
+
+  return items.sort((a, b) => {
+    const aHasIndex = Number.isFinite(a.menuOrderIndex)
+    const bHasIndex = Number.isFinite(b.menuOrderIndex)
+
+    if (aHasIndex && bHasIndex) {
+      const diff = (a.menuOrderIndex as number) - (b.menuOrderIndex as number)
+      if (diff !== 0) {
+        return diff
+      }
+    } else if (aHasIndex) {
+      return -1
+    } else if (bHasIndex) {
+      return 1
+    }
+
+    const nameCompare = collator.compare(getNameKey(a), getNameKey(b))
+    if (nameCompare !== 0) {
+      return nameCompare
+    }
+
+    return collator.compare(getIdKey(a), getIdKey(b))
+  })
 }
 
 const FULFILLMENT_PRIORITY: Record<string, number> = {

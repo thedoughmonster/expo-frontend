@@ -255,6 +255,7 @@ const buildDiningOptionLookup = (configPayload) => {
 
 const buildMenuItemLookup = (menuPayload) => {
   const lookup = new Map()
+  let nextMenuOrderIndex = 0
 
   const visit = (node) => {
     if (!node) {
@@ -286,6 +287,9 @@ const buildMenuItemLookup = (menuPayload) => {
       toStringValue(pickValue(node, ['name', 'description'])) ?? displayName ?? posName ?? kitchenName
 
     if (identifier && (kitchenName || posName || displayName || fallbackName)) {
+      const menuOrderIndex = nextMenuOrderIndex
+      nextMenuOrderIndex += 1
+
       const existing = lookup.get(identifier) ?? {}
 
       const nextValue = {
@@ -293,6 +297,8 @@ const buildMenuItemLookup = (menuPayload) => {
         posName: existing.posName ?? posName ?? undefined,
         displayName: existing.displayName ?? displayName ?? undefined,
         fallbackName: existing.fallbackName ?? fallbackName ?? undefined,
+        menuOrderIndex:
+          existing.menuOrderIndex ?? (Number.isFinite(menuOrderIndex) ? menuOrderIndex : undefined),
       }
 
       lookup.set(identifier, nextValue)
