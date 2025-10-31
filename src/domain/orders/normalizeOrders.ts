@@ -11,6 +11,7 @@ export type MenuLookupEntry = {
   displayName?: string
   fallbackName?: string
   menuOrderIndex?: number
+  prepStations?: string[]
 }
 
 export type ModifierMetadata = {
@@ -45,6 +46,7 @@ export type NormalizedOrderItem = {
   modifiers: NormalizedModifier[]
   notes?: string
   menuOrderIndex?: number
+  prepStations?: string[]
 }
 
 export type NormalizedOrder = {
@@ -62,6 +64,7 @@ export type NormalizedOrder = {
   notes?: string
   tabName?: string
   items: NormalizedOrderItem[]
+  prepStationGuids?: string[]
 }
 
 const isObject = (value: unknown): value is Record<string, unknown> =>
@@ -612,13 +615,31 @@ const buildItem = (
   const notes = toStringValue((selection as Record<string, unknown>).notes)?.trim()
 
   let menuOrderIndex: number | undefined
+  let prepStations: string[] | undefined
+
   if (menuLookup) {
+    const stationSet = new Set<string>()
     for (const identifier of identifiers) {
       const lookupEntry = menuLookup.get(identifier)
-      if (lookupEntry && Number.isFinite(lookupEntry.menuOrderIndex)) {
+      if (lookupEntry && Number.isFinite(lookupEntry.menuOrderIndex) && !Number.isFinite(menuOrderIndex)) {
         menuOrderIndex = lookupEntry.menuOrderIndex
-        break
       }
+
+      const stations = lookupEntry?.prepStations
+      if (Array.isArray(stations)) {
+        stations.forEach((station) => {
+          if (typeof station === 'string') {
+            const trimmed = station.trim()
+            if (trimmed) {
+              stationSet.add(trimmed)
+            }
+          }
+        })
+      }
+    }
+
+    if (stationSet.size > 0) {
+      prepStations = Array.from(stationSet)
     }
   }
 
@@ -631,6 +652,7 @@ const buildItem = (
     modifiers: normalizeItemModifiers(selection, menuLookup, modifierMetadataLookup),
     notes: notes || undefined,
     menuOrderIndex,
+    prepStations,
   }
 }
 
@@ -948,6 +970,26 @@ export const normalizeOrders = (
       const customerName = checkCustomerName ?? undefined
       const diningOption = resolveOrderDiningOption(order, diningOptionLookup)
 
+      const items = normalizeOrderItems(order, menuLookup, modifierMetadataLookup)
+
+      const orderPrepStations = new Set<string>()
+      items.forEach((item) => {
+        if (!Array.isArray(item.prepStations)) {
+          return
+        }
+
+        item.prepStations.forEach((station) => {
+          if (typeof station === 'string') {
+            const trimmed = station.trim()
+            if (trimmed) {
+              orderPrepStations.add(trimmed)
+            }
+          }
+        })
+      })
+
+      const prepStationGuids = orderPrepStations.size > 0 ? Array.from(orderPrepStations) : undefined
+
       return {
         id: guid ?? displayNumber ?? `order-${index}`,
         displayId: displayNumber ?? primaryCheck?.displayNumber ?? `#${index + 1}`,
@@ -962,7 +1004,8 @@ export const normalizeOrders = (
         fulfillmentStatus,
         notes: undefined,
         tabName: tabName ?? undefined,
-        items: normalizeOrderItems(order, menuLookup, modifierMetadataLookup),
+        items,
+        prepStationGuids,
         originalIndex: index,
       }
     })
