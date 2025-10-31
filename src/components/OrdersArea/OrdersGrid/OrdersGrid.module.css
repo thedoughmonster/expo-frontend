@@ -1,8 +1,8 @@
 .ordersGrid {
-  --order-card-column-width: 280px;
+  --order-card-column-width: 260px;
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(var(--order-card-column-width), 1fr));
-  gap: 1.25rem;
+  gap: 1rem;
   grid-auto-flow: dense;
   align-content: start;
   width: 100%;
