@@ -4,6 +4,7 @@
   max-width: 18rem;
   display: flex;
   flex-direction: column;
+  height: 100%;
   padding: 1.5rem;
   background-color: #111827;
   border-right: 1px solid #1e293b;
@@ -37,5 +38,6 @@
     max-width: 100%;
     border-right: none;
     border-bottom: 1px solid #1e293b;
+    height: auto;
   }
 }
