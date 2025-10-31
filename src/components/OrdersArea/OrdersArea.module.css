@@ -11,6 +11,13 @@
   overflow-y: auto;
 }
 
+@media (max-width: 540px) {
+  .ordersArea {
+    padding: 1rem;
+    gap: 1rem;
+  }
+}
+
 .ordersState {
   margin: 0;
   color: #cbd5f5;
