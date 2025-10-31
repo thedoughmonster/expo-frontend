@@ -46,7 +46,36 @@ const useDashboardView = () => {
       return baseOrders
     }
 
-    return baseOrders.filter((order) => order.prepStationGuids?.includes(activePrepStationId))
+    return baseOrders.reduce((filteredOrders, order) => {
+      const items = Array.isArray(order.items) ? order.items : []
+      const matchingItems = items.filter((item) =>
+        Array.isArray(item.prepStations)
+          ? item.prepStations.some((station) => station === activePrepStationId)
+          : false,
+      )
+
+      if (matchingItems.length > 0) {
+        const prepStationSet = new Set()
+        matchingItems.forEach((item) => {
+          item.prepStations
+            ?.filter((station) => typeof station === 'string')
+            .forEach((station) => {
+              const trimmed = station.trim()
+              if (trimmed) {
+                prepStationSet.add(trimmed)
+              }
+            })
+        })
+
+        filteredOrders.push({
+          ...order,
+          items: matchingItems,
+          prepStationGuids: prepStationSet.size > 0 ? Array.from(prepStationSet) : undefined,
+        })
+      }
+
+      return filteredOrders
+    }, [])
   }, [activeFulfillmentFilters, activePrepStationId, orders])
 
   const hasExistingOrders = orders.length > 0
