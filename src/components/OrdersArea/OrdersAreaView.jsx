@@ -9,7 +9,7 @@ function OrdersAreaView({
   grid,
 }) {
   return (
-    <main className={styles.ordersArea}>
+    <main className={styles.ordersArea} data-orders-area>
       {isLoading && !hasExistingOrders && !error ? (
         <section className={styles.ordersState} aria-live="polite">
           Loading orders…

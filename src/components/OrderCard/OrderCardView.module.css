@@ -6,6 +6,7 @@
   border-radius: 0.65rem;
   padding: 0.6rem 0.75rem;
   border: 1px solid rgba(148, 163, 184, 0.2);
+  grid-column: 1 / -1;
 }
 
 .notes {
@@ -16,6 +17,7 @@
   border: 1px solid rgba(59, 130, 246, 0.35);
   border-radius: 0.65rem;
   padding: 0.6rem 0.75rem;
+  grid-column: 1 / -1;
 }
 
 .footer {
@@ -28,6 +30,7 @@
   font-weight: 600;
   color: #f8fafc;
   font-size: 0.95rem;
+  grid-column: 1 / -1;
 }
 
 .totalLabel {
