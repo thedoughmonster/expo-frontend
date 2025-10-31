@@ -1,18 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import {
-  extractOrderGuid,
-  extractOrdersFromPayload,
-  normalizeOrders,
-} from '../domain/orders/normalizeOrders'
+import { extractOrderGuid, normalizeOrders } from '../domain/orders/normalizeOrders'
 import {
   buildDiningOptionLookup,
   buildMenuItemLookup,
   buildModifierMetadataLookup,
   extractUnfulfilledOrderGuids,
 } from '../domain/menus/menuLookup'
+import { fetchToastOrders } from '../api/orders'
 
-const ORDERS_ENDPOINT =
-  'https://doughmonster-worker.thedoughmonster.workers.dev/api/orders'
 const MENUS_ENDPOINT = 'https://doughmonster-worker.thedoughmonster.workers.dev/api/menus'
 const CONFIG_SNAPSHOT_ENDPOINT =
   'https://doughmonster-worker.thedoughmonster.workers.dev/api/config/snapshot'
@@ -83,21 +78,16 @@ const useOrdersData = () => {
           }
         })()
 
-        const [ordersResponse, menusResponse] = await Promise.all([
-          fetch(ORDERS_ENDPOINT, { signal }),
+        const [toastOrders, menusResponse] = await Promise.all([
+          fetchToastOrders({ signal }),
           fetch(MENUS_ENDPOINT, { signal }),
         ])
-
-        if (!ordersResponse.ok) {
-          throw new Error(`Orders request failed with status ${ordersResponse.status}`)
-        }
 
         if (!menusResponse.ok) {
           throw new Error(`Menus request failed with status ${menusResponse.status}`)
         }
 
-        const [ordersPayload, menusPayload, configPayload] = await Promise.all([
-          ordersResponse.json(),
+        const [menusPayload, configPayload] = await Promise.all([
           menusResponse.json(),
           configPromise,
         ])
@@ -106,18 +96,17 @@ const useOrdersData = () => {
           return
         }
 
-        const rawOrders = extractOrdersFromPayload(ordersPayload)
         const menuLookup = buildMenuItemLookup(menusPayload)
         const modifierMetadataLookup = buildModifierMetadataLookup(menusPayload)
         const diningOptionLookup = buildDiningOptionLookup(configPayload)
         const outstandingGuids = extractUnfulfilledOrderGuids(menusPayload)
         const filteredOrders =
           outstandingGuids.size > 0
-            ? rawOrders.filter((order) => {
+            ? toastOrders.filter((order) => {
                 const guid = extractOrderGuid(order)
                 return guid ? outstandingGuids.has(guid) : false
               })
-            : rawOrders
+            : toastOrders
 
         const normalizedOrders = normalizeOrders(
           filteredOrders,

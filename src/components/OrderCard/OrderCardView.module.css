@@ -1,18 +1,3 @@
-.elapsed {
-  margin: 0;
-  font-size: 0.85rem;
-  color: #facc15;
-  font-weight: 500;
-  display: inline-flex;
-  align-items: baseline;
-  gap: 0.35rem;
-}
-
-.elapsedValue {
-  font-variant-numeric: tabular-nums;
-  color: #fcd34d;
-}
-
 .empty {
   margin: 0;
   font-size: 0.85rem;

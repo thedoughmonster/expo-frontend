@@ -8,8 +8,6 @@ const OrderCardView = ({
   isActive,
   onClick,
   onKeyDown,
-  elapsedLabel,
-  showElapsed,
   elapsedAriaLabel,
   elapsedIsoDuration,
   elapsedTimerValue,
@@ -69,11 +67,6 @@ const OrderCardView = ({
       elapsedTitle={elapsedTitle}
       showElapsedTimer={Boolean(elapsedTimerValue)}
     />
-    {showElapsed ? (
-      <p className={styles.elapsed}>
-        In queue for <span className={styles.elapsedValue}>{elapsedLabel}</span>
-      </p>
-    ) : null}
     {hasItems ? <OrderItemsList items={items} /> : <p className={styles.empty}>No line items for this order.</p>}
     {hasNotes ? <p className={styles.notes}>Notes: {notes}</p> : null}
     {showFooter ? (
