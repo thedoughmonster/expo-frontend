@@ -46,6 +46,7 @@ const OrderCardView = ({
     aria-pressed={isActive}
     onClick={onClick}
     onKeyDown={onKeyDown}
+    data-order-card
   >
     <OrderCardHeader
       isActive={isActive}

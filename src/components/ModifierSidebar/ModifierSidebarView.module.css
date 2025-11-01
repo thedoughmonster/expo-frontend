@@ -1,7 +1,9 @@
 .sidebar {
-  flex: 0 1 20vw;
-  min-width: 10.5rem;
-  max-width: 15.5rem;
+  grid-column: 1;
+  grid-row: 1;
+  width: min(22vw, 19rem);
+  min-width: 13.5rem;
+  max-width: 19rem;
   display: flex;
   flex-direction: column;
   height: 100%;
@@ -11,6 +13,20 @@
   overflow-y: auto;
   overflow-x: hidden;
   color: #cbd5f5;
+  box-sizing: border-box;
+}
+
+@media (max-width: 1280px) {
+  .sidebar {
+    width: min(28vw, 18rem);
+  }
+}
+
+@media (max-width: 1024px) {
+  .sidebar {
+    width: min(32vw, 17rem);
+    padding: 0.9rem 1rem;
+  }
 }
 
 .title {
@@ -33,11 +49,14 @@
   color: #94a3b8;
 }
 
-@media (max-width: 720px) {
+@media (max-width: 880px) {
   .sidebar {
-    max-width: 100%;
+    grid-row: 1;
+    width: 100%;
+    max-width: none;
     border-right: none;
     border-bottom: 1px solid #1e293b;
     height: auto;
+    padding: 0.9rem 1rem 1rem;
   }
 }

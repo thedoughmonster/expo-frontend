@@ -1,5 +1,7 @@
 .ordersArea {
   flex: 1;
+  grid-column: 2;
+  grid-row: 1;
   min-height: 0;
   min-width: 0;
   padding: 1rem 1.25rem;
@@ -9,6 +11,20 @@
   gap: 0.95rem;
   color: #e2e8f0;
   overflow-y: auto;
+}
+
+@media (max-width: 1024px) {
+  .ordersArea {
+    padding: 0.9rem 1.1rem;
+  }
+}
+
+@media (max-width: 880px) {
+  .ordersArea {
+    grid-column: 1;
+    grid-row: 2;
+    padding: 0.85rem 0.95rem 1.1rem;
+  }
 }
 
 .ordersState {

@@ -1,6 +1,7 @@
 import { act, renderHook, waitFor } from '@testing-library/react'
 import { describe, expect, it, vi, afterEach } from 'vitest'
 import useOrdersData from '../useOrdersData'
+import { createSampleOrders } from '../../domain/orders/sampleOrders'
 
 const ORDERS_ENDPOINT =
   'https://doughmonster-worker.thedoughmonster.workers.dev/api/orders'
@@ -8,7 +9,7 @@ const MENUS_ENDPOINT = 'https://doughmonster-worker.thedoughmonster.workers.dev/
 const CONFIG_SNAPSHOT_ENDPOINT =
   'https://doughmonster-worker.thedoughmonster.workers.dev/api/config/snapshot'
 
-const originalFetch = global.fetch
+const originalFetch = globalThis.fetch
 
 const NoStrictModeWrapper = ({ children }) => <>{children}</>
 
@@ -32,12 +33,15 @@ const createDeferred = () => {
 
 afterEach(() => {
   if (originalFetch) {
-    global.fetch = originalFetch
+    globalThis.fetch = originalFetch
   } else {
-    delete global.fetch
+    delete globalThis.fetch
   }
 
   vi.restoreAllMocks()
+  if (typeof window !== 'undefined' && '__USE_SAMPLE_ORDERS__' in window) {
+    delete window.__USE_SAMPLE_ORDERS__
+  }
 })
 
 describe('useOrdersData', () => {
@@ -94,7 +98,7 @@ describe('useOrdersData', () => {
       .mockResolvedValueOnce(createFetchResponse(ordersPayload))
       .mockResolvedValueOnce(createFetchResponse(menusPayload))
 
-    global.fetch = fetchMock
+    globalThis.fetch = fetchMock
 
     const { result } = renderHook(() => useOrdersData(), { wrapper: NoStrictModeWrapper })
 
@@ -174,7 +178,7 @@ describe('useOrdersData', () => {
       .mockReturnValueOnce(deferredOrders.promise)
       .mockResolvedValueOnce(createFetchResponse(menusPayload))
 
-    global.fetch = fetchMock
+    globalThis.fetch = fetchMock
 
     const { result } = renderHook(() => useOrdersData(), { wrapper: NoStrictModeWrapper })
 
@@ -219,7 +223,7 @@ describe('useOrdersData', () => {
       .mockResolvedValueOnce({ ok: false, status: 500, json: async () => ({}) })
       .mockResolvedValueOnce(createFetchResponse(null))
 
-    global.fetch = fetchMock
+    globalThis.fetch = fetchMock
 
     const { result } = renderHook(() => useOrdersData(), { wrapper: NoStrictModeWrapper })
 
@@ -230,5 +234,23 @@ describe('useOrdersData', () => {
     expect(result.current.orders).toHaveLength(0)
     expect(result.current.error).toBeInstanceOf(Error)
     expect(result.current.error.message).toBe(fetchError.message)
+  })
+
+  it('falls back to sample orders for automation environments when no orders are returned', async () => {
+    const fetchMock = vi.fn()
+
+    globalThis.fetch = fetchMock
+    if (typeof window !== 'undefined') {
+      window.__USE_SAMPLE_ORDERS__ = true
+    }
+
+    const { result } = renderHook(() => useOrdersData(), { wrapper: NoStrictModeWrapper })
+
+    await waitFor(() => {
+      expect(result.current.orders).toHaveLength(createSampleOrders().length)
+    })
+
+    expect(result.current.error).toBeNull()
+    expect(fetchMock).not.toHaveBeenCalled()
   })
 })
