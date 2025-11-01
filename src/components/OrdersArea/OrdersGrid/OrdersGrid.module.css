@@ -11,5 +11,6 @@
 @media (max-width: 520px) {
   .ordersGrid {
     grid-template-columns: 1fr;
+    grid-auto-flow: row;
   }
 }
