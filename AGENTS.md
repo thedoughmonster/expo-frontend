@@ -4,6 +4,7 @@
 - Do not rely on local copies of schema docs; they are intentionally absent.
 - For any changes affecting the frontend, always capture and share a screenshot of the rendered UI to accompany your summary.
 - When taking screenshots with Playwright, always wait for the UI data to hydrate first—prefer waiting on a reliable selector or state that indicates content is loaded, but in all cases wait at least 3 seconds before capturing the image.
+- Saved API fixtures live in `src/testData`. When running the dev server for screenshots or interactive verification, start Vite with `VITE_USE_SAVED_API_DATA=true` so the frontend replays those payloads instead of hitting the live worker.
 
 ## Live schema docs
 

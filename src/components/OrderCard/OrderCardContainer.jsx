@@ -12,7 +12,44 @@ import {
 } from './utils'
 import styles from './OrderCardContainer.module.css'
 
+export const MIN_COLUMN_WIDTH = 260
+const COLUMN_COUNT_HYSTERESIS_PX = 1
 const EMPTY_ARRAY = []
+
+export const determineColumnCount = ({
+  availableHeight,
+  width,
+  scrollHeight,
+  currentColumns,
+}) => {
+  const safeCurrentColumns = Math.max(1, currentColumns || 1)
+
+  if (!Number.isFinite(availableHeight) || availableHeight <= 0) {
+    return 1
+  }
+
+  if (!Number.isFinite(width) || width <= 0) {
+    return 1
+  }
+
+  const maxColumnsByWidth = Math.max(1, Math.floor(width / MIN_COLUMN_WIDTH))
+
+  if (maxColumnsByWidth < 2) {
+    return 1
+  }
+
+  if (!Number.isFinite(scrollHeight) || scrollHeight <= 0) {
+    return 1
+  }
+
+  const normalizedHeight = scrollHeight * safeCurrentColumns
+  const desiredColumns = Math.max(
+    1,
+    Math.ceil((normalizedHeight - COLUMN_COUNT_HYSTERESIS_PX) / availableHeight),
+  )
+
+  return Math.max(1, Math.min(desiredColumns, maxColumnsByWidth))
+}
 
 const normalizeText = (value) => value?.trim() ?? ''
 
@@ -192,12 +229,19 @@ const OrderCardContainer = ({ order, isActive, onOrderClick, onOrderKeyDown, now
     }
 
     const currentColumns = columnCountRef.current || 1
-    const normalizedHeight = element.scrollHeight * currentColumns
-    const desiredColumns = Math.max(1, Math.ceil(normalizedHeight / availableHeight))
+    const width = element.clientWidth
+    const scrollHeight = element.scrollHeight
 
-    if (desiredColumns !== columnCountRef.current) {
-      columnCountRef.current = desiredColumns
-      setColumnCount(desiredColumns)
+    const nextColumns = determineColumnCount({
+      availableHeight,
+      width,
+      scrollHeight,
+      currentColumns,
+    })
+
+    if (nextColumns !== columnCountRef.current) {
+      columnCountRef.current = nextColumns
+      setColumnCount(nextColumns)
     }
   }, [])
 
