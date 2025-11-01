@@ -6,8 +6,30 @@ import { useFulfillmentFilters } from '../../viewContext/OrdersViewContext'
 import DashboardProviders from '../../viewContext/DashboardProviders'
 
 const mockOrders = [
-  { id: 'order-1', fulfillmentStatus: 'NEW' },
-  { id: 'order-2', fulfillmentStatus: 'READY' },
+  {
+    id: 'order-1',
+    fulfillmentStatus: 'NEW',
+    items: [
+      {
+        id: 'order-1-item',
+        name: 'Pretzel',
+        fulfillmentStatus: 'NEW',
+        prepStations: ['station-1'],
+      },
+    ],
+  },
+  {
+    id: 'order-2',
+    fulfillmentStatus: 'READY',
+    items: [
+      {
+        id: 'order-2-item',
+        name: 'Cookie',
+        fulfillmentStatus: 'READY',
+        prepStations: ['station-2'],
+      },
+    ],
+  },
 ]
 
 const createWrapper = () => ({ children }) => <DashboardProviders>{children}</DashboardProviders>
@@ -78,6 +100,67 @@ describe('useDashboardView', () => {
     await waitFor(() => {
       expect(result.current.dashboard.ordersAreaProps.visibleOrders).toHaveLength(1)
       expect(result.current.dashboard.ordersAreaProps.activeOrderIds.has('order-1')).toBe(false)
+    })
+  })
+
+  it('filters items by fulfillment status before removing orders', async () => {
+    const refreshMock = vi.fn()
+    mockUseOrdersData.mockReturnValue({
+      orders: [
+        {
+          id: 'order-ready',
+          fulfillmentStatus: 'READY',
+          items: [
+            {
+              id: 'order-ready-item-new',
+              name: 'Bagel',
+              fulfillmentStatus: 'NEW',
+            },
+            {
+              id: 'order-ready-item-ready',
+              name: 'Croissant',
+              fulfillmentStatus: 'READY',
+            },
+          ],
+        },
+      ],
+      isLoading: false,
+      isRefreshing: false,
+      error: null,
+      refresh: refreshMock,
+    })
+
+    const { result } = renderHook(
+      () => {
+        const dashboard = useDashboardView()
+        const filters = useFulfillmentFilters()
+
+        return { dashboard, filters }
+      },
+      { wrapper: createWrapper() },
+    )
+
+    expect(result.current.dashboard.ordersAreaProps.visibleOrders).toHaveLength(1)
+    expect(result.current.dashboard.ordersAreaProps.visibleOrders[0].items).toHaveLength(2)
+
+    act(() => {
+      result.current.filters.toggleFulfillmentFilter('ready')
+    })
+
+    await waitFor(() => {
+      expect(result.current.dashboard.ordersAreaProps.visibleOrders).toHaveLength(1)
+      expect(result.current.dashboard.ordersAreaProps.visibleOrders[0].items).toHaveLength(1)
+      expect(
+        result.current.dashboard.ordersAreaProps.visibleOrders[0].items[0].fulfillmentStatus,
+      ).toBe('NEW')
+    })
+
+    act(() => {
+      result.current.filters.toggleFulfillmentFilter('new')
+    })
+
+    await waitFor(() => {
+      expect(result.current.dashboard.ordersAreaProps.visibleOrders).toHaveLength(0)
     })
   })
 })
