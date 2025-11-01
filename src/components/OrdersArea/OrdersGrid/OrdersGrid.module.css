@@ -1,15 +1,40 @@
 .ordersGrid {
-  --order-card-column-width: 260px;
+  --order-card-column-width: clamp(230px, 28vw, 320px);
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(var(--order-card-column-width), 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(var(--order-card-column-width), 1fr));
   gap: 1rem;
   grid-auto-flow: dense;
   align-content: start;
   width: 100%;
+  margin: 0 auto;
+}
+
+@media (max-width: 1280px) {
+  .ordersGrid {
+    --order-card-column-width: clamp(220px, 34vw, 300px);
+  }
+}
+
+@media (max-width: 1024px) {
+  .ordersGrid {
+    --order-card-column-width: clamp(220px, 42vw, 280px);
+  }
+}
+
+@media (max-width: 880px) {
+  .ordersGrid {
+    --order-card-column-width: clamp(240px, 70vw, 340px);
+  }
+}
+
+@media (max-width: 640px) {
+  .ordersGrid {
+    gap: 0.85rem;
+  }
 }
 
 @media (max-width: 520px) {
   .ordersGrid {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
   }
 }

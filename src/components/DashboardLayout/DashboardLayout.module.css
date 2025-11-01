@@ -9,14 +9,28 @@
 
 .dashboardBody {
   flex: 1;
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(16rem, 22vw) minmax(0, 1fr);
   min-height: 0;
   overflow: hidden;
   background: linear-gradient(135deg, rgba(15, 23, 42, 0.95), rgba(17, 24, 39, 0.95));
 }
 
-@media (max-width: 720px) {
+@media (max-width: 1280px) {
   .dashboardBody {
-    flex-direction: column;
+    grid-template-columns: minmax(15rem, 26vw) minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 1024px) {
+  .dashboardBody {
+    grid-template-columns: minmax(14rem, 32vw) minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 880px) {
+  .dashboardBody {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr);
   }
 }
