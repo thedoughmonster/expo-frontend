@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { memo, useCallback, useMemo } from 'react'
 import { fulfillmentStatusToClassName } from '../../domain/status/fulfillmentFilters'
 import OrderCardView from './OrderCardView'
 import {
@@ -17,9 +17,6 @@ const EMPTY_ARRAY = []
 const normalizeText = (value) => value?.trim() ?? ''
 
 const OrderCardContainer = ({ order, isActive, onOrderClick, onOrderKeyDown, now }) => {
-  const cardRef = useRef(null)
-  const [columnCount, setColumnCount] = useState(1)
-  const columnCountRef = useRef(1)
   const handleClick = useCallback(() => {
     onOrderClick(order.id)
   }, [onOrderClick, order.id])
@@ -158,104 +155,9 @@ const OrderCardContainer = ({ order, isActive, onOrderClick, onOrderKeyDown, now
   const notes = order.notes ?? ''
   const showFooter = Boolean(formattedTotal)
 
-  useEffect(() => {
-    columnCountRef.current = columnCount
-  }, [columnCount])
-
-  const recomputeColumnCount = useCallback(() => {
-    const element = cardRef.current
-
-    if (!element || typeof window === 'undefined') {
-      return
-    }
-
-    const area = element.closest('[data-orders-area]')
-
-    let availableHeight
-
-    if (area) {
-      const computedStyle = window.getComputedStyle(area)
-      const paddingTop = Number.parseFloat(computedStyle.paddingTop) || 0
-      const paddingBottom = Number.parseFloat(computedStyle.paddingBottom) || 0
-      availableHeight = area.clientHeight - paddingTop - paddingBottom
-    } else {
-      const parent = element.parentElement
-      availableHeight = parent?.clientHeight ?? element.clientHeight
-    }
-
-    if (!Number.isFinite(availableHeight) || availableHeight <= 0) {
-      if (columnCountRef.current !== 1) {
-        columnCountRef.current = 1
-        setColumnCount(1)
-      }
-      return
-    }
-
-    const currentColumns = columnCountRef.current || 1
-    const normalizedHeight = element.scrollHeight * currentColumns
-    const desiredColumns = Math.max(1, Math.ceil(normalizedHeight / availableHeight))
-
-    if (desiredColumns !== columnCountRef.current) {
-      columnCountRef.current = desiredColumns
-      setColumnCount(desiredColumns)
-    }
-  }, [])
-
-  useEffect(() => {
-    if (typeof window === 'undefined' || typeof ResizeObserver === 'undefined') {
-      return undefined
-    }
-
-    const element = cardRef.current
-
-    if (!element) {
-      return undefined
-    }
-
-    let frameId = window.requestAnimationFrame(recomputeColumnCount)
-
-    const resizeObserver = new ResizeObserver(() => {
-      window.cancelAnimationFrame(frameId)
-      frameId = window.requestAnimationFrame(recomputeColumnCount)
-    })
-
-    resizeObserver.observe(element)
-
-    const area = element.closest('[data-orders-area]')
-    if (area) {
-      resizeObserver.observe(area)
-    }
-
-    return () => {
-      window.cancelAnimationFrame(frameId)
-      resizeObserver.disconnect()
-    }
-  }, [recomputeColumnCount])
-
-  useEffect(() => {
-    if (typeof window === 'undefined') {
-      return undefined
-    }
-
-    const frameId = window.requestAnimationFrame(recomputeColumnCount)
-
-    return () => {
-      window.cancelAnimationFrame(frameId)
-    }
-  }, [items, notes, showFooter, recomputeColumnCount])
-
-  const cardStyle = useMemo(
-    () => ({
-      '--order-card-columns': columnCount,
-    }),
-    [columnCount],
-  )
-
   return (
     <OrderCardView
       className={cardClassName}
-      style={cardStyle}
-      articleRef={cardRef}
       isActive={isActive}
       onClick={handleClick}
       onKeyDown={handleKeyDown}

@@ -1,13 +1,7 @@
 .orderCard {
-  --order-card-columns: 1;
-  --order-card-column-gap: 0.85rem;
-  display: grid;
-  grid-template-columns: repeat(var(--order-card-columns), minmax(0, 1fr));
-  grid-column: span var(--order-card-columns);
-  row-gap: 0.65rem;
-  column-gap: var(--order-card-column-gap);
-  align-content: start;
-  grid-auto-rows: minmax(0, max-content);
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
   background: linear-gradient(135deg, rgba(59, 130, 246, 0.14), rgba(14, 165, 233, 0.08));
   border: 1px solid rgba(96, 165, 250, 0.22);
   border-radius: 0.75rem;
