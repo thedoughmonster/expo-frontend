@@ -1,10 +1,8 @@
 .sidebar {
-  flex: 0 1 20vw;
-  min-width: 10.5rem;
-  max-width: 15.5rem;
+  flex: 0 0 clamp(12rem, 24vw, 16.5rem);
+  max-width: clamp(12rem, 24vw, 16.5rem);
   display: flex;
   flex-direction: column;
-  height: 100%;
   padding: 1rem 1.1rem;
   background-color: #111827;
   border-right: 1px solid #1e293b;
@@ -35,9 +33,11 @@
 
 @media (max-width: 720px) {
   .sidebar {
+    flex: none;
+    width: 100%;
     max-width: 100%;
     border-right: none;
     border-bottom: 1px solid #1e293b;
-    height: auto;
+    overflow-y: visible;
   }
 }
