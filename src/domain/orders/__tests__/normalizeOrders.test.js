@@ -452,6 +452,9 @@ describe('normalizeOrders', () => {
           price: 6.25,
           currency: undefined,
           notes: undefined,
+          menuOrderIndex: undefined,
+          prepStations: undefined,
+          fulfillmentStatus: 'READY',
           modifiers: [
             {
               id: 'mod-1-option',
@@ -478,6 +481,7 @@ describe('normalizeOrders', () => {
           ],
         },
       ],
+      prepStationGuids: undefined,
     })
   })
 

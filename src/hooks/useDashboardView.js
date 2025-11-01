@@ -16,75 +16,87 @@ const useDashboardView = () => {
   const { activeOrderIds, toggleOrderActive } = useSelectionState()
   const { activePrepStationId } = usePrepStationFilter()
 
+  const totalFilters = FULFILLMENT_FILTERS.length
+  const activeFilterCount = activeFulfillmentFilters.size
+
   const visibleOrders = useMemo(() => {
     if (orders.length === 0) {
       return []
     }
 
-    const totalFilters = FULFILLMENT_FILTERS.length
-    const activeCount = activeFulfillmentFilters.size
-    const shouldApplyFilter = activeCount > 0 && activeCount < totalFilters
+    if (activeFilterCount === 0) {
+      return []
+    }
 
-    let baseOrders = orders
+    const shouldApplyStatusFilter = activeFilterCount < totalFilters
 
-    if (!shouldApplyFilter) {
-      if (activeCount === 0) {
-        baseOrders = []
+    return orders.reduce((filteredOrders, order) => {
+      const items = Array.isArray(order.items) ? order.items : []
+
+      if (items.length === 0) {
+        if (!shouldApplyStatusFilter && !activePrepStationId) {
+          filteredOrders.push(order)
+        }
+
+        return filteredOrders
       }
-    } else {
-      baseOrders = orders.filter((order) => {
-        const filterKey = resolveFulfillmentFilterKey(order)
-        if (!filterKey) {
+
+      const matchingItems = items.filter((item) => {
+        if (shouldApplyStatusFilter) {
+          const filterKey = resolveFulfillmentFilterKey({
+            fulfillmentStatus: item?.fulfillmentStatus,
+          })
+
+          if (filterKey && !activeFulfillmentFilters.has(filterKey)) {
+            return false
+          }
+        }
+
+        if (!activePrepStationId) {
           return true
         }
 
-        return activeFulfillmentFilters.has(filterKey)
+        const prepStations = Array.isArray(item?.prepStations) ? item.prepStations : []
+        return prepStations.some((station) => station === activePrepStationId)
       })
-    }
 
-    if (!activePrepStationId) {
-      return baseOrders
-    }
-
-    return baseOrders.reduce((filteredOrders, order) => {
-      const items = Array.isArray(order.items) ? order.items : []
-      const matchingItems = items.filter((item) =>
-        Array.isArray(item.prepStations)
-          ? item.prepStations.some((station) => station === activePrepStationId)
-          : false,
-      )
-
-      if (matchingItems.length > 0) {
-        const prepStationSet = new Set()
-        matchingItems.forEach((item) => {
-          item.prepStations
-            ?.filter((station) => typeof station === 'string')
-            .forEach((station) => {
-              const trimmed = station.trim()
-              if (trimmed) {
-                prepStationSet.add(trimmed)
-              }
-            })
-        })
-
-        filteredOrders.push({
-          ...order,
-          items: matchingItems,
-          prepStationGuids: prepStationSet.size > 0 ? Array.from(prepStationSet) : undefined,
-        })
+      if (matchingItems.length === 0) {
+        return filteredOrders
       }
+
+      const prepStationSet = new Set()
+      matchingItems.forEach((item) => {
+        item.prepStations
+          ?.filter((station) => typeof station === 'string')
+          .forEach((station) => {
+            const trimmed = station.trim()
+            if (trimmed) {
+              prepStationSet.add(trimmed)
+            }
+          })
+      })
+
+      filteredOrders.push({
+        ...order,
+        items: matchingItems,
+        prepStationGuids: prepStationSet.size > 0 ? Array.from(prepStationSet) : undefined,
+      })
 
       return filteredOrders
     }, [])
-  }, [activeFulfillmentFilters, activePrepStationId, orders])
+  }, [
+    activeFilterCount,
+    activeFulfillmentFilters,
+    activePrepStationId,
+    orders,
+    totalFilters,
+  ])
 
   const hasExistingOrders = orders.length > 0
   const hasVisibleOrders = visibleOrders.length > 0
   const isBusy = isLoading || isRefreshing
   const refreshAriaLabel = isBusy ? 'Refreshing orders' : 'Refresh orders'
 
-  const totalFilters = FULFILLMENT_FILTERS.length
-  const activeFilterCount = activeFulfillmentFilters.size
   const hasFilterRestriction = activeFilterCount > 0 && activeFilterCount < totalFilters
 
   const hasPrepStationFilter = Boolean(activePrepStationId)

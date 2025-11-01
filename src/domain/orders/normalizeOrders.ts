@@ -47,6 +47,7 @@ export type NormalizedOrderItem = {
   notes?: string
   menuOrderIndex?: number
   prepStations?: string[]
+  fulfillmentStatus?: string
 }
 
 export type NormalizedOrder = {
@@ -613,6 +614,7 @@ const buildItem = (
   const quantity = toNumber(selection.quantity) ?? 1
   const price = toNumber(selection.price) ?? toNumber(selection.receiptLinePrice)
   const notes = toStringValue((selection as Record<string, unknown>).notes)?.trim()
+  const fulfillmentStatus = toStringValue(selection.fulfillmentStatus)?.trim()?.toUpperCase()
 
   let menuOrderIndex: number | undefined
   let prepStations: string[] | undefined
@@ -653,6 +655,7 @@ const buildItem = (
     notes: notes || undefined,
     menuOrderIndex,
     prepStations,
+    fulfillmentStatus: fulfillmentStatus || undefined,
   }
 }
 
