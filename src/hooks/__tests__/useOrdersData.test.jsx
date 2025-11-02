@@ -95,6 +95,7 @@ afterEach(() => {
     delete global.fetch
   }
 
+  vi.useRealTimers()
   vi.restoreAllMocks()
 })
 
@@ -231,6 +232,79 @@ describe('useOrdersData', () => {
     expect(result.current.orders).toHaveLength(1)
     expect(result.current.orders[0].status).toBe('READY')
     expect(fetchMock).toHaveBeenCalled()
+  })
+
+  it('polls silently on an interval and stops polling after unmount', async () => {
+    vi.useFakeTimers()
+
+    let bulkCallCount = 0
+
+    const fetchMock = vi.fn(async (input) => {
+      const url = typeof input === 'string' ? input : input.url
+
+      if (url.startsWith(`${ORDERS_ENDPOINT}?`)) {
+        bulkCallCount += 1
+        return createFetchResponse(createOrdersPayload())
+      }
+
+      if (url === MENUS_ENDPOINT) {
+        return createFetchResponse(menusPayload, {
+          headers: { 'cache-control': 'max-age=300' },
+        })
+      }
+
+      if (url === CONFIG_SNAPSHOT_ENDPOINT) {
+        return createFetchResponse(configPayload)
+      }
+
+      if (url === `${ORDERS_ENDPOINT}/${baseOrder.guid}`) {
+        return createFetchResponse({
+          ok: true,
+          route: `${ORDERS_ENDPOINT}/${baseOrder.guid}`,
+          guid: baseOrder.guid,
+          order: baseOrder,
+        })
+      }
+
+      throw new Error(`Unexpected fetch to ${url}`)
+    })
+
+    global.fetch = fetchMock
+
+    const { result, unmount } = renderHook(() => useOrdersData(), { wrapper: NoStrictModeWrapper })
+
+    await act(async () => {
+      await result.current.refresh({ silent: false })
+    })
+
+    expect(result.current.orders).toHaveLength(1)
+    expect(result.current.isLoading).toBe(false)
+    expect(result.current.isRefreshing).toBe(false)
+
+    const callCountAfterInitialLoad = fetchMock.mock.calls.length
+
+    await act(async () => {
+      vi.advanceTimersByTime(5_000)
+      await Promise.resolve()
+      await Promise.resolve()
+    })
+
+    expect(bulkCallCount).toBeGreaterThanOrEqual(2)
+
+    const callCountAfterInterval = fetchMock.mock.calls.length
+    expect(callCountAfterInterval).toBeGreaterThan(callCountAfterInitialLoad)
+
+    expect(result.current.isRefreshing).toBe(false)
+
+    unmount()
+
+    await act(async () => {
+      vi.advanceTimersByTime(10_000)
+      await Promise.resolve()
+      await Promise.resolve()
+    })
+
+    expect(fetchMock).toHaveBeenCalledTimes(callCountAfterInterval)
   })
 
   it('captures fetch errors when the orders request fails', async () => {

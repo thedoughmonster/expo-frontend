@@ -46,6 +46,7 @@ const STALE_READY_RETENTION_MS = 6 * 60 * 60 * 1000
 const TARGETED_CONCURRENCY = 3
 const TARGETED_MAX_RETRIES = 2
 const TARGETED_BACKOFF_MS = 400
+const POLL_INTERVAL_MS = 5_000
 
 const delay = (ms: number) =>
   new Promise<void>((resolve) => {
@@ -61,6 +62,8 @@ type InMemoryOrderEntry = {
   isReady: boolean
   normalizedVersion: number
 }
+
+type PollingIntervalHandle = ReturnType<typeof setInterval>
 
 type RefreshOptions = {
   silent?: boolean
@@ -233,6 +236,7 @@ const useOrdersData = () => {
   const configCacheRef = useRef<ConfigCacheSnapshot | undefined>(undefined)
   const cursorRef = useRef<string | undefined>(undefined)
   const lastFetchRef = useRef<number | undefined>(undefined)
+  const pollIntervalRef = useRef<PollingIntervalHandle | null>(null)
 
   const lookupsRef = useRef({
     menuLookup: new Map(),
@@ -250,12 +254,20 @@ const useOrdersData = () => {
     }
   }, [])
 
+  const clearPollingInterval = useCallback(() => {
+    if (pollIntervalRef.current) {
+      clearInterval(pollIntervalRef.current)
+      pollIntervalRef.current = null
+    }
+  }, [])
+
   useEffect(() => {
     return () => {
       isMountedRef.current = false
       abortActiveRequest()
+      clearPollingInterval()
     }
-  }, [abortActiveRequest])
+  }, [abortActiveRequest, clearPollingInterval])
 
   const publishOrders = useCallback(() => {
     setOrders(toNormalizedOrders(orderCacheRef.current.values()))
@@ -752,8 +764,20 @@ const useOrdersData = () => {
   }, [applyLookupPayloads, publishOrders, reNormalizeOrders])
 
   useEffect(() => {
+    clearPollingInterval()
+
     refresh({ silent: false })
-  }, [refresh])
+
+    const intervalHandle = setInterval(() => {
+      refresh({ silent: true })
+    }, POLL_INTERVAL_MS)
+
+    pollIntervalRef.current = intervalHandle
+
+    return () => {
+      clearPollingInterval()
+    }
+  }, [clearPollingInterval, refresh])
 
   return { orders, isLoading, isRefreshing, isHydrating, error, refresh }
 }
