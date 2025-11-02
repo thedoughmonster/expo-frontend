@@ -173,6 +173,59 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/kitchen/prep-stations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Toast kitchen prep stations
+         * @description Returns the published Toast prep station configuration for the configured restaurant. Supports pagination via `pageToken` and incremental syncs with `lastModified`.
+         */
+        get: {
+            parameters: {
+                query?: {
+                    /** @description Pagination token returned by a previous Toast Kitchen API call. Forward the value to retrieve the next page. */
+                    pageToken?: components["parameters"]["KitchenPrepStationsPageToken"];
+                    /** @description Only return prep stations created or modified after the provided Toast timestamp (for example `2021-12-01T00:00:00.000+0000`). */
+                    lastModified?: components["parameters"]["KitchenPrepStationsLastModified"];
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Prep stations fetched successfully. */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["KitchenPrepStationsResponse"];
+                    };
+                };
+                /** @description Unexpected error response. */
+                default: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/menus": {
         parameters: {
             query?: never;
@@ -290,6 +343,75 @@ export interface paths {
                     };
                     content: {
                         "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/orders/{guid}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Fetch a single Toast order by GUID
+         * @description Returns the Toast order document for the specified GUID without applying additional shaping.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Toast order GUID to retrieve. */
+                    guid: components["parameters"]["OrderGuidPath"];
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Order retrieved successfully. */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["OrderByIdSuccess"];
+                    };
+                };
+                /** @description Request rejected due to a missing or invalid GUID. */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["OrderByIdError"];
+                    };
+                };
+                /** @description Toast reported that the order does not exist. */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["OrderByIdError"];
+                    };
+                };
+                /** @description Unexpected error response. */
+                default: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["OrderByIdError"];
                     };
                 };
             };
@@ -443,6 +565,33 @@ export interface components {
             /** @constant */
             ok: true;
         };
+        KitchenPrepStationsError: {
+            /** @constant */
+            ok: false;
+            /** @constant */
+            route: "/api/kitchen/prep-stations";
+            error: string;
+            code?: string;
+        } & {
+            [key: string]: unknown;
+        };
+        KitchenPrepStationsResponse: components["schemas"]["KitchenPrepStationsSuccess"] | components["schemas"]["KitchenPrepStationsError"];
+        KitchenPrepStationsSuccess: {
+            /** @constant */
+            ok: true;
+            /** @constant */
+            route: "/api/kitchen/prep-stations";
+            count: number;
+            prepStations: components["schemas"]["ToastPrepStation"][];
+            nextPageToken: string | null;
+            request: {
+                pageToken: string | null;
+                lastModified: string | null;
+            };
+            raw?: {
+                [key: string]: unknown;
+            };
+        };
         MenusResponse: components["schemas"]["MenusSuccess"] | components["schemas"]["ErrorResponse"];
         MenusSuccess: {
             /** @constant */
@@ -456,6 +605,27 @@ export interface components {
         /** @description OpenAPI document describing the Doughmonster Worker HTTP interface. */
         OpenApiDocument: {
             [key: string]: unknown;
+        };
+        OrderByIdError: {
+            /** @constant */
+            ok: false;
+            /** @example /api/orders/00000000-0000-0000-0000-000000000000 */
+            route: string;
+            /** Format: uuid */
+            guid?: string;
+            error: string;
+        } & {
+            [key: string]: unknown;
+        };
+        OrderByIdResponse: components["schemas"]["OrderByIdSuccess"] | components["schemas"]["OrderByIdError"];
+        OrderByIdSuccess: {
+            /** @constant */
+            ok: true;
+            /** @example /api/orders/00000000-0000-0000-0000-000000000000 */
+            route: string;
+            /** Format: uuid */
+            guid: string;
+            order: components["schemas"]["ToastOrder"];
         };
         OrderCursor: {
             ts?: string | null;
@@ -1016,6 +1186,44 @@ export interface components {
             context?: Record<string, never>;
         };
         /**
+         * PrepStation
+         * @description Kitchen prep station configuration representing a printer or KDS destination for routed orders.
+         */
+        ToastPrepStation: {
+            /** @description Toast-maintained GUID for the referenced entity. */
+            guid: string;
+            /** @description Type discriminator returned by Toast (response only). */
+            entityType?: string;
+            /** @description Other prep stations monitored by this station to coordinate multi-station orders. */
+            connectedPrepStations?: {
+                /** @description Toast-maintained GUID for the referenced entity. */
+                guid: string;
+                /** @description Type discriminator returned by Toast (response only). */
+                entityType?: string;
+            }[];
+            /**
+             * @description Printer routing behavior. `ON` prints every ticket, `OFFLINE_ONLY` only prints when the KDS is offline.
+             * @enum {string}
+             */
+            printingMode?: "ON" | "OFFLINE_ONLY";
+            /** @description When true, also route tickets to the expediter device. */
+            includeWithExpediter?: boolean;
+            /**
+             * @description Expo routing strategy controlling how tickets flow between the station and expediter.
+             * @enum {string}
+             */
+            expoRouting?: "SEND_TO_EXPO" | "EXPO_ONLY" | "SKIP_EXPO";
+            /** @description Human readable prep station name. */
+            name?: string;
+            /** @description Printer associated with the prep station (if configured). */
+            kitchenPrinter?: {
+                /** @description Toast-maintained GUID for the referenced entity. */
+                guid: string;
+                /** @description Type discriminator returned by Toast (response only). */
+                entityType?: string;
+            };
+        };
+        /**
          * Selection
          * @description Represents a primary menu item or modifier selection. Supports nested modifiers, pricing metadata, and fulfillment state.
          */
@@ -1147,8 +1355,14 @@ export interface components {
     };
     responses: never;
     parameters: {
+        /** @description Only return prep stations created or modified after the provided Toast timestamp (for example `2021-12-01T00:00:00.000+0000`). */
+        KitchenPrepStationsLastModified: string;
+        /** @description Pagination token returned by a previous Toast Kitchen API call. Forward the value to retrieve the next page. */
+        KitchenPrepStationsPageToken: string;
         /** @description Force a synchronous refresh of the published menu when set to a truthy value. */
         MenusRefresh: boolean;
+        /** @description Toast order GUID to retrieve. */
+        OrderGuidPath: string;
         /** @description Include detailed diagnostics when enabled and the worker permits debug output. */
         OrdersDetailedDebug: boolean;
         /** @description ISO-8601 timestamp for the latest order to include. */

@@ -1,9 +1,14 @@
-import type { components } from './types'
+import type { components, paths } from './types'
 
 export type ToastOrder = components['schemas']['ToastOrder']
 export type ToastCheck = components['schemas']['ToastCheck']
 export type ToastSelection = components['schemas']['ToastSelection']
 export type OrdersLatestSuccessFull = components['schemas']['OrdersLatestSuccessFull']
+export type OrderByIdSuccess = components['schemas']['OrderByIdSuccess']
+export type OrdersLatestQuery =
+  paths['/api/orders']['get']['parameters']['query'] extends infer Query
+    ? { [Key in keyof Query]?: Query[Key] | null | undefined }
+    : Record<string, unknown>
 
 const ORDERS_ENDPOINT = 'https://doughmonster-worker.thedoughmonster.workers.dev/api/orders'
 
@@ -78,21 +83,73 @@ const isOrdersSuccessFull = (value: unknown): value is OrdersLatestSuccessFull =
   }
 
   const data = (value as Record<string, unknown>).data
-  if (data !== undefined && (!Array.isArray(data) || !data.every(isToastOrder))) {
+  if (data !== undefined && data !== null) {
+    if (!Array.isArray(data) || !data.every(isToastOrder)) {
+      return false
+    }
+  }
+
+  return true
+}
+
+const isOrderByIdSuccess = (value: unknown): value is OrderByIdSuccess => {
+  if (!isObject(value)) {
+    return false
+  }
+
+  if ((value as Record<string, unknown>).ok !== true) {
+    return false
+  }
+
+  const order = (value as Record<string, unknown>).order
+  if (!isToastOrder(order)) {
+    return false
+  }
+
+  const guid = (value as Record<string, unknown>).guid
+  if (typeof guid !== 'string' || guid !== order.guid) {
     return false
   }
 
   return true
 }
 
+const toQueryRecord = (query: OrdersLatestQuery = {}): Record<string, string> => {
+  const params: Record<string, string> = {}
+
+  Object.entries(query).forEach(([key, rawValue]) => {
+    if (rawValue === undefined || rawValue === null) {
+      return
+    }
+
+    const value = rawValue as string | number | boolean
+    if (typeof value === 'boolean') {
+      params[key] = value ? 'true' : 'false'
+      return
+    }
+
+    params[key] = String(value)
+  })
+
+  return params
+}
+
 export type FetchToastOrdersOptions = {
   signal?: AbortSignal
+  query?: OrdersLatestQuery
 }
 
 export const fetchToastOrders = async (
   options: FetchToastOrdersOptions = {},
-): Promise<ToastOrder[]> => {
-  const response = await fetch(ORDERS_ENDPOINT, { signal: options.signal })
+): Promise<OrdersLatestSuccessFull> => {
+  const query = toQueryRecord(options.query)
+  const url = new URL(ORDERS_ENDPOINT)
+
+  Object.entries(query).forEach(([key, value]) => {
+    url.searchParams.set(key, value)
+  })
+
+  const response = await fetch(url.toString(), { signal: options.signal })
 
   if (!response.ok) {
     throw new Error(`Orders request failed with status ${response.status}`)
@@ -103,12 +160,38 @@ export const fetchToastOrders = async (
     throw new Error('Unexpected orders payload shape')
   }
 
-  const { orders, data } = payload
-  if (Array.isArray(data) && data.length > 0) {
-    return data
+  return payload
+}
+
+export type FetchToastOrderByGuidOptions = {
+  signal?: AbortSignal
+}
+
+export const fetchToastOrderByGuid = async (
+  guid: string,
+  options: FetchToastOrderByGuidOptions = {},
+): Promise<ToastOrder | null> => {
+  if (!guid || typeof guid !== 'string') {
+    throw new Error('A valid order GUID is required')
   }
 
-  return orders
+  const url = `${ORDERS_ENDPOINT}/${encodeURIComponent(guid)}`
+  const response = await fetch(url, { signal: options.signal })
+
+  if (response.status === 404) {
+    return null
+  }
+
+  if (!response.ok) {
+    throw new Error(`Order ${guid} request failed with status ${response.status}`)
+  }
+
+  const payload = (await response.json()) as unknown
+  if (!isOrderByIdSuccess(payload)) {
+    throw new Error('Unexpected order payload shape')
+  }
+
+  return payload.order
 }
 
 export { ORDERS_ENDPOINT }
