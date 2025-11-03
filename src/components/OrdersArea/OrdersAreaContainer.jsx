@@ -26,6 +26,7 @@ function OrdersAreaContainer({
   orders,
   visibleOrders,
   isLoading,
+  isHydrating,
   error,
   emptyStateMessage,
   activeOrderIds,
@@ -68,6 +69,7 @@ function OrdersAreaContainer({
       hasExistingOrders={hasExistingOrders}
       hasVisibleOrders={hasVisibleOrders}
       isLoading={isLoading}
+      isHydrating={isHydrating}
       error={error}
       emptyStateMessage={emptyStateMessage}
       grid={hasVisibleOrders ? <OrdersGrid {...gridProps} /> : null}

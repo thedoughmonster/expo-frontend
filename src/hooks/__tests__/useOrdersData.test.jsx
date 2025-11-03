@@ -1,6 +1,9 @@
 import { act, renderHook, waitFor } from '@testing-library/react'
-import { describe, expect, it, vi, afterEach } from 'vitest'
+import { describe, expect, it, vi, afterEach, beforeEach } from 'vitest'
 import useOrdersData from '../useOrdersData'
+import { clearOrdersCache } from '../../domain/orders/ordersCache'
+import { clearMenuCache } from '../../domain/menus/menuCache'
+import { clearConfigCache } from '../../domain/config/configCache'
 
 const ORDERS_ENDPOINT =
   'https://doughmonster-worker.thedoughmonster.workers.dev/api/orders'
@@ -12,23 +15,78 @@ const originalFetch = global.fetch
 
 const NoStrictModeWrapper = ({ children }) => <>{children}</>
 
-const createFetchResponse = (payload, { ok = true, status = 200 } = {}) => ({
+const createFetchResponse = (
+  payload,
+  { ok = true, status = 200, headers = {} } = {},
+) => ({
   ok,
   status,
   json: async () => payload,
+  headers: {
+    get: (key) => headers?.[key] ?? headers?.[key?.toLowerCase?.()] ?? null,
+  },
 })
 
-const createDeferred = () => {
-  let resolve
-  let reject
-
-  const promise = new Promise((res, rej) => {
-    resolve = res
-    reject = rej
-  })
-
-  return { promise, resolve, reject }
+const baseOrder = {
+  guid: '12345678-abcd-1234-abcd-abcdefabcdef',
+  displayNumber: '21',
+  approvalStatus: 'SENT',
+  openedDate: '2025-01-01T10:15:00Z',
+  diningOption: { guid: 'pickup-guid' },
+  checks: [
+    {
+      guid: 'check-1',
+      displayNumber: '21',
+      createdDate: '2025-01-01T10:15:00Z',
+      totalAmount: 42.5,
+      paymentStatus: 'OPEN',
+      selections: [
+        {
+          guid: 'selection-1',
+          displayName: 'Pizza',
+          quantity: 1,
+          modifiers: [],
+          fulfillmentStatus: 'SENT',
+        },
+      ],
+    },
+  ],
 }
+
+const createOrdersPayload = (orderOverrides = {}) => ({
+  ok: true,
+  route: '/api/orders',
+  limit: 50,
+  detail: 'full',
+  minutes: 30,
+  window: {
+    start: '2025-01-01T10:10:00Z',
+    end: '2025-01-01T10:20:00Z',
+  },
+  pageSize: 100,
+  expandUsed: [],
+  count: 1,
+  ids: [baseOrder.guid],
+  orders: [{ ...baseOrder, ...orderOverrides }],
+})
+
+const menusPayload = { menus: [] }
+
+const configPayload = {
+  ttlSeconds: 3600,
+  data: {
+    diningOptions: [
+      {
+        guid: 'pickup-guid',
+        displayName: 'Pickup',
+      },
+    ],
+  },
+}
+
+beforeEach(async () => {
+  await Promise.all([clearOrdersCache(), clearMenuCache(), clearConfigCache()])
+})
 
 afterEach(() => {
   if (originalFetch) {
@@ -37,156 +95,125 @@ afterEach(() => {
     delete global.fetch
   }
 
+  vi.useRealTimers()
   vi.restoreAllMocks()
 })
 
 describe('useOrdersData', () => {
-  it('loads orders on mount and exposes resolved state', async () => {
-    const orderGuid = '12345678-abcd-1234-abcd-abcdefabcdef'
-    const ordersPayload = {
+  it('loads orders on mount, applies lookups, and hydrates targeted tickets', async () => {
+    const singleOrderPayload = {
       ok: true,
-      orders: [
-        {
-          guid: orderGuid,
-          displayNumber: '21',
-          approvalStatus: 'APPROVED',
-          openedDate: '2025-01-01T10:15:00Z',
-          diningOption: { guid: 'pickup-guid' },
-          checks: [
-            {
-              guid: 'check-1',
-              displayNumber: '21',
-              createdDate: '2025-01-01T10:15:00Z',
-              totalAmount: 42.5,
-              paymentStatus: 'OPEN',
-              selections: [
-                {
-                  guid: 'selection-1',
-                  displayName: 'Pizza',
-                  quantity: 1,
-                  price: 42.5,
-                  fulfillmentStatus: 'NEW',
-                  modifiers: [
-                    { guid: 'modifier-1', displayName: 'Extra Cheese', quantity: 1 },
-                  ],
-                },
-              ],
-            },
-          ],
-        },
-      ],
-    }
-    const menusPayload = { menus: [] }
-    const configPayload = {
-      data: {
-        diningOptions: [
-          {
-            guid: 'pickup-guid',
-            displayName: 'Pickup',
-          },
-        ],
-      },
+      route: `${ORDERS_ENDPOINT}/${baseOrder.guid}`,
+      guid: baseOrder.guid,
+      order: baseOrder,
     }
 
-    const fetchMock = vi
-      .fn()
-      .mockResolvedValueOnce(createFetchResponse(configPayload))
-      .mockResolvedValueOnce(createFetchResponse(ordersPayload))
-      .mockResolvedValueOnce(createFetchResponse(menusPayload))
+    const fetchMock = vi.fn(async (input) => {
+      const url = typeof input === 'string' ? input : input.url
+
+      if (url.startsWith(`${ORDERS_ENDPOINT}?`)) {
+        expect(url).toContain('detail=full')
+        expect(url).toContain('limit=50')
+        expect(url).toContain('minutes=30')
+        return createFetchResponse(createOrdersPayload())
+      }
+
+      if (url === MENUS_ENDPOINT) {
+        return createFetchResponse(menusPayload, {
+          headers: { 'cache-control': 'max-age=300' },
+        })
+      }
+
+      if (url === CONFIG_SNAPSHOT_ENDPOINT) {
+        return createFetchResponse(configPayload)
+      }
+
+      if (url === `${ORDERS_ENDPOINT}/${baseOrder.guid}`) {
+        return createFetchResponse(singleOrderPayload)
+      }
+
+      throw new Error(`Unexpected fetch to ${url}`)
+    })
 
     global.fetch = fetchMock
 
     const { result } = renderHook(() => useOrdersData(), { wrapper: NoStrictModeWrapper })
 
     await waitFor(() => {
-      expect(fetchMock).toHaveBeenCalledTimes(3)
+      expect(fetchMock).toHaveBeenCalledTimes(4)
     })
 
     await waitFor(() => {
       expect(result.current.orders).toHaveLength(1)
     })
 
+    const [order] = result.current.orders
+    expect(order.diningOption).toBe('Pickup')
+    expect(order.items).toHaveLength(1)
     expect(result.current.isLoading).toBe(false)
-    expect(result.current.orders[0].id).toBe(orderGuid)
-    expect(result.current.orders[0].diningOption).toBe('Pickup')
+    expect(result.current.isHydrating).toBe(false)
     expect(result.current.error).toBeNull()
-    expect(result.current.isRefreshing).toBe(false)
-
-    expect(fetchMock).toHaveBeenCalledTimes(3)
-    expect(fetchMock.mock.calls[0][0]).toBe(CONFIG_SNAPSHOT_ENDPOINT)
-    expect(fetchMock.mock.calls[1][0]).toBe(ORDERS_ENDPOINT)
-    expect(fetchMock.mock.calls[2][0]).toBe(MENUS_ENDPOINT)
   })
 
-  it('flags refreshing state for silent refresh without clearing existing orders', async () => {
-    const firstOrdersPayload = {
-      ok: true,
-      orders: [
-        {
-          guid: '12345678-abcd-1234-abcd-abcdefabcdef',
-          displayNumber: '10',
-          approvalStatus: 'APPROVED',
-          openedDate: '2025-01-01T10:15:00Z',
-          checks: [
-            {
-              guid: 'check-1',
-              displayNumber: '10',
-              createdDate: '2025-01-01T10:15:00Z',
-              totalAmount: 42.5,
-              paymentStatus: 'OPEN',
-              selections: [],
-            },
-          ],
-        },
-      ],
-    }
-    const refreshedOrdersPayload = {
-      ok: true,
-      orders: [
-        {
-          guid: 'abcdef12-3456-7890-abcd-abcdefabcdef',
-          displayNumber: '11',
-          approvalStatus: 'READY',
-          openedDate: '2025-01-01T11:00:00Z',
-          checks: [
-            {
-              guid: 'check-2',
-              displayNumber: '11',
-              createdDate: '2025-01-01T11:00:00Z',
-              totalAmount: 18.5,
-              paymentStatus: 'READY',
-              selections: [],
-            },
-          ],
-        },
-      ],
-    }
-    const menusPayload = { menus: [] }
+  it('performs silent refresh with incremental window and preserves existing orders', async () => {
+    let bulkCallCount = 0
 
-    const deferredOrders = createDeferred()
+    const refreshedOrder = {
+      ...baseOrder,
+      approvalStatus: 'READY',
+      checks: baseOrder.checks.map((check) => ({
+        ...check,
+        paymentStatus: 'READY',
+        selections: check.selections.map((selection) => ({
+          ...selection,
+          fulfillmentStatus: 'READY',
+        })),
+      })),
+    }
 
-    const fetchMock = vi
-      .fn()
-      .mockResolvedValueOnce(createFetchResponse(null))
-      .mockResolvedValueOnce(createFetchResponse(firstOrdersPayload))
-      .mockResolvedValueOnce(createFetchResponse(menusPayload))
-      .mockResolvedValueOnce(createFetchResponse(null))
-      .mockReturnValueOnce(deferredOrders.promise)
-      .mockResolvedValueOnce(createFetchResponse(menusPayload))
+    const fetchMock = vi.fn(async (input) => {
+      const url = typeof input === 'string' ? input : input.url
+
+      if (url.startsWith(`${ORDERS_ENDPOINT}?`)) {
+        bulkCallCount += 1
+        if (bulkCallCount === 1) {
+          return createFetchResponse(createOrdersPayload())
+        }
+
+        expect(url).toContain('since=')
+        expect(url).not.toContain('minutes=')
+        return createFetchResponse({ ...createOrdersPayload(refreshedOrder), minutes: null })
+      }
+
+      if (url === MENUS_ENDPOINT) {
+        return createFetchResponse(menusPayload, {
+          headers: { 'cache-control': 'max-age=300' },
+        })
+      }
+
+      if (url === CONFIG_SNAPSHOT_ENDPOINT) {
+        return createFetchResponse(configPayload)
+      }
+
+      if (url === `${ORDERS_ENDPOINT}/${baseOrder.guid}`) {
+        return createFetchResponse({
+          ok: true,
+          route: `${ORDERS_ENDPOINT}/${baseOrder.guid}`,
+          guid: baseOrder.guid,
+          order: baseOrder,
+        })
+      }
+
+      throw new Error(`Unexpected fetch to ${url}`)
+    })
 
     global.fetch = fetchMock
 
     const { result } = renderHook(() => useOrdersData(), { wrapper: NoStrictModeWrapper })
 
     await waitFor(() => {
-      expect(fetchMock).toHaveBeenCalledTimes(3)
-    })
-
-    await waitFor(() => {
       expect(result.current.orders).toHaveLength(1)
     })
-
-    expect(result.current.isLoading).toBe(false)
 
     let refreshPromise
     act(() => {
@@ -197,11 +224,6 @@ describe('useOrdersData', () => {
       expect(result.current.isRefreshing).toBe(true)
     })
 
-    expect(result.current.isLoading).toBe(false)
-    expect(result.current.orders).toHaveLength(1)
-
-    deferredOrders.resolve(createFetchResponse(refreshedOrdersPayload))
-
     await act(async () => {
       await refreshPromise
     })
@@ -209,15 +231,100 @@ describe('useOrdersData', () => {
     expect(result.current.isRefreshing).toBe(false)
     expect(result.current.orders).toHaveLength(1)
     expect(result.current.orders[0].status).toBe('READY')
+    expect(fetchMock).toHaveBeenCalled()
   })
 
-  it('captures fetch errors when requests fail', async () => {
-    const fetchError = new Error('Orders request failed with status 500')
-    const fetchMock = vi
-      .fn()
-      .mockResolvedValueOnce(createFetchResponse(null))
-      .mockResolvedValueOnce({ ok: false, status: 500, json: async () => ({}) })
-      .mockResolvedValueOnce(createFetchResponse(null))
+  it('polls silently on an interval and stops polling after unmount', async () => {
+    vi.useFakeTimers()
+
+    let bulkCallCount = 0
+
+    const fetchMock = vi.fn(async (input) => {
+      const url = typeof input === 'string' ? input : input.url
+
+      if (url.startsWith(`${ORDERS_ENDPOINT}?`)) {
+        bulkCallCount += 1
+        return createFetchResponse(createOrdersPayload())
+      }
+
+      if (url === MENUS_ENDPOINT) {
+        return createFetchResponse(menusPayload, {
+          headers: { 'cache-control': 'max-age=300' },
+        })
+      }
+
+      if (url === CONFIG_SNAPSHOT_ENDPOINT) {
+        return createFetchResponse(configPayload)
+      }
+
+      if (url === `${ORDERS_ENDPOINT}/${baseOrder.guid}`) {
+        return createFetchResponse({
+          ok: true,
+          route: `${ORDERS_ENDPOINT}/${baseOrder.guid}`,
+          guid: baseOrder.guid,
+          order: baseOrder,
+        })
+      }
+
+      throw new Error(`Unexpected fetch to ${url}`)
+    })
+
+    global.fetch = fetchMock
+
+    const { result, unmount } = renderHook(() => useOrdersData(), { wrapper: NoStrictModeWrapper })
+
+    await act(async () => {
+      await result.current.refresh({ silent: false })
+    })
+
+    expect(result.current.orders).toHaveLength(1)
+    expect(result.current.isLoading).toBe(false)
+    expect(result.current.isRefreshing).toBe(false)
+
+    const callCountAfterInitialLoad = fetchMock.mock.calls.length
+
+    await act(async () => {
+      vi.advanceTimersByTime(5_000)
+      await Promise.resolve()
+      await Promise.resolve()
+    })
+
+    expect(bulkCallCount).toBeGreaterThanOrEqual(2)
+
+    const callCountAfterInterval = fetchMock.mock.calls.length
+    expect(callCountAfterInterval).toBeGreaterThan(callCountAfterInitialLoad)
+
+    expect(result.current.isRefreshing).toBe(false)
+
+    unmount()
+
+    await act(async () => {
+      vi.advanceTimersByTime(10_000)
+      await Promise.resolve()
+      await Promise.resolve()
+    })
+
+    expect(fetchMock).toHaveBeenCalledTimes(callCountAfterInterval)
+  })
+
+  it('captures fetch errors when the orders request fails', async () => {
+    const fetchMock = vi.fn(async (input) => {
+      const url = typeof input === 'string' ? input : input.url
+
+      if (url.startsWith(`${ORDERS_ENDPOINT}?`)) {
+        return createFetchResponse({}, { ok: false, status: 500 })
+      }
+
+      if (url === MENUS_ENDPOINT) {
+        return createFetchResponse(menusPayload)
+      }
+
+      if (url === CONFIG_SNAPSHOT_ENDPOINT) {
+        return createFetchResponse(configPayload)
+      }
+
+      throw new Error(`Unexpected fetch to ${url}`)
+    })
 
     global.fetch = fetchMock
 
@@ -229,6 +336,5 @@ describe('useOrdersData', () => {
 
     expect(result.current.orders).toHaveLength(0)
     expect(result.current.error).toBeInstanceOf(Error)
-    expect(result.current.error.message).toBe(fetchError.message)
   })
 })

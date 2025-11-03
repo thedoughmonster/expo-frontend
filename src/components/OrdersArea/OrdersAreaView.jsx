@@ -4,17 +4,13 @@ function OrdersAreaView({
   hasExistingOrders,
   hasVisibleOrders,
   isLoading,
+  isHydrating,
   error,
   emptyStateMessage,
   grid,
 }) {
   return (
     <main className={styles.ordersArea} data-orders-area>
-      {isLoading && !hasExistingOrders && !error ? (
-        <section className={styles.ordersState} aria-live="polite">
-          Loading orders…
-        </section>
-      ) : null}
       {!isLoading && error ? (
         <section
           className={`${styles.ordersState} ${styles.ordersStateError}`}

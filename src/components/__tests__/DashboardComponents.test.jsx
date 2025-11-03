@@ -65,11 +65,12 @@ describe('Dashboard UI components', () => {
         orders={[]}
         visibleOrders={[]}
         isLoading={false}
+        isHydrating={false}
         error={null}
         emptyStateMessage="Nothing to show"
         activeOrderIds={new Set()}
         toggleOrderActive={vi.fn()}
-      />,
+      />, 
     )
 
     expect(screen.getByText('Nothing to show')).toBeTruthy()

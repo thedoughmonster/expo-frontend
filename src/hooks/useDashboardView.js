@@ -11,7 +11,7 @@ const DASHBOARD_TITLE = 'Order Dashboard'
 const SETTINGS_MODAL_TITLE = 'Dashboard Settings'
 
 const useDashboardView = () => {
-  const { orders, isLoading, isRefreshing, error, refresh } = useOrdersData()
+  const { orders, isLoading, isRefreshing, isHydrating, error, refresh } = useOrdersData()
   const { activeFulfillmentFilters } = useFulfillmentFilters()
   const { activeOrderIds, toggleOrderActive } = useSelectionState()
   const { activePrepStationId } = usePrepStationFilter()
@@ -208,6 +208,7 @@ const useDashboardView = () => {
       orders,
       visibleOrders,
       isLoading,
+      isHydrating,
       error,
       emptyStateMessage,
       activeOrderIds,
@@ -217,6 +218,7 @@ const useDashboardView = () => {
       activeOrderIds,
       emptyStateMessage,
       error,
+      isHydrating,
       isLoading,
       orders,
       toggleOrderActive,
