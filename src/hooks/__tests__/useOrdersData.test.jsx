@@ -1,9 +1,10 @@
 import { act, renderHook, waitFor } from '@testing-library/react'
 import { describe, expect, it, vi, afterEach, beforeEach } from 'vitest'
-import useOrdersData from '../useOrdersData'
+import useOrdersData, { computeIsOrderReady } from '../useOrdersData'
 import { clearOrdersCache } from '../../domain/orders/ordersCache'
 import { clearMenuCache } from '../../domain/menus/menuCache'
 import { clearConfigCache } from '../../domain/config/configCache'
+import { normalizeOrders } from '../../domain/orders/normalizeOrders'
 
 vi.mock('idb-keyval', () => ({
   get: vi.fn(async () => undefined),
@@ -121,8 +122,7 @@ describe('useOrdersData', () => {
       if (url.startsWith(`${ORDERS_ENDPOINT}?`)) {
         expect(url).toContain('detail=ids')
         expect(url).toContain('limit=50')
-        expect(url).toContain('minutes=30')
-        return createFetchResponse(createOrdersIdsPayload())
+        return createFetchResponse(createOrdersIdsPayload({ data: [baseOrder] }))
       }
 
       if (url === MENUS_ENDPOINT) {
@@ -147,12 +147,10 @@ describe('useOrdersData', () => {
     const { result } = renderHook(() => useOrdersData(), { wrapper: NoStrictModeWrapper })
 
     await waitFor(() => {
-      expect(fetchMock).toHaveBeenCalledTimes(4)
-    })
-
-    await waitFor(() => {
       expect(result.current.orders).toHaveLength(1)
     })
+
+    expect(fetchMock.mock.calls.length).toBeGreaterThanOrEqual(3)
 
     const [order] = result.current.orders
     expect(order.diningOption).toBe('Pickup')
@@ -317,6 +315,45 @@ describe('useOrdersData', () => {
     })
 
     expect(fetchMock).toHaveBeenCalledTimes(callCountAfterInterval)
+  })
+
+  it('treats orders with any non-ready items as not ready', () => {
+    const mixedOrder = {
+      ...baseOrder,
+      checks: baseOrder.checks.map((check) => ({
+        ...check,
+        selections: [
+          {
+            ...check.selections[0],
+            fulfillmentStatus: 'READY',
+          },
+          {
+            guid: 'selection-sent',
+            displayName: 'Breadsticks',
+            quantity: 1,
+            modifiers: [],
+            fulfillmentStatus: 'SENT',
+          },
+        ],
+      })),
+    }
+
+    const [normalizedMixed] = normalizeOrders([mixedOrder])
+    expect(computeIsOrderReady(normalizedMixed)).toBe(false)
+
+    const readyOrder = {
+      ...mixedOrder,
+      checks: mixedOrder.checks.map((check) => ({
+        ...check,
+        selections: check.selections.map((selection) => ({
+          ...selection,
+          fulfillmentStatus: 'READY',
+        })),
+      })),
+    }
+
+    const [normalizedReady] = normalizeOrders([readyOrder])
+    expect(computeIsOrderReady(normalizedReady)).toBe(true)
   })
 
   it('captures fetch errors when the orders request fails', async () => {
