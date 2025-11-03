@@ -64,7 +64,7 @@ const createOrdersIdsPayload = (overrides = {}) => ({
   route: '/api/orders',
   limit: 50,
   detail: 'ids',
-  minutes: 360,
+  minutes: 30,
   window: {
     start: '2025-01-01T10:10:00Z',
     end: '2025-01-01T10:20:00Z',
@@ -121,7 +121,7 @@ describe('useOrdersData', () => {
       if (url.startsWith(`${ORDERS_ENDPOINT}?`)) {
         expect(url).toContain('detail=ids')
         expect(url).toContain('limit=50')
-        expect(url).toContain('minutes=360')
+        expect(url).toContain('minutes=30')
         return createFetchResponse(createOrdersIdsPayload())
       }
 
