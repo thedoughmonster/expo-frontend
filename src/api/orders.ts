@@ -1,4 +1,5 @@
 import type { components, paths } from './types'
+import { APP_SETTINGS } from '../config/appSettings'
 
 export type ToastOrder = components['schemas']['ToastOrder']
 export type ToastCheck = components['schemas']['ToastCheck']
@@ -12,7 +13,7 @@ export type OrdersLatestQuery =
     ? { [Key in keyof Query]?: Query[Key] | null | undefined }
     : Record<string, unknown>
 
-const ORDERS_ENDPOINT = 'https://doughmonster-worker.thedoughmonster.workers.dev/api/orders'
+const { ordersEndpoint: ORDERS_ENDPOINT } = APP_SETTINGS
 
 const isObject = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null
