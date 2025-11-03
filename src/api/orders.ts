@@ -4,6 +4,8 @@ export type ToastOrder = components['schemas']['ToastOrder']
 export type ToastCheck = components['schemas']['ToastCheck']
 export type ToastSelection = components['schemas']['ToastSelection']
 export type OrdersLatestSuccessFull = components['schemas']['OrdersLatestSuccessFull']
+export type OrdersLatestSuccessIds = components['schemas']['OrdersLatestSuccessIds']
+export type OrdersLatestSuccess = OrdersLatestSuccessFull | OrdersLatestSuccessIds
 export type OrderByIdSuccess = components['schemas']['OrderByIdSuccess']
 export type OrdersLatestQuery =
   paths['/api/orders']['get']['parameters']['query'] extends infer Query
@@ -63,7 +65,7 @@ const isToastOrder = (value: unknown): value is ToastOrder => {
   return checks.every(isToastCheck)
 }
 
-const isOrdersSuccessFull = (value: unknown): value is OrdersLatestSuccessFull => {
+const isOrdersSuccess = (value: unknown): value is OrdersLatestSuccess => {
   if (!isObject(value)) {
     return false
   }
@@ -73,12 +75,20 @@ const isOrdersSuccessFull = (value: unknown): value is OrdersLatestSuccessFull =
   }
 
   const orders = (value as Record<string, unknown>).orders
-  if (!Array.isArray(orders) || !orders.every(isToastOrder)) {
+  if (!Array.isArray(orders)) {
     return false
   }
 
   const detail = (value as Record<string, unknown>).detail
-  if (detail && detail !== 'full') {
+  if (detail === 'ids') {
+    return orders.every((order) => typeof order === 'string')
+  }
+
+  if (detail !== undefined && detail !== 'full') {
+    return false
+  }
+
+  if (!orders.every(isToastOrder)) {
     return false
   }
 
@@ -141,7 +151,7 @@ export type FetchToastOrdersOptions = {
 
 export const fetchToastOrders = async (
   options: FetchToastOrdersOptions = {},
-): Promise<OrdersLatestSuccessFull> => {
+): Promise<OrdersLatestSuccess> => {
   const query = toQueryRecord(options.query)
   const url = new URL(ORDERS_ENDPOINT)
 
@@ -156,7 +166,7 @@ export const fetchToastOrders = async (
   }
 
   const payload = (await response.json()) as unknown
-  if (!isOrdersSuccessFull(payload)) {
+  if (!isOrdersSuccess(payload)) {
     throw new Error('Unexpected orders payload shape')
   }
 
