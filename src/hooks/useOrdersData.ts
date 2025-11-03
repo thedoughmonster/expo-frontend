@@ -33,20 +33,21 @@ import {
 import stableStringify from '../utils/stableStringify'
 import { fetchToastOrderByGuid, fetchToastOrders } from '../api/orders'
 import type { OrdersLatestQuery, ToastSelection } from '../api/orders'
+import { APP_SETTINGS } from '../config/appSettings'
 
-const MENUS_ENDPOINT = 'https://doughmonster-worker.thedoughmonster.workers.dev/api/menus'
-const CONFIG_SNAPSHOT_ENDPOINT =
-  'https://doughmonster-worker.thedoughmonster.workers.dev/api/config/snapshot'
-
-const POLL_LIMIT = 50
-const FALLBACK_MINUTES = 6 * 60
-const DRIFT_BUFFER_MS = 2 * 60 * 1000
-const STALE_ACTIVE_RETENTION_MS = 2 * 60 * 60 * 1000
-const STALE_READY_RETENTION_MS = 6 * 60 * 60 * 1000
-const TARGETED_CONCURRENCY = 3
-const TARGETED_MAX_RETRIES = 2
-const TARGETED_BACKOFF_MS = 400
-const POLL_INTERVAL_MS = 5_000
+const {
+  menusEndpoint: MENUS_ENDPOINT,
+  configSnapshotEndpoint: CONFIG_SNAPSHOT_ENDPOINT,
+  pollLimit: POLL_LIMIT,
+  orderPollingWindowMinutes: FALLBACK_MINUTES,
+  driftBufferMs: DRIFT_BUFFER_MS,
+  staleActiveRetentionMs: STALE_ACTIVE_RETENTION_MS,
+  staleReadyRetentionMs: STALE_READY_RETENTION_MS,
+  targetedFetchConcurrency: TARGETED_CONCURRENCY,
+  targetedFetchMaxRetries: TARGETED_MAX_RETRIES,
+  targetedFetchBackoffMs: TARGETED_BACKOFF_MS,
+  pollIntervalMs: POLL_INTERVAL_MS,
+} = APP_SETTINGS
 
 const delay = (ms: number) =>
   new Promise<void>((resolve) => {
