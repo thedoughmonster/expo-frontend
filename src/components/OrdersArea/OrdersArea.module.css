@@ -9,12 +9,49 @@
   gap: 0.95rem;
   color: #e2e8f0;
   overflow-y: auto;
+  position: relative;
 }
 
 .ordersState {
   margin: 0;
   color: #cbd5f5;
   font-size: 0.95rem;
+}
+
+.ordersStatusOverlay {
+  position: absolute;
+  top: 0.75rem;
+  right: 1.25rem;
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.35rem 0.75rem;
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.92);
+  border: 1px solid rgba(148, 163, 184, 0.4);
+  box-shadow: 0 12px 32px -18px rgba(59, 130, 246, 0.6);
+  color: #f8fafc;
+  font-size: 0.82rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  pointer-events: none;
+}
+
+.ordersStatusText {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+@media (max-width: 720px) {
+  .ordersStatusOverlay {
+    left: 1.25rem;
+    right: 1.25rem;
+    justify-content: center;
+    text-align: center;
+    border-radius: 0.75rem;
+  }
 }
 
 .ordersStateHeading {
