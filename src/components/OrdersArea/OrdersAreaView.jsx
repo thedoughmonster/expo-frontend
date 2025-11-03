@@ -9,34 +9,8 @@ function OrdersAreaView({
   emptyStateMessage,
   grid,
 }) {
-  const statusMessage = (() => {
-    if (error) {
-      return null
-    }
-
-    if (isLoading && !hasExistingOrders) {
-      return 'Loading orders…'
-    }
-
-    if (!isLoading && isHydrating && hasExistingOrders) {
-      return 'Updating order details…'
-    }
-
-    return null
-  })()
-
   return (
     <main className={styles.ordersArea} data-orders-area>
-      {statusMessage ? (
-        <div
-          className={styles.ordersStatusOverlay}
-          role="status"
-          aria-live="polite"
-          aria-atomic="true"
-        >
-          <span className={styles.ordersStatusText}>{statusMessage}</span>
-        </div>
-      ) : null}
       {!isLoading && error ? (
         <section
           className={`${styles.ordersState} ${styles.ordersStateError}`}
