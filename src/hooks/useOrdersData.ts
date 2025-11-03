@@ -39,7 +39,7 @@ const CONFIG_SNAPSHOT_ENDPOINT =
   'https://doughmonster-worker.thedoughmonster.workers.dev/api/config/snapshot'
 
 const POLL_LIMIT = 50
-const FALLBACK_MINUTES = 30
+const FALLBACK_MINUTES = 6 * 60
 const DRIFT_BUFFER_MS = 2 * 60 * 1000
 const STALE_ACTIVE_RETENTION_MS = 2 * 60 * 60 * 1000
 const STALE_READY_RETENTION_MS = 6 * 60 * 60 * 1000
@@ -161,7 +161,7 @@ const buildOrdersQuery = (cursorIso: string | undefined, now: number): OrdersLat
 
   const query: OrdersLatestQuery = {
     limit: POLL_LIMIT,
-    detail: 'full',
+    detail: 'ids',
     timeZone: 'UTC',
   }
 
@@ -499,20 +499,17 @@ const useOrdersData = () => {
     })
   }, [])
 
-  const refreshActiveOrders = useCallback(
-    async (signal: AbortSignal, now: number) => {
-      const activeGuids = Array.from(orderCacheRef.current.values())
-        .filter((entry) => !entry.isReady)
-        .map((entry) => entry.guid)
+  const fetchOrdersByGuidList = useCallback(
+    async (guids: string[], signal: AbortSignal, now: number) => {
+      const seen = new Set<string>()
+      const fetchedOrders: ToastOrder[] = []
 
-      if (activeGuids.length === 0) {
-        return new Set<string>()
+      if (guids.length === 0) {
+        return { seen, orders: fetchedOrders }
       }
 
-      const seen = new Set<string>()
-
-      for (let i = 0; i < activeGuids.length; i += TARGETED_CONCURRENCY) {
-        const batch = activeGuids.slice(i, i + TARGETED_CONCURRENCY)
+      for (let i = 0; i < guids.length; i += TARGETED_CONCURRENCY) {
+        const batch = guids.slice(i, i + TARGETED_CONCURRENCY)
         const results = await Promise.all(
           batch.map(async (guid) => {
             let attempt = 0
@@ -546,18 +543,36 @@ const useOrdersData = () => {
 
           if (order) {
             seen.add(guid)
+            fetchedOrders.push(order)
             applyRawOrder(order, now)
           }
         })
       }
 
-      if (seen.size > 0) {
+      if (fetchedOrders.length > 0) {
         publishOrders()
       }
 
-      return seen
+      return { seen, orders: fetchedOrders }
     },
     [applyRawOrder, publishOrders],
+  )
+
+  const refreshActiveOrders = useCallback(
+    async (signal: AbortSignal, now: number, excludeGuids?: Set<string>) => {
+      const activeGuids = Array.from(orderCacheRef.current.values())
+        .filter((entry) => !entry.isReady && !(excludeGuids?.has(entry.guid)))
+        .map((entry) => entry.guid)
+
+      if (activeGuids.length === 0) {
+        return new Set<string>()
+      }
+
+      const { seen } = await fetchOrdersByGuidList(activeGuids, signal, now)
+
+      return seen
+    },
+    [fetchOrdersByGuidList],
   )
 
   const refresh = useCallback(
@@ -599,14 +614,67 @@ const useOrdersData = () => {
           return
         }
 
-        const ordersData =
-          Array.isArray(ordersPayload.data) && ordersPayload.data.length > 0
-            ? ordersPayload.data
-            : ordersPayload.orders
+        const windowTimestamps: number[] = []
+        const seenGuids = new Set<string>()
+        let targetedExclusions: Set<string> | undefined
 
-        const seenGuids = applyOrdersBatch(ordersData, now)
+        if (ordersPayload.detail === 'ids') {
+          const candidateGuids = new Set<string>()
+          if (Array.isArray(ordersPayload.ids)) {
+            ordersPayload.ids.forEach((value) => {
+              if (typeof value === 'string') {
+                candidateGuids.add(value)
+              }
+            })
+          }
 
-        const windowTimestamps = collectOrderTimestamps(ordersData)
+          if (Array.isArray(ordersPayload.orders)) {
+            ordersPayload.orders.forEach((value) => {
+              if (typeof value === 'string') {
+                candidateGuids.add(value)
+              }
+            })
+          }
+
+          const missingGuids: string[] = []
+          candidateGuids.forEach((guid) => {
+            seenGuids.add(guid)
+            const existing = orderCacheRef.current.get(guid)
+            if (existing) {
+              existing.lastSeenAtMs = now
+            } else {
+              missingGuids.push(guid)
+            }
+          })
+
+          if (missingGuids.length > 0) {
+            const { seen: fetchedSeen, orders: fetchedOrders } = await fetchOrdersByGuidList(
+              missingGuids,
+              signal,
+              now,
+            )
+            targetedExclusions = fetchedSeen
+            fetchedSeen.forEach((guid) => {
+              seenGuids.add(guid)
+            })
+            if (fetchedOrders.length > 0) {
+              windowTimestamps.push(...collectOrderTimestamps(fetchedOrders))
+            }
+          }
+        } else {
+          const ordersData =
+            Array.isArray(ordersPayload.data) && ordersPayload.data.length > 0
+              ? ordersPayload.data
+              : ordersPayload.orders
+
+          const batchSeen = applyOrdersBatch(ordersData, now)
+          batchSeen.forEach((guid) => {
+            seenGuids.add(guid)
+          })
+
+          windowTimestamps.push(...collectOrderTimestamps(ordersData))
+        }
+
         if (ordersPayload.window?.end) {
           const parsed = Date.parse(ordersPayload.window.end)
           if (Number.isFinite(parsed)) {
@@ -634,7 +702,7 @@ const useOrdersData = () => {
 
         lastFetchRef.current = now
 
-        const targetedSeen = await refreshActiveOrders(signal, now)
+        const targetedSeen = await refreshActiveOrders(signal, now, targetedExclusions)
         targetedSeen.forEach((guid) => {
           seenGuids.add(guid)
         })

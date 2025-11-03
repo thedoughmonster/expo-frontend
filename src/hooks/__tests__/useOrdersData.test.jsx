@@ -5,6 +5,12 @@ import { clearOrdersCache } from '../../domain/orders/ordersCache'
 import { clearMenuCache } from '../../domain/menus/menuCache'
 import { clearConfigCache } from '../../domain/config/configCache'
 
+vi.mock('idb-keyval', () => ({
+  get: vi.fn(async () => undefined),
+  set: vi.fn(async () => undefined),
+  del: vi.fn(async () => undefined),
+}))
+
 const ORDERS_ENDPOINT =
   'https://doughmonster-worker.thedoughmonster.workers.dev/api/orders'
 const MENUS_ENDPOINT = 'https://doughmonster-worker.thedoughmonster.workers.dev/api/menus'
@@ -53,12 +59,12 @@ const baseOrder = {
   ],
 }
 
-const createOrdersPayload = (orderOverrides = {}) => ({
+const createOrdersIdsPayload = (overrides = {}) => ({
   ok: true,
   route: '/api/orders',
   limit: 50,
-  detail: 'full',
-  minutes: 30,
+  detail: 'ids',
+  minutes: 360,
   window: {
     start: '2025-01-01T10:10:00Z',
     end: '2025-01-01T10:20:00Z',
@@ -67,7 +73,8 @@ const createOrdersPayload = (orderOverrides = {}) => ({
   expandUsed: [],
   count: 1,
   ids: [baseOrder.guid],
-  orders: [{ ...baseOrder, ...orderOverrides }],
+  orders: [baseOrder.guid],
+  ...overrides,
 })
 
 const menusPayload = { menus: [] }
@@ -112,10 +119,10 @@ describe('useOrdersData', () => {
       const url = typeof input === 'string' ? input : input.url
 
       if (url.startsWith(`${ORDERS_ENDPOINT}?`)) {
-        expect(url).toContain('detail=full')
+        expect(url).toContain('detail=ids')
         expect(url).toContain('limit=50')
-        expect(url).toContain('minutes=30')
-        return createFetchResponse(createOrdersPayload())
+        expect(url).toContain('minutes=360')
+        return createFetchResponse(createOrdersIdsPayload())
       }
 
       if (url === MENUS_ENDPOINT) {
@@ -157,6 +164,7 @@ describe('useOrdersData', () => {
 
   it('performs silent refresh with incremental window and preserves existing orders', async () => {
     let bulkCallCount = 0
+    let targetedCallCount = 0
 
     const refreshedOrder = {
       ...baseOrder,
@@ -176,13 +184,14 @@ describe('useOrdersData', () => {
 
       if (url.startsWith(`${ORDERS_ENDPOINT}?`)) {
         bulkCallCount += 1
+        expect(url).toContain('detail=ids')
         if (bulkCallCount === 1) {
-          return createFetchResponse(createOrdersPayload())
+          return createFetchResponse(createOrdersIdsPayload())
         }
 
         expect(url).toContain('since=')
         expect(url).not.toContain('minutes=')
-        return createFetchResponse({ ...createOrdersPayload(refreshedOrder), minutes: null })
+        return createFetchResponse(createOrdersIdsPayload({ minutes: null }))
       }
 
       if (url === MENUS_ENDPOINT) {
@@ -196,11 +205,13 @@ describe('useOrdersData', () => {
       }
 
       if (url === `${ORDERS_ENDPOINT}/${baseOrder.guid}`) {
+        targetedCallCount += 1
+        const order = targetedCallCount === 1 ? baseOrder : refreshedOrder
         return createFetchResponse({
           ok: true,
           route: `${ORDERS_ENDPOINT}/${baseOrder.guid}`,
           guid: baseOrder.guid,
-          order: baseOrder,
+          order,
         })
       }
 
@@ -244,7 +255,8 @@ describe('useOrdersData', () => {
 
       if (url.startsWith(`${ORDERS_ENDPOINT}?`)) {
         bulkCallCount += 1
-        return createFetchResponse(createOrdersPayload())
+        expect(url).toContain('detail=ids')
+        return createFetchResponse(createOrdersIdsPayload())
       }
 
       if (url === MENUS_ENDPOINT) {
