@@ -87,6 +87,22 @@ type FetchResultError = {
 const isFetchError = (value: unknown): value is FetchResultError =>
   Boolean(value && typeof value === 'object' && 'error' in value)
 
+const READY_STATUS = 'READY'
+
+export const computeIsOrderReady = (order: NormalizedOrder | undefined): boolean => {
+  if (!order) {
+    return false
+  }
+
+  if (Array.isArray(order.items) && order.items.length > 0) {
+    return order.items.every(
+      (item) => (item.fulfillmentStatus ?? '').trim().toUpperCase() === READY_STATUS,
+    )
+  }
+
+  return (order.fulfillmentStatus ?? '').trim().toUpperCase() === READY_STATUS
+}
+
 const parseCacheControlMaxAge = (headerValue: string | null): number | undefined => {
   if (!headerValue) {
     return undefined
@@ -323,7 +339,7 @@ const useOrdersData = () => {
       }
 
       entry.normalized = normalized
-      entry.isReady = (normalized.fulfillmentStatus ?? '').toUpperCase() === 'READY'
+      entry.isReady = computeIsOrderReady(normalized)
       entry.normalizedVersion = version
       changed = true
     })
@@ -366,7 +382,7 @@ const useOrdersData = () => {
         normalized,
         fingerprint,
         lastSeenAtMs: now,
-        isReady: (normalized.fulfillmentStatus ?? '').toUpperCase() === 'READY',
+        isReady: computeIsOrderReady(normalized),
         normalizedVersion: version,
       })
       return
@@ -375,7 +391,7 @@ const useOrdersData = () => {
     entry.raw = order
     entry.fingerprint = fingerprint
     entry.lastSeenAtMs = now
-    entry.isReady = (entry.normalized.fulfillmentStatus ?? '').toUpperCase() === 'READY'
+    entry.isReady = computeIsOrderReady(entry.normalized)
   }, [])
 
   const applyOrdersBatch = useCallback(
@@ -815,7 +831,7 @@ const useOrdersData = () => {
             normalized: entry.normalized,
             fingerprint: entry.fingerprint,
             lastSeenAtMs: Number.isFinite(lastSeenMs) ? lastSeenMs : Date.now(),
-            isReady: entry.isReady ?? false,
+            isReady: computeIsOrderReady(entry.normalized),
             normalizedVersion: Number.isFinite(version) ? version : -1,
           })
         })
