@@ -5,6 +5,12 @@ import * as ordersDataModule from '../useOrdersData'
 import { useFulfillmentFilters } from '../../viewContext/OrdersViewContext'
 import DashboardProviders from '../../viewContext/DashboardProviders'
 
+vi.mock('idb-keyval', () => ({
+  get: vi.fn(async () => undefined),
+  set: vi.fn(async () => undefined),
+  del: vi.fn(async () => undefined),
+}))
+
 const mockOrders = [
   {
     id: 'order-1',
