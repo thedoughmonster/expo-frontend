@@ -19,6 +19,7 @@ export function OrdersViewProvider({ children }) {
   )
   const [activeOrderIds, setActiveOrderIds] = useState(() => new Set())
   const [activePrepStationId, setActivePrepStationId] = useState(null)
+  const [dismissedOrderIds, setDismissedOrderIds] = useState(() => new Set())
 
   const toggleFulfillmentFilter = useCallback((key) => {
     setActiveFulfillmentFilters((previous) => {
@@ -58,6 +59,75 @@ export function OrdersViewProvider({ children }) {
     })
   }, [])
 
+  const dismissOrders = useCallback((orderIds) => {
+    if (!orderIds || orderIds.length === 0) {
+      return
+    }
+
+    setDismissedOrderIds((previous) => {
+      const ids = Array.isArray(orderIds) ? orderIds : Array.from(orderIds)
+
+      let didChange = false
+      const next = new Set(previous)
+
+      ids.forEach((id) => {
+        if (typeof id !== 'string') {
+          return
+        }
+
+        const trimmed = id.trim()
+        if (!trimmed) {
+          return
+        }
+
+        if (!next.has(trimmed)) {
+          next.add(trimmed)
+          didChange = true
+        }
+      })
+
+      if (!didChange) {
+        return previous
+      }
+
+      return next
+    })
+  }, [])
+
+  const restoreOrders = useCallback((orderIds) => {
+    if (!orderIds || orderIds.length === 0) {
+      return
+    }
+
+    setDismissedOrderIds((previous) => {
+      const ids = Array.isArray(orderIds) ? orderIds : Array.from(orderIds)
+
+      let didChange = false
+      const next = new Set(previous)
+
+      ids.forEach((id) => {
+        if (typeof id !== 'string') {
+          return
+        }
+
+        const trimmed = id.trim()
+
+        if (!next.has(trimmed)) {
+          return
+        }
+
+        next.delete(trimmed)
+        didChange = true
+      })
+
+      if (!didChange) {
+        return previous
+      }
+
+      return next
+    })
+  }, [])
+
   const selectPrepStation = useCallback(
     (prepStationId) => {
       setActivePrepStationId((previous) => {
@@ -91,6 +161,9 @@ export function OrdersViewProvider({ children }) {
       activePrepStationId,
       selectPrepStation,
       clearPrepStation,
+      dismissedOrderIds,
+      dismissOrders,
+      restoreOrders,
     }),
     [
       activeFulfillmentFilters,
@@ -101,6 +174,9 @@ export function OrdersViewProvider({ children }) {
       activePrepStationId,
       selectPrepStation,
       clearPrepStation,
+      dismissedOrderIds,
+      dismissOrders,
+      restoreOrders,
     ],
   )
 
@@ -131,5 +207,14 @@ export const usePrepStationFilter = () => {
   return useMemo(
     () => ({ activePrepStationId, selectPrepStation, clearPrepStation }),
     [activePrepStationId, selectPrepStation, clearPrepStation],
+  )
+}
+
+export const useDismissedOrders = () => {
+  const { dismissedOrderIds, dismissOrders, restoreOrders } = useOrdersViewContext()
+
+  return useMemo(
+    () => ({ dismissedOrderIds, dismissOrders, restoreOrders }),
+    [dismissedOrderIds, dismissOrders, restoreOrders],
   )
 }
