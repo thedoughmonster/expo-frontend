@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { deriveModifiersFromOrders } from '../ModifierSidebarContainer'
+import { deriveModifiersFromOrders } from '../deriveModifiersFromOrders'
 
 describe('deriveModifiersFromOrders', () => {
   it('groups modifiers by category and respects menu ordering', () => {

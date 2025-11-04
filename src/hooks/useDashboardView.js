@@ -4,6 +4,7 @@ import useOrdersData from './useOrdersData'
 import {
   useDismissedOrders,
   useFulfillmentFilters,
+  useOrdersDebugPanel,
   usePrepStationFilter,
   useSelectionState,
 } from '../viewContext/OrdersViewContext'
@@ -12,11 +13,27 @@ const DASHBOARD_TITLE = 'Order Dashboard'
 const SETTINGS_MODAL_TITLE = 'Dashboard Settings'
 
 const useDashboardView = () => {
-  const { orders, isLoading, isRefreshing, isHydrating, error, refresh } = useOrdersData()
+  const {
+    orders,
+    isLoading,
+    isRefreshing,
+    isHydrating,
+    error,
+    refresh,
+    menuSnapshot,
+    configSnapshot,
+    lookupsVersion,
+  } = useOrdersData()
   const { activeFulfillmentFilters } = useFulfillmentFilters()
   const { activeOrderIds, toggleOrderActive } = useSelectionState()
   const { dismissedOrderIds } = useDismissedOrders()
   const { activePrepStationId } = usePrepStationFilter()
+  const {
+    isDebugPanelEnabled,
+    isDebugPanelOpen,
+    toggleDebugPanel,
+    closeDebugPanel,
+  } = useOrdersDebugPanel()
 
   const totalFilters = FULFILLMENT_FILTERS.length
   const activeFilterCount = activeFulfillmentFilters.size
@@ -213,6 +230,10 @@ const useDashboardView = () => {
     refresh({ silent: hasExistingOrders })
   }, [hasExistingOrders, refresh])
 
+  const handleToggleDebugPanel = useCallback(() => {
+    toggleDebugPanel()
+  }, [toggleDebugPanel])
+
   const canDismissSelectedOrders = activeOrderIds.size > 0
 
   const topBarProps = useMemo(
@@ -222,8 +243,19 @@ const useDashboardView = () => {
       onRefresh: handleRefresh,
       refreshAriaLabel,
       canDismissSelectedOrders,
+      isDebugPanelEnabled,
+      isDebugPanelOpen,
+      onToggleDebugPanel: handleToggleDebugPanel,
     }),
-    [canDismissSelectedOrders, handleRefresh, isBusy, refreshAriaLabel],
+    [
+      canDismissSelectedOrders,
+      handleRefresh,
+      handleToggleDebugPanel,
+      isBusy,
+      isDebugPanelEnabled,
+      isDebugPanelOpen,
+      refreshAriaLabel,
+    ],
   )
 
   const sidebarProps = useMemo(
@@ -236,6 +268,25 @@ const useDashboardView = () => {
     [error, isLoading, ordersForModifiers, selectionSummaryMessage],
   )
 
+  const debugPanelProps = useMemo(
+    () => ({
+      isEnabled: isDebugPanelEnabled,
+      isOpen: isDebugPanelEnabled && isDebugPanelOpen,
+      onClose: closeDebugPanel,
+      menuSnapshot,
+      configSnapshot,
+      lookupsVersion,
+    }),
+    [
+      closeDebugPanel,
+      configSnapshot,
+      isDebugPanelEnabled,
+      isDebugPanelOpen,
+      lookupsVersion,
+      menuSnapshot,
+    ],
+  )
+
   const ordersAreaProps = useMemo(
     () => ({
       orders,
@@ -246,9 +297,11 @@ const useDashboardView = () => {
       emptyStateMessage,
       activeOrderIds,
       toggleOrderActive,
+      debugPanel: debugPanelProps,
     }),
     [
       activeOrderIds,
+      debugPanelProps,
       emptyStateMessage,
       error,
       isHydrating,

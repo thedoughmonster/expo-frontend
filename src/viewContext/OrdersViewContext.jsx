@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components */
 import { createContext, useCallback, useContext, useMemo, useState } from 'react'
 import { FULFILLMENT_FILTERS } from '../domain/status/fulfillmentFilters'
 
@@ -20,6 +21,8 @@ export function OrdersViewProvider({ children }) {
   const [activeOrderIds, setActiveOrderIds] = useState(() => new Set())
   const [activePrepStationId, setActivePrepStationId] = useState(null)
   const [dismissedOrderIds, setDismissedOrderIds] = useState(() => new Set())
+  const [isDebugPanelEnabled, setIsDebugPanelEnabled] = useState(false)
+  const [isDebugPanelOpen, setIsDebugPanelOpen] = useState(false)
 
   const toggleFulfillmentFilter = useCallback((key) => {
     setActiveFulfillmentFilters((previous) => {
@@ -151,6 +154,42 @@ export function OrdersViewProvider({ children }) {
     })
   }, [setActivePrepStationId])
 
+  const setDebugPanelEnabled = useCallback((enabled) => {
+    setIsDebugPanelEnabled((previous) => {
+      if (previous === enabled) {
+        return previous
+      }
+
+      if (!enabled) {
+        setIsDebugPanelOpen(false)
+      }
+
+      return enabled
+    })
+  }, [])
+
+  const openDebugPanel = useCallback(() => {
+    if (!isDebugPanelEnabled) {
+      return
+    }
+
+    setIsDebugPanelOpen(true)
+  }, [isDebugPanelEnabled])
+
+  const closeDebugPanel = useCallback(() => {
+    setIsDebugPanelOpen(false)
+  }, [])
+
+  const toggleDebugPanel = useCallback(() => {
+    setIsDebugPanelOpen((previous) => {
+      if (!isDebugPanelEnabled) {
+        return false
+      }
+
+      return !previous
+    })
+  }, [isDebugPanelEnabled])
+
   const value = useMemo(
     () => ({
       activeFulfillmentFilters,
@@ -164,6 +203,12 @@ export function OrdersViewProvider({ children }) {
       dismissedOrderIds,
       dismissOrders,
       restoreOrders,
+      isDebugPanelEnabled,
+      isDebugPanelOpen,
+      setDebugPanelEnabled,
+      openDebugPanel,
+      closeDebugPanel,
+      toggleDebugPanel,
     }),
     [
       activeFulfillmentFilters,
@@ -177,13 +222,19 @@ export function OrdersViewProvider({ children }) {
       dismissedOrderIds,
       dismissOrders,
       restoreOrders,
+      isDebugPanelEnabled,
+      isDebugPanelOpen,
+      setDebugPanelEnabled,
+      closeDebugPanel,
+      openDebugPanel,
+      toggleDebugPanel,
     ],
   )
 
   return <OrdersViewContext.Provider value={value}>{children}</OrdersViewContext.Provider>
 }
 
-export const useFulfillmentFilters = () => {
+export function useFulfillmentFilters() {
   const { activeFulfillmentFilters, toggleFulfillmentFilter } = useOrdersViewContext()
 
   return useMemo(
@@ -192,7 +243,7 @@ export const useFulfillmentFilters = () => {
   )
 }
 
-export const useSelectionState = () => {
+export function useSelectionState() {
   const { activeOrderIds, toggleOrderActive, clearSelection } = useOrdersViewContext()
 
   return useMemo(
@@ -201,7 +252,7 @@ export const useSelectionState = () => {
   )
 }
 
-export const usePrepStationFilter = () => {
+export function usePrepStationFilter() {
   const { activePrepStationId, selectPrepStation, clearPrepStation } = useOrdersViewContext()
 
   return useMemo(
@@ -210,11 +261,41 @@ export const usePrepStationFilter = () => {
   )
 }
 
-export const useDismissedOrders = () => {
+export function useDismissedOrders() {
   const { dismissedOrderIds, dismissOrders, restoreOrders } = useOrdersViewContext()
 
   return useMemo(
     () => ({ dismissedOrderIds, dismissOrders, restoreOrders }),
     [dismissedOrderIds, dismissOrders, restoreOrders],
+  )
+}
+
+export function useOrdersDebugPanel() {
+  const {
+    isDebugPanelEnabled,
+    isDebugPanelOpen,
+    setDebugPanelEnabled,
+    openDebugPanel,
+    closeDebugPanel,
+    toggleDebugPanel,
+  } = useOrdersViewContext()
+
+  return useMemo(
+    () => ({
+      isDebugPanelEnabled,
+      isDebugPanelOpen,
+      setDebugPanelEnabled,
+      openDebugPanel,
+      closeDebugPanel,
+      toggleDebugPanel,
+    }),
+    [
+      closeDebugPanel,
+      isDebugPanelEnabled,
+      isDebugPanelOpen,
+      openDebugPanel,
+      setDebugPanelEnabled,
+      toggleDebugPanel,
+    ],
   )
 }

@@ -1,6 +1,7 @@
 import { memo, useCallback, useEffect, useMemo, useState } from 'react'
 import OrdersAreaView from './OrdersAreaView'
 import OrdersGrid from './OrdersGrid/OrdersGrid'
+import OrdersDebugPanel from './OrdersDebugPanel'
 
 const useNow = (intervalMs = 1000) => {
   const [now, setNow] = useState(() => new Date())
@@ -31,6 +32,7 @@ function OrdersAreaContainer({
   emptyStateMessage,
   activeOrderIds,
   toggleOrderActive,
+  debugPanel,
 }) {
   const now = useNow(1000)
   const hasExistingOrders = orders.length > 0
@@ -64,6 +66,17 @@ function OrdersAreaContainer({
     [visibleOrders, activeOrderIds, handleOrderClick, handleOrderKeyDown, now],
   )
 
+  const debugPanelNode = debugPanel?.isEnabled ? (
+    <OrdersDebugPanel
+      isOpen={Boolean(debugPanel.isOpen)}
+      onClose={debugPanel.onClose}
+      orders={orders}
+      menuSnapshot={debugPanel.menuSnapshot}
+      configSnapshot={debugPanel.configSnapshot}
+      lookupsVersion={debugPanel.lookupsVersion}
+    />
+  ) : null
+
   return (
     <OrdersAreaView
       hasExistingOrders={hasExistingOrders}
@@ -73,6 +86,7 @@ function OrdersAreaContainer({
       error={error}
       emptyStateMessage={emptyStateMessage}
       grid={hasVisibleOrders ? <OrdersGrid {...gridProps} /> : null}
+      debugPanel={debugPanelNode}
     />
   )
 }

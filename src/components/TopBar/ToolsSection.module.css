@@ -23,7 +23,8 @@
 }
 
 .refreshButton,
-.settingsButton {
+.settingsButton,
+.debugButton {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -40,7 +41,9 @@
 .refreshButton:hover,
 .refreshButton:focus-visible,
 .settingsButton:hover,
-.settingsButton:focus-visible {
+.settingsButton:focus-visible,
+.debugButton:hover,
+.debugButton:focus-visible {
   background: rgba(59, 130, 246, 0.38);
   border-color: rgba(147, 197, 253, 0.65);
   color: #f8fafc;
@@ -48,7 +51,8 @@
 }
 
 .refreshButton:focus-visible,
-.settingsButton:focus-visible {
+.settingsButton:focus-visible,
+.debugButton:focus-visible {
   box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.35);
 }
 
@@ -91,4 +95,17 @@
   width: 26px;
   height: 26px;
   font-size: 26px;
+}
+
+.debugButtonActive {
+  background: rgba(59, 130, 246, 0.55);
+  border-color: rgba(147, 197, 253, 0.85);
+  color: #f8fafc;
+}
+
+.debugIcon {
+  display: block;
+  width: 24px;
+  height: 24px;
+  font-size: 24px;
 }

@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components */
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
 
 const SettingsModalContext = createContext(null)
@@ -56,7 +57,7 @@ export const SettingsModalProvider = ({ tabs = [], children }) => {
   return <SettingsModalContext.Provider value={value}>{children}</SettingsModalContext.Provider>
 }
 
-export const useSettingsModal = () => {
+export function useSettingsModal() {
   const context = useContext(SettingsModalContext)
 
   if (!context) {

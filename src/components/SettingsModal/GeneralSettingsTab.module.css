@@ -1,0 +1,54 @@
+.container {
+  display: flex;
+  flex-direction: column;
+  gap: 1.1rem;
+  color: #e2e8f0;
+}
+
+.card {
+  display: flex;
+  gap: 0.85rem;
+  padding: 0.9rem 1rem;
+  border-radius: 0.9rem;
+  background: rgba(30, 41, 59, 0.75);
+  border: 1px solid rgba(96, 165, 250, 0.28);
+  box-shadow: inset 0 0 0 1px rgba(15, 23, 42, 0.65);
+}
+
+.toggle {
+  margin-top: 0.35rem;
+  width: 1.1rem;
+  height: 1.1rem;
+}
+
+.content {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.title {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #f8fafc;
+}
+
+.description {
+  margin: 0;
+  font-size: 0.85rem;
+  line-height: 1.5;
+  color: #cbd5f5;
+}
+
+.helper {
+  margin: 0;
+  font-size: 0.8rem;
+  color: #94a3b8;
+}
+
+.notice {
+  margin: 0;
+  font-size: 0.8rem;
+  color: #a5b4fc;
+}

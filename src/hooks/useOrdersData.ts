@@ -247,6 +247,8 @@ const useOrdersData = () => {
   const [isRefreshing, setIsRefreshing] = useState(false)
   const [isHydrating, setIsHydrating] = useState(false)
   const [error, setError] = useState<Error | null>(null)
+  const [menuDebugSnapshot, setMenuDebugSnapshot] = useState<MenuCacheSnapshot | undefined>(undefined)
+  const [configDebugSnapshot, setConfigDebugSnapshot] = useState<ConfigCacheSnapshot | undefined>(undefined)
 
   const isMountedRef = useRef(true)
   const activeControllerRef = useRef<AbortController | null>(null)
@@ -266,6 +268,16 @@ const useOrdersData = () => {
     menuSignature: '',
     configSignature: '',
   })
+
+  const assignMenuSnapshot = useCallback((snapshot?: MenuCacheSnapshot) => {
+    menuCacheRef.current = snapshot
+    setMenuDebugSnapshot((previous) => (previous === snapshot ? previous : snapshot))
+  }, [])
+
+  const assignConfigSnapshot = useCallback((snapshot?: ConfigCacheSnapshot) => {
+    configCacheRef.current = snapshot
+    setConfigDebugSnapshot((previous) => (previous === snapshot ? previous : snapshot))
+  }, [])
 
   const abortActiveRequest = useCallback(() => {
     if (activeControllerRef.current) {
@@ -441,6 +453,7 @@ const useOrdersData = () => {
       const cached = menuCacheRef.current
 
       if (cached && menuCacheIsFresh(cached, now)) {
+        assignMenuSnapshot(cached)
         return { payload: cached.payload, snapshot: cached }
       }
 
@@ -454,12 +467,12 @@ const useOrdersData = () => {
       const maxAgeSeconds = parseCacheControlMaxAge(cacheControl)
       const ttlMs = maxAgeSeconds ? maxAgeSeconds * 1000 : undefined
       const snapshot = prepareMenuCacheSnapshot(payload, ttlMs, now)
-      menuCacheRef.current = snapshot
+      assignMenuSnapshot(snapshot)
       await saveMenuCache(snapshot)
 
       return { payload, snapshot }
     },
-    [],
+    [assignMenuSnapshot],
   )
 
   const fetchConfigWithCache = useCallback(
@@ -468,6 +481,7 @@ const useOrdersData = () => {
       const cached = configCacheRef.current
 
       if (cached && configCacheIsFresh(cached, now)) {
+        assignConfigSnapshot(cached)
         return { payload: cached.payload, snapshot: cached }
       }
 
@@ -480,12 +494,12 @@ const useOrdersData = () => {
       const ttlSeconds = typeof payload?.ttlSeconds === 'number' ? payload.ttlSeconds : undefined
       const ttlMs = ttlSeconds ? ttlSeconds * 1000 : undefined
       const snapshot = prepareConfigCacheSnapshot(payload, ttlMs, now)
-      configCacheRef.current = snapshot
+      assignConfigSnapshot(snapshot)
       await saveConfigCache(snapshot)
 
       return { payload, snapshot }
     },
-    [],
+    [assignConfigSnapshot],
   )
 
   const removeStaleEntries = useCallback(
@@ -750,17 +764,23 @@ const useOrdersData = () => {
         let menuPayload: unknown | undefined
         if (!isFetchError(menusResult)) {
           menuPayload = menusResult.payload
-          menuCacheRef.current = menusResult.snapshot
+          assignMenuSnapshot(menusResult.snapshot)
         } else if (menuCacheRef.current) {
           menuPayload = menuCacheRef.current.payload
+          assignMenuSnapshot(menuCacheRef.current)
+        } else {
+          assignMenuSnapshot(undefined)
         }
 
         let configPayload: unknown | undefined
         if (!isFetchError(configResult)) {
           configPayload = configResult.payload
-          configCacheRef.current = configResult.snapshot
+          assignConfigSnapshot(configResult.snapshot)
         } else if (configCacheRef.current) {
           configPayload = configCacheRef.current.payload
+          assignConfigSnapshot(configCacheRef.current)
+        } else {
+          assignConfigSnapshot(undefined)
         }
 
         const lookupsChanged = applyLookupPayloads(menuPayload, configPayload)
@@ -798,6 +818,8 @@ const useOrdersData = () => {
     },
     [
       abortActiveRequest,
+      assignConfigSnapshot,
+      assignMenuSnapshot,
       applyLookupPayloads,
       applyOrdersBatch,
       fetchConfigWithCache,
@@ -830,13 +852,17 @@ const useOrdersData = () => {
       }
 
       if (menuSnapshot) {
-        menuCacheRef.current = menuSnapshot
+        assignMenuSnapshot(menuSnapshot)
         applyLookupPayloads(menuSnapshot.payload)
+      } else {
+        assignMenuSnapshot(undefined)
       }
 
       if (configSnapshot) {
-        configCacheRef.current = configSnapshot
+        assignConfigSnapshot(configSnapshot)
         applyLookupPayloads(undefined, configSnapshot.payload)
+      } else {
+        assignConfigSnapshot(undefined)
       }
 
       if (ordersSnapshot && Array.isArray(ordersSnapshot.entries)) {
@@ -876,6 +902,8 @@ const useOrdersData = () => {
     }
   }, [
     applyLookupPayloads,
+    assignConfigSnapshot,
+    assignMenuSnapshot,
     publishOrders,
     reNormalizeOrders,
     refresh,
@@ -897,7 +925,19 @@ const useOrdersData = () => {
     }
   }, [clearPollingInterval, refresh])
 
-  return { orders, isLoading, isRefreshing, isHydrating, error, refresh }
+  const lookupsVersion = lookupsRef.current.version
+
+  return {
+    orders,
+    isLoading,
+    isRefreshing,
+    isHydrating,
+    error,
+    refresh,
+    menuSnapshot: menuDebugSnapshot,
+    configSnapshot: configDebugSnapshot,
+    lookupsVersion,
+  }
 }
 
 export type UseOrdersDataResult = ReturnType<typeof useOrdersData>

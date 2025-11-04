@@ -1,10 +1,19 @@
 import React, { useCallback } from 'react'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
-import { faArrowRotateRight, faGear } from '@fortawesome/free-solid-svg-icons'
+import { faArrowRotateRight, faBug, faGear } from '@fortawesome/free-solid-svg-icons'
 import styles from './ToolsSection.module.css'
 
 const ToolsSection = React.memo(
-  ({ isBusy, onRefresh, refreshAriaLabel, onOpenSettings, isSettingsOpen }) => {
+  ({
+    isBusy,
+    onRefresh,
+    refreshAriaLabel,
+    onOpenSettings,
+    isSettingsOpen,
+    isDebugPanelEnabled,
+    isDebugPanelOpen,
+    onToggleDebugPanel,
+  }) => {
     const handleRefresh = useCallback(() => {
       onRefresh?.()
     }, [onRefresh])
@@ -13,9 +22,17 @@ const ToolsSection = React.memo(
       onOpenSettings?.()
     }, [onOpenSettings])
 
+    const handleToggleDebug = useCallback(() => {
+      onToggleDebugPanel?.()
+    }, [onToggleDebugPanel])
+
     const refreshIconClassName = isBusy
       ? `${styles.refreshIcon} ${styles.refreshIconRefreshing}`
       : styles.refreshIcon
+
+    const debugButtonClassName = isDebugPanelOpen
+      ? `${styles.debugButton} ${styles.debugButtonActive}`
+      : styles.debugButton
 
     return (
       <div className={styles.section}>
@@ -36,6 +53,20 @@ const ToolsSection = React.memo(
             />
             <span className="sr-only">{refreshAriaLabel}</span>
           </button>
+          {isDebugPanelEnabled ? (
+            <button
+              type="button"
+              className={debugButtonClassName}
+              onClick={handleToggleDebug}
+              aria-pressed={isDebugPanelOpen}
+              title={isDebugPanelOpen ? 'Hide debug drawer' : 'Show debug drawer'}
+            >
+              <FontAwesomeIcon icon={faBug} className={styles.debugIcon} aria-hidden="true" />
+              <span className="sr-only">
+                {isDebugPanelOpen ? 'Hide the orders debug drawer' : 'Show the orders debug drawer'}
+              </span>
+            </button>
+          ) : null}
           <button
             type="button"
             className={styles.settingsButton}

@@ -3,6 +3,7 @@ import { FULFILLMENT_FILTERS } from '../../domain/status/fulfillmentFilters'
 import {
   useDismissedOrders,
   useFulfillmentFilters,
+  useOrdersDebugPanel,
   useSelectionState,
 } from '../../viewContext/OrdersViewContext'
 import { useSettingsModal } from '../SettingsModal/SettingsModalContext'
@@ -19,6 +20,7 @@ const TopBarContainer = ({
   const { activeOrderIds, clearSelection } = useSelectionState()
   const { dismissOrders } = useDismissedOrders()
   const { open: openSettings, isOpen: isSettingsOpen } = useSettingsModal()
+  const { isDebugPanelEnabled, isDebugPanelOpen, toggleDebugPanel } = useOrdersDebugPanel()
 
   const selectionCount = activeOrderIds.size
   const isClearSelectionDisabled = selectionCount === 0
@@ -51,6 +53,10 @@ const TopBarContainer = ({
     clearSelection()
   }, [activeOrderIds, clearSelection, dismissOrders])
 
+  const handleToggleDebugPanel = useCallback(() => {
+    toggleDebugPanel()
+  }, [toggleDebugPanel])
+
   return (
     <TopBarView
       title={title}
@@ -67,6 +73,9 @@ const TopBarContainer = ({
       refreshAriaLabel={refreshAriaLabel}
       onOpenSettings={handleOpenSettings}
       isSettingsOpen={isSettingsOpen}
+      isDebugPanelEnabled={isDebugPanelEnabled}
+      isDebugPanelOpen={isDebugPanelOpen}
+      onToggleDebugPanel={handleToggleDebugPanel}
     />
   )
 }

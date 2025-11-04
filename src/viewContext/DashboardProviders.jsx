@@ -2,6 +2,7 @@ import { useMemo } from 'react'
 import { OrdersViewProvider } from './OrdersViewContext'
 import { SettingsModalProvider } from '../components/SettingsModal/SettingsModalContext'
 import KitchenSettingsTab from '../components/SettingsModal/KitchenSettingsTab'
+import GeneralSettingsTab from '../components/SettingsModal/GeneralSettingsTab'
 
 const DASHBOARD_SETTINGS_TABS = [
   {
@@ -15,6 +16,7 @@ const DASHBOARD_SETTINGS_TABS = [
     label: 'General',
     description:
       'Adjust overall dashboard behavior, appearance, and defaults once settings become available.',
+    render: () => <GeneralSettingsTab />,
   },
   {
     id: 'notifications',
@@ -35,4 +37,3 @@ const DashboardProviders = ({ children }) => {
 }
 
 export default DashboardProviders
-export { DASHBOARD_SETTINGS_TABS }
