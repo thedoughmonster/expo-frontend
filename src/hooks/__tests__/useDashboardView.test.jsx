@@ -49,6 +49,7 @@ describe('useDashboardView', () => {
       orders: mockOrders,
       isLoading: false,
       isRefreshing: false,
+      isHydrating: false,
       error: null,
       refresh: refreshMock,
     })
@@ -64,6 +65,7 @@ describe('useDashboardView', () => {
       orders: mockOrders,
       isLoading: false,
       isRefreshing: false,
+      isHydrating: false,
       error: null,
       refresh: refreshMock,
     })
@@ -132,6 +134,7 @@ describe('useDashboardView', () => {
       ],
       isLoading: false,
       isRefreshing: false,
+      isHydrating: false,
       error: null,
       refresh: refreshMock,
     })
@@ -185,6 +188,7 @@ describe('useDashboardView', () => {
       ],
       isLoading: false,
       isRefreshing: false,
+      isHydrating: false,
       error: null,
       refresh: refreshMock,
     })
@@ -210,6 +214,97 @@ describe('useDashboardView', () => {
     await waitFor(() => {
       expect(result.current.dashboard.ordersAreaProps.visibleOrders).toHaveLength(1)
       expect(result.current.dashboard.ordersAreaProps.visibleOrders[0].items).toHaveLength(2)
+    })
+  })
+
+  it('keeps hold orders visible when item statuses differ from the order', async () => {
+    const refreshMock = vi.fn()
+    mockUseOrdersData.mockReturnValue({
+      orders: [
+        {
+          id: 'order-hold',
+          fulfillmentStatus: 'HOLD',
+          items: [
+            {
+              id: 'order-hold-item-1',
+              name: 'Pretzel',
+              fulfillmentStatus: 'READY',
+            },
+          ],
+        },
+      ],
+      isLoading: false,
+      isRefreshing: false,
+      isHydrating: false,
+      error: null,
+      refresh: refreshMock,
+    })
+
+    const { result } = renderHook(
+      () => {
+        const dashboard = useDashboardView()
+        const filters = useFulfillmentFilters()
+
+        return { dashboard, filters }
+      },
+      { wrapper: createWrapper() },
+    )
+
+    expect(result.current.dashboard.ordersAreaProps.visibleOrders).toHaveLength(1)
+
+    act(() => {
+      result.current.filters.toggleFulfillmentFilter('new')
+      result.current.filters.toggleFulfillmentFilter('sent')
+      result.current.filters.toggleFulfillmentFilter('ready')
+    })
+
+    await waitFor(() => {
+      expect(result.current.dashboard.ordersAreaProps.visibleOrders).toHaveLength(1)
+      expect(result.current.dashboard.ordersAreaProps.visibleOrders[0].items).toHaveLength(1)
+      expect(
+        result.current.dashboard.ordersAreaProps.visibleOrders[0].items[0].fulfillmentStatus,
+      ).toBe('READY')
+    })
+  })
+
+  it('keeps hold orders without items visible when hold filters are active', async () => {
+    const refreshMock = vi.fn()
+    mockUseOrdersData.mockReturnValue({
+      orders: [
+        {
+          id: 'order-hold',
+          fulfillmentStatus: 'HOLD',
+          items: [],
+        },
+      ],
+      isLoading: false,
+      isRefreshing: false,
+      isHydrating: false,
+      error: null,
+      refresh: refreshMock,
+    })
+
+    const { result } = renderHook(
+      () => {
+        const dashboard = useDashboardView()
+        const filters = useFulfillmentFilters()
+
+        return { dashboard, filters }
+      },
+      { wrapper: createWrapper() },
+    )
+
+    expect(result.current.dashboard.ordersAreaProps.visibleOrders).toHaveLength(1)
+
+    act(() => {
+      result.current.filters.toggleFulfillmentFilter('new')
+      result.current.filters.toggleFulfillmentFilter('sent')
+      result.current.filters.toggleFulfillmentFilter('ready')
+    })
+
+    await waitFor(() => {
+      expect(result.current.dashboard.ordersAreaProps.visibleOrders).toHaveLength(1)
+      expect(result.current.dashboard.ordersAreaProps.visibleOrders[0].items).toHaveLength(0)
     })
   })
 })
