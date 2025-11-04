@@ -18,7 +18,7 @@ const MENUS_ENDPOINT = 'https://doughmonster-worker.thedoughmonster.workers.dev/
 const CONFIG_SNAPSHOT_ENDPOINT =
   'https://doughmonster-worker.thedoughmonster.workers.dev/api/config/snapshot'
 
-const originalFetch = global.fetch
+const originalFetch = globalThis.fetch
 
 const NoStrictModeWrapper = ({ children }) => <>{children}</>
 
@@ -98,9 +98,9 @@ beforeEach(async () => {
 
 afterEach(() => {
   if (originalFetch) {
-    global.fetch = originalFetch
+    globalThis.fetch = originalFetch
   } else {
-    delete global.fetch
+    delete globalThis.fetch
   }
 
   vi.useRealTimers()
@@ -142,7 +142,7 @@ describe('useOrdersData', () => {
       throw new Error(`Unexpected fetch to ${url}`)
     })
 
-    global.fetch = fetchMock
+    globalThis.fetch = fetchMock
 
     const { result } = renderHook(() => useOrdersData(), { wrapper: NoStrictModeWrapper })
 
@@ -216,7 +216,7 @@ describe('useOrdersData', () => {
       throw new Error(`Unexpected fetch to ${url}`)
     })
 
-    global.fetch = fetchMock
+    globalThis.fetch = fetchMock
 
     const { result } = renderHook(() => useOrdersData(), { wrapper: NoStrictModeWrapper })
 
@@ -279,7 +279,7 @@ describe('useOrdersData', () => {
       throw new Error(`Unexpected fetch to ${url}`)
     })
 
-    global.fetch = fetchMock
+    globalThis.fetch = fetchMock
 
     const { result, unmount } = renderHook(() => useOrdersData(), { wrapper: NoStrictModeWrapper })
 
@@ -409,7 +409,7 @@ describe('useOrdersData', () => {
       throw new Error(`Unexpected fetch to ${url}`)
     })
 
-    global.fetch = fetchMock
+    globalThis.fetch = fetchMock
 
     const { result } = renderHook(() => useOrdersData(), { wrapper: NoStrictModeWrapper })
 
@@ -440,7 +440,7 @@ describe('useOrdersData', () => {
       throw new Error(`Unexpected fetch to ${url}`)
     })
 
-    global.fetch = fetchMock
+    globalThis.fetch = fetchMock
 
     const { result } = renderHook(() => useOrdersData(), { wrapper: NoStrictModeWrapper })
 

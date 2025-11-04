@@ -2,11 +2,7 @@ import { act, renderHook, waitFor } from '@testing-library/react'
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest'
 import useDashboardView from '../useDashboardView'
 import * as ordersDataModule from '../useOrdersData'
-import {
-  useDismissedOrders,
-  useFulfillmentFilters,
-  useSelectionState,
-} from '../../viewContext/OrdersViewContext'
+import { useFulfillmentFilters } from '../../viewContext/OrdersViewContext'
 import DashboardProviders from '../../viewContext/DashboardProviders'
 
 vi.mock('idb-keyval', () => ({

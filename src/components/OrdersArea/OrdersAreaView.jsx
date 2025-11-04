@@ -8,9 +8,18 @@ function OrdersAreaView({
   error,
   emptyStateMessage,
   grid,
+  debugPanel,
 }) {
+  const isBusy = isLoading || isHydrating
+  const hasOrdersDataAttribute = hasExistingOrders ? 'true' : 'false'
+
   return (
-    <main className={styles.ordersArea} data-orders-area>
+    <main
+      className={styles.ordersArea}
+      data-orders-area
+      data-has-orders={hasOrdersDataAttribute}
+      aria-busy={isBusy}
+    >
       {!isLoading && error ? (
         <section
           className={`${styles.ordersState} ${styles.ordersStateError}`}
@@ -24,6 +33,7 @@ function OrdersAreaView({
         <section className={styles.ordersState}>{emptyStateMessage}</section>
       ) : null}
       {grid}
+      {debugPanel}
     </main>
   )
 }

@@ -20,6 +20,9 @@ const TopBarView = React.memo(
     refreshAriaLabel,
     onOpenSettings,
     isSettingsOpen,
+    isDebugPanelEnabled,
+    isDebugPanelOpen,
+    onToggleDebugPanel,
   }) => (
     <header className={styles.topBar}>
       <h1 className={styles.title}>{title}</h1>
@@ -38,6 +41,9 @@ const TopBarView = React.memo(
           refreshAriaLabel={refreshAriaLabel}
           onOpenSettings={onOpenSettings}
           isSettingsOpen={isSettingsOpen}
+          isDebugPanelEnabled={isDebugPanelEnabled}
+          isDebugPanelOpen={isDebugPanelOpen}
+          onToggleDebugPanel={onToggleDebugPanel}
         />
       </div>
     </header>
