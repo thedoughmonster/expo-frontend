@@ -43,8 +43,11 @@ const useDashboardView = () => {
 
       const matchingItems = items.filter((item) => {
         if (shouldApplyStatusFilter) {
+          const itemFulfillmentStatus =
+            item?.fulfillmentStatus ?? order?.fulfillmentStatus
           const filterKey = resolveFulfillmentFilterKey({
-            fulfillmentStatus: item?.fulfillmentStatus,
+            fulfillmentStatus: itemFulfillmentStatus,
+            status: item?.status ?? order?.status ?? itemFulfillmentStatus,
           })
 
           if (filterKey && !activeFulfillmentFilters.has(filterKey)) {

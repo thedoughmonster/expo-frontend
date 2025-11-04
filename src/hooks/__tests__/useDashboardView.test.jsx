@@ -169,4 +169,47 @@ describe('useDashboardView', () => {
       expect(result.current.dashboard.ordersAreaProps.visibleOrders).toHaveLength(0)
     })
   })
+
+  it('keeps hold orders visible when items lack fulfillment statuses', async () => {
+    const refreshMock = vi.fn()
+    mockUseOrdersData.mockReturnValue({
+      orders: [
+        {
+          id: 'order-hold',
+          fulfillmentStatus: 'HOLD',
+          items: [
+            { id: 'order-hold-item-1', name: 'Pretzel' },
+            { id: 'order-hold-item-2', name: 'Churro', fulfillmentStatus: null },
+          ],
+        },
+      ],
+      isLoading: false,
+      isRefreshing: false,
+      error: null,
+      refresh: refreshMock,
+    })
+
+    const { result } = renderHook(
+      () => {
+        const dashboard = useDashboardView()
+        const filters = useFulfillmentFilters()
+
+        return { dashboard, filters }
+      },
+      { wrapper: createWrapper() },
+    )
+
+    expect(result.current.dashboard.ordersAreaProps.visibleOrders).toHaveLength(1)
+
+    act(() => {
+      result.current.filters.toggleFulfillmentFilter('new')
+      result.current.filters.toggleFulfillmentFilter('sent')
+      result.current.filters.toggleFulfillmentFilter('ready')
+    })
+
+    await waitFor(() => {
+      expect(result.current.dashboard.ordersAreaProps.visibleOrders).toHaveLength(1)
+      expect(result.current.dashboard.ordersAreaProps.visibleOrders[0].items).toHaveLength(2)
+    })
+  })
 })
