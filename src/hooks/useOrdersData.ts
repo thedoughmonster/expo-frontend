@@ -360,6 +360,13 @@ const useOrdersData = () => {
       return
     }
 
+    if (order?.voided === true) {
+      if (orderCacheRef.current.has(guid)) {
+        orderCacheRef.current.delete(guid)
+      }
+      return
+    }
+
     const fingerprint = computeOrderFingerprint(order)
     const entry = orderCacheRef.current.get(guid)
     const { menuLookup, modifierMetadataLookup, diningOptionLookup, version } = lookupsRef.current
@@ -400,6 +407,7 @@ const useOrdersData = () => {
   const applyOrdersBatch = useCallback(
     (ordersPayload: ToastOrder[], now: number) => {
       const seenGuids = new Set<string>()
+      let voidedRemoved = false
 
       ordersPayload.forEach((order) => {
         const guid = extractOrderGuid(order)
@@ -407,11 +415,18 @@ const useOrdersData = () => {
           return
         }
 
+        if (order?.voided === true) {
+          if (orderCacheRef.current.delete(guid)) {
+            voidedRemoved = true
+          }
+          return
+        }
+
         seenGuids.add(guid)
         applyRawOrder(order, now)
       })
 
-      if (seenGuids.size > 0) {
+      if (seenGuids.size > 0 || voidedRemoved) {
         publishOrders()
       }
 
