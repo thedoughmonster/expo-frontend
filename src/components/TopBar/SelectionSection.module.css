@@ -32,21 +32,39 @@
   color: #cbd5f5;
 }
 
-.clearSelectionButton {
+.selectionButton {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 0.3rem;
   padding: 0.4rem 0.9rem;
   border-radius: 0.65rem;
-  border: 1px solid rgba(148, 163, 184, 0.45);
-  background: rgba(30, 64, 175, 0.2);
-  color: #e2e8f0;
+  border: 1px solid transparent;
+  background: transparent;
   font-size: 0.82rem;
   font-weight: 500;
   cursor: pointer;
   transition: background-color 150ms ease, border-color 150ms ease, color 150ms ease, box-shadow 150ms ease,
     transform 150ms ease;
+}
+
+.selectionButton:active {
+  transform: translateY(1px);
+}
+
+.selectionButton[disabled] {
+  cursor: not-allowed;
+  opacity: 0.6;
+  background: rgba(30, 41, 59, 0.6);
+  border-color: rgba(71, 85, 105, 0.45);
+  color: #94a3b8;
+  box-shadow: none;
+}
+
+.clearSelectionButton {
+  background: rgba(30, 64, 175, 0.2);
+  border: 1px solid rgba(148, 163, 184, 0.45);
+  color: #e2e8f0;
 }
 
 .clearSelectionButton:hover,
@@ -58,15 +76,17 @@
   box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.35);
 }
 
-.clearSelectionButton:active {
-  transform: translateY(1px);
+.dismissSelectionButton {
+  background: rgba(190, 18, 60, 0.2);
+  border: 1px solid rgba(248, 113, 113, 0.45);
+  color: #fecdd3;
 }
 
-.clearSelectionButton[disabled] {
-  cursor: not-allowed;
-  opacity: 0.6;
-  background: rgba(30, 41, 59, 0.6);
-  border-color: rgba(71, 85, 105, 0.45);
-  color: #94a3b8;
-  box-shadow: none;
+.dismissSelectionButton:hover,
+.dismissSelectionButton:focus-visible {
+  background: rgba(239, 68, 68, 0.35);
+  border-color: rgba(248, 113, 113, 0.7);
+  color: #ffe4e6;
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(248, 113, 113, 0.35);
 }

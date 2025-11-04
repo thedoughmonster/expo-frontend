@@ -1,10 +1,21 @@
 import React, { useCallback } from 'react'
 import styles from './SelectionSection.module.css'
 
-const SelectionSection = React.memo(({ selectionCount, onClearSelection, isClearSelectionDisabled }) => {
+const SelectionSection = React.memo(
+  ({
+    selectionCount,
+    onClearSelection,
+    isClearSelectionDisabled,
+    onDismissSelection,
+    isDismissSelectionDisabled,
+  }) => {
   const handleClearSelection = useCallback(() => {
     onClearSelection()
   }, [onClearSelection])
+
+  const handleDismissSelection = useCallback(() => {
+    onDismissSelection()
+  }, [onDismissSelection])
 
   return (
     <div className={styles.section}>
@@ -15,7 +26,16 @@ const SelectionSection = React.memo(({ selectionCount, onClearSelection, isClear
         </span>
         <button
           type="button"
-          className={styles.clearSelectionButton}
+          className={`${styles.selectionButton} ${styles.dismissSelectionButton}`}
+          onClick={handleDismissSelection}
+          disabled={isDismissSelectionDisabled}
+          title="Dismiss selected orders"
+        >
+          Dismiss order(s)
+        </button>
+        <button
+          type="button"
+          className={`${styles.selectionButton} ${styles.clearSelectionButton}`}
           onClick={handleClearSelection}
           disabled={isClearSelectionDisabled}
           title="Clear selected orders"
@@ -25,6 +45,7 @@ const SelectionSection = React.memo(({ selectionCount, onClearSelection, isClear
       </div>
     </div>
   )
-})
+},
+)
 
 export default SelectionSection
