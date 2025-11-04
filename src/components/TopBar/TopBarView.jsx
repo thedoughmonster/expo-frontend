@@ -13,6 +13,8 @@ const TopBarView = React.memo(
     selectionCount,
     onClearSelection,
     isClearSelectionDisabled,
+    onDismissSelection,
+    isDismissSelectionDisabled,
     isBusy,
     onRefresh,
     refreshAriaLabel,
@@ -27,6 +29,8 @@ const TopBarView = React.memo(
           selectionCount={selectionCount}
           onClearSelection={onClearSelection}
           isClearSelectionDisabled={isClearSelectionDisabled}
+          onDismissSelection={onDismissSelection}
+          isDismissSelectionDisabled={isDismissSelectionDisabled}
         />
         <ToolsSection
           isBusy={isBusy}

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo } from 'react'
 import { FULFILLMENT_FILTERS, resolveFulfillmentFilterKey } from '../domain/status/fulfillmentFilters'
 import useOrdersData from './useOrdersData'
 import {
+  useDismissedOrders,
   useFulfillmentFilters,
   usePrepStationFilter,
   useSelectionState,
@@ -14,6 +15,7 @@ const useDashboardView = () => {
   const { orders, isLoading, isRefreshing, isHydrating, error, refresh } = useOrdersData()
   const { activeFulfillmentFilters } = useFulfillmentFilters()
   const { activeOrderIds, toggleOrderActive } = useSelectionState()
+  const { dismissedOrderIds } = useDismissedOrders()
   const { activePrepStationId } = usePrepStationFilter()
 
   const totalFilters = FULFILLMENT_FILTERS.length
@@ -31,6 +33,12 @@ const useDashboardView = () => {
     const shouldApplyStatusFilter = activeFilterCount < totalFilters
 
     return orders.reduce((filteredOrders, order) => {
+      const orderId = typeof order.id === 'string' ? order.id.trim() : order.id
+
+      if (orderId && dismissedOrderIds.has(orderId)) {
+        return filteredOrders
+      }
+
       const items = Array.isArray(order.items) ? order.items : []
       const orderFilterKey = resolveFulfillmentFilterKey({
         fulfillmentStatus: order?.fulfillmentStatus,
@@ -109,6 +117,7 @@ const useDashboardView = () => {
     activeFilterCount,
     activeFulfillmentFilters,
     activePrepStationId,
+    dismissedOrderIds,
     orders,
     totalFilters,
   ])
@@ -204,14 +213,17 @@ const useDashboardView = () => {
     refresh({ silent: hasExistingOrders })
   }, [hasExistingOrders, refresh])
 
+  const canDismissSelectedOrders = activeOrderIds.size > 0
+
   const topBarProps = useMemo(
     () => ({
       title: DASHBOARD_TITLE,
       isBusy,
       onRefresh: handleRefresh,
       refreshAriaLabel,
+      canDismissSelectedOrders,
     }),
-    [handleRefresh, isBusy, refreshAriaLabel],
+    [canDismissSelectedOrders, handleRefresh, isBusy, refreshAriaLabel],
   )
 
   const sidebarProps = useMemo(

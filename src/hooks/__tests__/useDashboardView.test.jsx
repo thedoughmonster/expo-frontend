@@ -2,7 +2,11 @@ import { act, renderHook, waitFor } from '@testing-library/react'
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest'
 import useDashboardView from '../useDashboardView'
 import * as ordersDataModule from '../useOrdersData'
-import { useFulfillmentFilters } from '../../viewContext/OrdersViewContext'
+import {
+  useDismissedOrders,
+  useFulfillmentFilters,
+  useSelectionState,
+} from '../../viewContext/OrdersViewContext'
 import DashboardProviders from '../../viewContext/DashboardProviders'
 
 vi.mock('idb-keyval', () => ({
@@ -76,6 +80,13 @@ describe('useDashboardView', () => {
     expect(result.current.sidebarProps.selectionSummaryMessage).toBe(
       'Showing modifiers for all 2 visible orders.',
     )
+    expect(result.current.topBarProps.canDismissSelectedOrders).toBe(false)
+
+    act(() => {
+      result.current.ordersAreaProps.toggleOrderActive('order-1')
+    })
+
+    expect(result.current.topBarProps.canDismissSelectedOrders).toBe(true)
 
     act(() => {
       result.current.topBarProps.onRefresh()

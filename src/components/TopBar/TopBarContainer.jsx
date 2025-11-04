@@ -1,12 +1,23 @@
 import { useCallback } from 'react'
 import { FULFILLMENT_FILTERS } from '../../domain/status/fulfillmentFilters'
-import { useFulfillmentFilters, useSelectionState } from '../../viewContext/OrdersViewContext'
+import {
+  useDismissedOrders,
+  useFulfillmentFilters,
+  useSelectionState,
+} from '../../viewContext/OrdersViewContext'
 import { useSettingsModal } from '../SettingsModal/SettingsModalContext'
 import TopBarView from './TopBarView'
 
-const TopBarContainer = ({ title, isBusy, onRefresh, refreshAriaLabel }) => {
+const TopBarContainer = ({
+  title,
+  isBusy,
+  onRefresh,
+  refreshAriaLabel,
+  canDismissSelectedOrders = false,
+}) => {
   const { activeFulfillmentFilters, toggleFulfillmentFilter } = useFulfillmentFilters()
   const { activeOrderIds, clearSelection } = useSelectionState()
+  const { dismissOrders } = useDismissedOrders()
   const { open: openSettings, isOpen: isSettingsOpen } = useSettingsModal()
 
   const selectionCount = activeOrderIds.size
@@ -31,6 +42,15 @@ const TopBarContainer = ({ title, isBusy, onRefresh, refreshAriaLabel }) => {
     openSettings()
   }, [openSettings])
 
+  const handleDismissSelection = useCallback(() => {
+    if (activeOrderIds.size === 0) {
+      return
+    }
+
+    dismissOrders(Array.from(activeOrderIds))
+    clearSelection()
+  }, [activeOrderIds, clearSelection, dismissOrders])
+
   return (
     <TopBarView
       title={title}
@@ -40,6 +60,8 @@ const TopBarContainer = ({ title, isBusy, onRefresh, refreshAriaLabel }) => {
       selectionCount={selectionCount}
       onClearSelection={handleClearSelection}
       isClearSelectionDisabled={isClearSelectionDisabled}
+      onDismissSelection={handleDismissSelection}
+      isDismissSelectionDisabled={!canDismissSelectedOrders}
       isBusy={isBusy}
       onRefresh={handleRefresh}
       refreshAriaLabel={refreshAriaLabel}
