@@ -665,9 +665,12 @@ const useOrdersData = () => {
 
         const windowTimestamps: number[] = []
         const seenGuids = new Set<string>()
+        const workerGuids = new Set<string>()
+        let workerGuidListProvided = false
         let targetedExclusions: Set<string> | undefined
 
         if (ordersPayload.detail === 'ids') {
+          workerGuidListProvided = true
           const candidateGuids = new Set<string>()
           if (Array.isArray(ordersPayload.ids)) {
             ordersPayload.ids.forEach((value) => {
@@ -688,6 +691,7 @@ const useOrdersData = () => {
           const missingGuids: string[] = []
           candidateGuids.forEach((guid) => {
             seenGuids.add(guid)
+            workerGuids.add(guid)
             const existing = orderCacheRef.current.get(guid)
             if (existing) {
               existing.lastSeenAtMs = now
@@ -702,9 +706,10 @@ const useOrdersData = () => {
               signal,
               now,
             )
-            targetedExclusions = fetchedSeen
+            targetedExclusions = new Set(fetchedSeen)
             fetchedSeen.forEach((guid) => {
               seenGuids.add(guid)
+              workerGuids.add(guid)
             })
             if (fetchedOrders.length > 0) {
               windowTimestamps.push(...collectOrderTimestamps(fetchedOrders))
@@ -719,9 +724,50 @@ const useOrdersData = () => {
           const batchSeen = applyOrdersBatch(ordersData, now)
           batchSeen.forEach((guid) => {
             seenGuids.add(guid)
+            workerGuids.add(guid)
           })
 
           windowTimestamps.push(...collectOrderTimestamps(ordersData))
+        }
+
+        if (workerGuidListProvided) {
+          const cachedButMissing: string[] = []
+          orderCacheRef.current.forEach((_, guid) => {
+            if (workerGuids.has(guid)) {
+              return
+            }
+
+            cachedButMissing.push(guid)
+          })
+
+          if (cachedButMissing.length > 0) {
+            console.warn(
+              '[useOrdersData] Worker omitted cached orders; triggering targeted refresh',
+              cachedButMissing,
+            )
+
+            const { seen: omissionSeen, orders: omissionOrders } = await fetchOrdersByGuidList(
+              cachedButMissing,
+              signal,
+              now,
+            )
+
+            if (omissionOrders.length > 0) {
+              windowTimestamps.push(...collectOrderTimestamps(omissionOrders))
+            }
+
+            if (targetedExclusions) {
+              omissionSeen.forEach((guid) => {
+                targetedExclusions!.add(guid)
+              })
+            } else {
+              targetedExclusions = new Set(omissionSeen)
+            }
+
+            omissionSeen.forEach((guid) => {
+              seenGuids.add(guid)
+            })
+          }
         }
 
         if (ordersPayload.window?.end) {
