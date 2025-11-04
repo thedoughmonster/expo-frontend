@@ -40,9 +40,21 @@ const useDashboardView = () => {
       }
 
       const items = Array.isArray(order.items) ? order.items : []
+      const orderFilterKey = resolveFulfillmentFilterKey({
+        fulfillmentStatus: order?.fulfillmentStatus,
+        status: order?.status,
+      })
+      const orderMatchesFilters = orderFilterKey
+        ? activeFulfillmentFilters.has(orderFilterKey)
+        : false
+      const allowHoldFallback = orderMatchesFilters && orderFilterKey === 'hold'
 
       if (items.length === 0) {
-        if (!shouldApplyStatusFilter && !activePrepStationId) {
+        if (shouldApplyStatusFilter && !orderMatchesFilters) {
+          return filteredOrders
+        }
+
+        if (!activePrepStationId) {
           filteredOrders.push(order)
         }
 
@@ -51,12 +63,21 @@ const useDashboardView = () => {
 
       const matchingItems = items.filter((item) => {
         if (shouldApplyStatusFilter) {
-          const filterKey = resolveFulfillmentFilterKey({
+          const itemFilterKey = resolveFulfillmentFilterKey({
             fulfillmentStatus: item?.fulfillmentStatus,
+            status: item?.status,
           })
 
-          if (filterKey && !activeFulfillmentFilters.has(filterKey)) {
-            return false
+          if (itemFilterKey) {
+            if (!activeFulfillmentFilters.has(itemFilterKey)) {
+              if (!allowHoldFallback) {
+                return false
+              }
+            }
+          } else if (orderFilterKey) {
+            if (!orderMatchesFilters) {
+              return false
+            }
           }
         }
 
