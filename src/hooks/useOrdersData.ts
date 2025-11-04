@@ -11,12 +11,14 @@ import {
   normalizeOrders,
 } from '../domain/orders/normalizeOrders'
 import {
+  clearOrdersCache,
   computeOrderFingerprint,
   loadOrdersCache,
   saveOrdersCache,
   type OrderCacheEntry,
 } from '../domain/orders/ordersCache'
 import {
+  clearMenuCache,
   loadMenuCache,
   menuCacheIsFresh,
   prepareMenuCacheSnapshot,
@@ -24,6 +26,7 @@ import {
   type MenuCacheSnapshot,
 } from '../domain/menus/menuCache'
 import {
+  clearConfigCache,
   loadConfigCache,
   configCacheIsFresh,
   prepareConfigCacheSnapshot,
@@ -795,6 +798,12 @@ const useOrdersData = () => {
     let cancelled = false
 
     const bootstrap = async () => {
+      await Promise.all([clearOrdersCache(), clearMenuCache(), clearConfigCache()])
+
+      if (cancelled || !isMountedRef.current) {
+        return
+      }
+
       const [ordersSnapshot, menuSnapshot, configSnapshot] = await Promise.all([
         loadOrdersCache(),
         loadMenuCache(),
@@ -839,6 +848,10 @@ const useOrdersData = () => {
         publishOrders()
         reNormalizeOrders()
       }
+
+      if (!cancelled && isMountedRef.current) {
+        await refresh({ silent: false })
+      }
     }
 
     bootstrap()
@@ -846,7 +859,12 @@ const useOrdersData = () => {
     return () => {
       cancelled = true
     }
-  }, [applyLookupPayloads, publishOrders, reNormalizeOrders])
+  }, [
+    applyLookupPayloads,
+    publishOrders,
+    reNormalizeOrders,
+    refresh,
+  ])
 
   useEffect(() => {
     clearPollingInterval()
