@@ -356,6 +356,71 @@ describe('useOrdersData', () => {
     expect(computeIsOrderReady(normalizedReady)).toBe(true)
   })
 
+  it('filters voided orders from the normalized output', async () => {
+    const voidedOrder = {
+      ...baseOrder,
+      guid: 'voided-order-guid',
+      displayNumber: '22',
+      voided: true,
+    }
+
+    const fetchMock = vi.fn(async (input) => {
+      const url = typeof input === 'string' ? input : input.url
+
+      if (url.startsWith(`${ORDERS_ENDPOINT}?`)) {
+        return createFetchResponse(
+          createOrdersIdsPayload({
+            count: 2,
+            ids: [baseOrder.guid, voidedOrder.guid],
+            orders: [baseOrder.guid, voidedOrder.guid],
+            data: [baseOrder, voidedOrder],
+          }),
+        )
+      }
+
+      if (url === MENUS_ENDPOINT) {
+        return createFetchResponse(menusPayload, {
+          headers: { 'cache-control': 'max-age=300' },
+        })
+      }
+
+      if (url === CONFIG_SNAPSHOT_ENDPOINT) {
+        return createFetchResponse(configPayload)
+      }
+
+      if (url === `${ORDERS_ENDPOINT}/${baseOrder.guid}`) {
+        return createFetchResponse({
+          ok: true,
+          route: `${ORDERS_ENDPOINT}/${baseOrder.guid}`,
+          guid: baseOrder.guid,
+          order: baseOrder,
+        })
+      }
+
+      if (url === `${ORDERS_ENDPOINT}/${voidedOrder.guid}`) {
+        return createFetchResponse({
+          ok: true,
+          route: `${ORDERS_ENDPOINT}/${voidedOrder.guid}`,
+          guid: voidedOrder.guid,
+          order: voidedOrder,
+        })
+      }
+
+      throw new Error(`Unexpected fetch to ${url}`)
+    })
+
+    global.fetch = fetchMock
+
+    const { result } = renderHook(() => useOrdersData(), { wrapper: NoStrictModeWrapper })
+
+    await waitFor(() => {
+      expect(result.current.orders).toHaveLength(1)
+      expect(result.current.orders[0]?.displayId).toBe('21')
+    })
+
+    expect(result.current.orders.find((order) => order.guid === voidedOrder.guid)).toBeUndefined()
+  })
+
   it('captures fetch errors when the orders request fails', async () => {
     const fetchMock = vi.fn(async (input) => {
       const url = typeof input === 'string' ? input : input.url
