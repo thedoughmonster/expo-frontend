@@ -135,7 +135,9 @@ const parseCacheControlMaxAge = (headerValue: string | null): number | undefined
   return undefined
 }
 
-const toNormalizedOrders = (entries: Iterable<InMemoryOrderEntry>): NormalizedOrder[] => {
+const sortOrderEntries = (
+  entries: Iterable<InMemoryOrderEntry>,
+): InMemoryOrderEntry[] => {
   const list = Array.from(entries)
   list.sort((a, b) => {
     const aTime = a.normalized.createdAt?.getTime()
@@ -163,7 +165,7 @@ const toNormalizedOrders = (entries: Iterable<InMemoryOrderEntry>): NormalizedOr
     return a.guid.localeCompare(b.guid)
   })
 
-  return list.map((entry) => entry.normalized)
+  return list
 }
 
 const buildOrdersQuery = (cursorIso: string | undefined, now: number): OrdersLatestQuery => {
@@ -249,6 +251,7 @@ const useOrdersData = () => {
   const [error, setError] = useState<Error | null>(null)
   const [menuDebugSnapshot, setMenuDebugSnapshot] = useState<MenuCacheSnapshot | undefined>(undefined)
   const [configDebugSnapshot, setConfigDebugSnapshot] = useState<ConfigCacheSnapshot | undefined>(undefined)
+  const [rawOrders, setRawOrders] = useState<ToastOrder[]>([])
 
   const isMountedRef = useRef(true)
   const activeControllerRef = useRef<AbortController | null>(null)
@@ -302,7 +305,9 @@ const useOrdersData = () => {
   }, [abortActiveRequest, clearPollingInterval])
 
   const publishOrders = useCallback(() => {
-    setOrders(toNormalizedOrders(orderCacheRef.current.values()))
+    const sortedEntries = sortOrderEntries(orderCacheRef.current.values())
+    setOrders(sortedEntries.map((entry) => entry.normalized))
+    setRawOrders(sortedEntries.map((entry) => entry.raw))
   }, [])
 
   const applyLookupPayloads = useCallback((menuPayload?: unknown, configPayload?: unknown) => {
@@ -844,6 +849,7 @@ const useOrdersData = () => {
         setError(fetchError as Error)
         if (!silent) {
           setOrders([])
+          setRawOrders([])
         }
       } finally {
         if (isMountedRef.current) {
@@ -975,6 +981,7 @@ const useOrdersData = () => {
 
   return {
     orders,
+    rawOrders,
     isLoading,
     isRefreshing,
     isHydrating,

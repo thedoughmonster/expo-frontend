@@ -71,6 +71,7 @@ function OrdersAreaContainer({
       isOpen={Boolean(debugPanel.isOpen)}
       onClose={debugPanel.onClose}
       orders={orders}
+      rawOrders={debugPanel.rawOrders}
       menuSnapshot={debugPanel.menuSnapshot}
       configSnapshot={debugPanel.configSnapshot}
       lookupsVersion={debugPanel.lookupsVersion}

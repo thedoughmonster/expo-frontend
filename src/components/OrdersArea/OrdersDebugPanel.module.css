@@ -97,6 +97,13 @@
 
 .sectionHeader {
   display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.sectionHeaderText {
+  display: flex;
   flex-direction: column;
   gap: 0.3rem;
 }
@@ -153,4 +160,49 @@
   margin: 0;
   font-size: 0.82rem;
   color: #94a3b8;
+}
+
+.copyButton {
+  padding: 0.35rem 0.75rem;
+  border-radius: 0.65rem;
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  background: rgba(30, 41, 59, 0.75);
+  color: #e2e8f0;
+  font-size: 0.75rem;
+  cursor: pointer;
+  transition: background-color 160ms ease, border-color 160ms ease, color 160ms ease;
+  white-space: nowrap;
+}
+
+.copyButton:hover,
+.copyButton:focus-visible {
+  background: rgba(59, 130, 246, 0.45);
+  border-color: rgba(125, 211, 252, 0.6);
+  color: #f8fafc;
+  outline: none;
+}
+
+.notice {
+  margin: 0;
+  padding: 0.6rem 0.75rem;
+  border-radius: 0.6rem;
+  background: rgba(30, 64, 175, 0.25);
+  border: 1px solid rgba(96, 165, 250, 0.35);
+}
+
+.noticeTitle {
+  margin: 0 0 0.4rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #bfdbfe;
+}
+
+.noticeList {
+  margin: 0;
+  padding-left: 1.1rem;
+  font-size: 0.8rem;
+  color: #e2e8f0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
 }

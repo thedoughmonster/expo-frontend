@@ -15,6 +15,7 @@ const SETTINGS_MODAL_TITLE = 'Dashboard Settings'
 const useDashboardView = () => {
   const {
     orders,
+    rawOrders,
     isLoading,
     isRefreshing,
     isHydrating,
@@ -273,6 +274,7 @@ const useDashboardView = () => {
       isEnabled: isDebugPanelEnabled,
       isOpen: isDebugPanelEnabled && isDebugPanelOpen,
       onClose: closeDebugPanel,
+      rawOrders,
       menuSnapshot,
       configSnapshot,
       lookupsVersion,
@@ -282,6 +284,7 @@ const useDashboardView = () => {
       configSnapshot,
       isDebugPanelEnabled,
       isDebugPanelOpen,
+      rawOrders,
       lookupsVersion,
       menuSnapshot,
     ],
