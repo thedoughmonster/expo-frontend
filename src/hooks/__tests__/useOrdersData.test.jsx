@@ -317,6 +317,132 @@ describe('useOrdersData', () => {
     expect(fetchMock).toHaveBeenCalledTimes(callCountAfterInterval)
   })
 
+  it('triggers targeted fetch when cached GUID is missing from worker payload', async () => {
+    const missingOrder = {
+      ...baseOrder,
+      guid: 'fedcba98-7654-4321-fedc-abcdefabcdef',
+      displayNumber: '22',
+      checks: baseOrder.checks.map((check, index) => ({
+        ...check,
+        guid: `fedcba98-7654-4321-fedc-abcdefabcde${index}`,
+        selections: check.selections.map((selection, selectionIndex) => ({
+          ...selection,
+          guid: `fedcba98-7654-4321-fedc-abcdefabcdf${index}${selectionIndex}`,
+        })),
+      })),
+    }
+
+    const consoleWarnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    let ordersPollCount = 0
+    let targetedHydrations = 0
+    const missingOrderResponses = []
+
+    const fetchMock = vi.fn(async (input) => {
+      const url = typeof input === 'string' ? input : input.url
+
+      if (url.startsWith(`${ORDERS_ENDPOINT}?`)) {
+        ordersPollCount += 1
+        expect(url).toContain('detail=ids')
+
+        if (ordersPollCount <= 2) {
+          return createFetchResponse(
+            createOrdersIdsPayload({
+              count: 2,
+              ids: [baseOrder.guid, missingOrder.guid],
+              orders: [baseOrder.guid, missingOrder.guid],
+              data: [
+                { ...baseOrder },
+                missingOrder,
+              ],
+            }),
+          )
+        }
+
+        return createFetchResponse(
+          createOrdersIdsPayload({
+            count: 1,
+            ids: [baseOrder.guid],
+            orders: [baseOrder.guid],
+            data: [
+              { ...baseOrder },
+            ],
+          }),
+        )
+      }
+
+      if (url === MENUS_ENDPOINT) {
+        return createFetchResponse(menusPayload, {
+          headers: { 'cache-control': 'max-age=300' },
+        })
+      }
+
+      if (url === CONFIG_SNAPSHOT_ENDPOINT) {
+        return createFetchResponse(configPayload)
+      }
+
+      if (url === `${ORDERS_ENDPOINT}/${baseOrder.guid}`) {
+        targetedHydrations += 1
+        return createFetchResponse({
+          ok: true,
+          route: `${ORDERS_ENDPOINT}/${baseOrder.guid}`,
+          guid: baseOrder.guid,
+          order: { ...baseOrder },
+        })
+      }
+
+      if (url === `${ORDERS_ENDPOINT}/${missingOrder.guid}`) {
+        targetedHydrations += 1
+        if (ordersPollCount <= 2) {
+          missingOrderResponses.push('hydrate')
+          return createFetchResponse({
+            ok: true,
+            route: `${ORDERS_ENDPOINT}/${missingOrder.guid}`,
+            guid: missingOrder.guid,
+            order: missingOrder,
+          })
+        }
+
+        missingOrderResponses.push('missing')
+        return createFetchResponse(null, { ok: false, status: 404 })
+      }
+
+      throw new Error(`Unexpected fetch to ${url}`)
+    })
+
+    globalThis.fetch = fetchMock
+
+    const { result } = renderHook(() => useOrdersData(), { wrapper: NoStrictModeWrapper })
+
+    await waitFor(() => {
+      const guids = result.current.orders.map((order) => order.guid)
+      expect(guids).toContain(baseOrder.guid)
+      expect(guids).toContain(missingOrder.guid)
+    })
+
+    const hydrationCallsBeforeRefresh = targetedHydrations
+
+    await act(async () => {
+      await result.current.refresh({ silent: true })
+    })
+
+    expect(consoleWarnSpy).toHaveBeenCalledWith(
+      '[useOrdersData] Worker omitted cached orders; triggering targeted refresh',
+      [missingOrder.guid],
+    )
+
+    const missingOrderCalls = fetchMock.mock.calls.filter(([input]) => {
+      const url = typeof input === 'string' ? input : input.url
+      return url === `${ORDERS_ENDPOINT}/${missingOrder.guid}`
+    })
+
+    expect(missingOrderCalls.length).toBeGreaterThanOrEqual(2)
+    expect(missingOrderResponses.filter((state) => state === 'missing')).toHaveLength(1)
+    expect(targetedHydrations).toBeGreaterThan(hydrationCallsBeforeRefresh)
+    expect(result.current.orders).toHaveLength(1)
+
+    consoleWarnSpy.mockRestore()
+  })
+
   it('treats orders with any non-ready items as not ready', () => {
     const mixedOrder = {
       ...baseOrder,
