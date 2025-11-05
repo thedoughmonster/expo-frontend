@@ -149,6 +149,51 @@ const useDashboardView = () => {
 
   const hasPrepStationFilter = Boolean(activePrepStationId)
 
+  const debugFilterContext = useMemo(() => {
+    const activeFilters = Array.from(activeFulfillmentFilters)
+      .filter((value) => typeof value === 'string' && value.trim().length > 0)
+      .map((value) => value.trim())
+      .sort()
+
+    const dismissedIds = Array.from(dismissedOrderIds)
+      .filter((value) => typeof value === 'string' && value.trim().length > 0)
+      .map((value) => value.trim())
+      .sort()
+
+    const visibleOrdersSummary = {
+      totalOrders: visibleOrders.length,
+      totalItems: visibleOrders.reduce((count, order) => {
+        const items = Array.isArray(order?.items) ? order.items : []
+        return count + items.length
+      }, 0),
+      orders: visibleOrders.map((order) => {
+        const items = Array.isArray(order?.items) ? order.items : []
+        const prepStationGuids = Array.isArray(order?.prepStationGuids)
+          ? order.prepStationGuids
+              .filter((value) => typeof value === 'string' && value.trim().length > 0)
+              .map((value) => value.trim())
+          : undefined
+
+        const orderId = typeof order?.id === 'string' ? order.id.trim() : null
+
+        return {
+          id: orderId,
+          status: order?.status ?? null,
+          fulfillmentStatus: order?.fulfillmentStatus ?? null,
+          itemCount: items.length,
+          prepStationGuids,
+        }
+      }),
+    }
+
+    return {
+      activeFulfillmentFilters: activeFilters,
+      activePrepStationId: activePrepStationId ?? null,
+      dismissedOrderIds: dismissedIds,
+      visibleOrdersSummary,
+    }
+  }, [activeFulfillmentFilters, activePrepStationId, dismissedOrderIds, visibleOrders])
+
   const emptyStateMessage = useMemo(() => {
     if (!hasExistingOrders) {
       return 'No orders available.'
@@ -278,10 +323,12 @@ const useDashboardView = () => {
       menuSnapshot,
       configSnapshot,
       lookupsVersion,
+      filterContext: debugFilterContext,
     }),
     [
       closeDebugPanel,
       configSnapshot,
+      debugFilterContext,
       isDebugPanelEnabled,
       isDebugPanelOpen,
       rawOrders,
