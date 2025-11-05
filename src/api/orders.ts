@@ -18,6 +18,11 @@ const { ordersEndpoint: ORDERS_ENDPOINT } = APP_SETTINGS
 const isObject = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null
 
+const withNoStoreCache = (init: RequestInit = {}): RequestInit => ({
+  cache: 'no-store',
+  ...init,
+})
+
 const isToastSelection = (value: unknown): value is ToastSelection => {
   if (!isObject(value)) {
     return false
@@ -160,7 +165,10 @@ export const fetchToastOrders = async (
     url.searchParams.set(key, value)
   })
 
-  const response = await fetch(url.toString(), { signal: options.signal })
+  const response = await fetch(
+    url.toString(),
+    withNoStoreCache({ signal: options.signal }),
+  )
 
   if (!response.ok) {
     throw new Error(`Orders request failed with status ${response.status}`)
@@ -187,7 +195,7 @@ export const fetchToastOrderByGuid = async (
   }
 
   const url = `${ORDERS_ENDPOINT}/${encodeURIComponent(guid)}`
-  const response = await fetch(url, { signal: options.signal })
+  const response = await fetch(url, withNoStoreCache({ signal: options.signal }))
 
   if (response.status === 404) {
     return null
