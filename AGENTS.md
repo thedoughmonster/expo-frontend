@@ -4,6 +4,8 @@
 - Do not rely on local copies of schema docs; they are intentionally absent.
 - For any changes affecting the frontend, always capture and share a screenshot of the rendered UI to accompany your summary.
 - When taking screenshots with Playwright, always wait for the UI data to hydrate first—prefer waiting on a reliable selector or state that indicates content is loaded, but in all cases wait at least 3 seconds before capturing the image.
+- When investigating order regressions, capture both the normalized and raw diffs using the debug diff tooling so we can compare transformations accurately.
+- Before submitting code, run the diff diagnostics via the `Debug ▸ Diff Inspector` UI (or `pnpm debug:diff -- --normalized --raw` on the command line) and attach the captured output to your findings to keep the workflow consistent.
 
 ## Live schema docs
 
