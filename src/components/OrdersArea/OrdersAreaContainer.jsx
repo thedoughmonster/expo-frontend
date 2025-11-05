@@ -75,6 +75,7 @@ function OrdersAreaContainer({
       menuSnapshot={debugPanel.menuSnapshot}
       configSnapshot={debugPanel.configSnapshot}
       lookupsVersion={debugPanel.lookupsVersion}
+      filterContext={debugPanel.filterContext}
     />
   ) : null
 

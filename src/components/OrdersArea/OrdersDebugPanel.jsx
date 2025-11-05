@@ -113,6 +113,7 @@ const OrdersDebugPanel = ({
   menuSnapshot,
   configSnapshot,
   lookupsVersion,
+  filterContext,
 }) => {
   useEffect(() => {
     if (!isOpen) {
@@ -138,6 +139,7 @@ const OrdersDebugPanel = ({
   const rawOrdersJson = useMemo(() => stringify(rawOrders), [rawOrders])
   const menuJson = useMemo(() => stringify(menuSnapshot?.payload), [menuSnapshot])
   const configJson = useMemo(() => stringify(configSnapshot?.payload), [configSnapshot])
+  const filtersJson = useMemo(() => stringify(filterContext), [filterContext])
 
   const diffResult = useMemo(() => computeOrdersDebugDiff(orders, rawOrders), [orders, rawOrders])
   const diffJson = useMemo(() => stringify(diffResult), [diffResult])
@@ -254,6 +256,17 @@ const OrdersDebugPanel = ({
               <p className={styles.emptyState}>No differences to display.</p>
             ) : null}
             <pre className={styles.codeBlock}>{diffJson}</pre>
+          </section>
+
+          <section className={styles.section}>
+            <div className={styles.sectionHeader}>
+              <div className={styles.sectionHeaderText}>
+                <h3 className={styles.sectionTitle}>Filters &amp; prep stations</h3>
+                <p className={styles.sectionMeta}>Active filter state and visible orders summary.</p>
+              </div>
+              <CopyButton label="Copy JSON" getText={() => filtersJson} />
+            </div>
+            <pre className={styles.codeBlock}>{filtersJson}</pre>
           </section>
 
           <section className={styles.section}>
