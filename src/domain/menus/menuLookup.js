@@ -130,7 +130,7 @@ const MENU_POS_NAME_KEYS = ['posName', 'pos_name', 'posDisplayName', 'pos_displa
 const MENU_DISPLAY_NAME_KEYS = ['displayName', 'display_name', 'label', 'title']
 const MENU_PREP_STATION_KEYS = ['prepStations', 'prep_stations']
 
-const ORDER_CONTEXT_REGEX = /(order|ticket)/i
+const ORDER_CONTEXT_HINTS = ['order', 'ticket']
 const OUTSTANDING_KEY_HINTS = [
   'unfulfilled',
   'outstanding',
@@ -158,7 +158,14 @@ const keyIndicatesOutstanding = (key) => {
 }
 
 const pathContainsOrderHint = (keyPath) =>
-  keyPath.some((key) => (key ? ORDER_CONTEXT_REGEX.test(key) : false))
+  keyPath.some((key) => {
+    if (!key || typeof key !== 'string') {
+      return false
+    }
+
+    const normalized = key.toLowerCase()
+    return ORDER_CONTEXT_HINTS.some((hint) => normalized.includes(hint))
+  })
 
 const buildDiningOptionLookup = (configPayload) => {
   const lookup = new Map()

@@ -83,6 +83,9 @@ export const ensureArray = <T>(value: T | T[] | null | undefined): T[] => {
   return [value]
 }
 
+const isLowerAlphaNumericCode = (code: number) =>
+  (code >= 48 && code <= 57) || (code >= 97 && code <= 122)
+
 export const normalizeLookupKey = (value: unknown): string | undefined => {
   if (typeof value !== 'string') {
     return undefined
@@ -93,7 +96,27 @@ export const normalizeLookupKey = (value: unknown): string | undefined => {
     return undefined
   }
 
-  return trimmed.replace(/[^a-z0-9]+/g, ' ')
+  let normalized = ''
+  let pendingSeparator = false
+
+  for (let index = 0; index < trimmed.length; index += 1) {
+    const char = trimmed.charAt(index)
+    const code = char.charCodeAt(0)
+
+    if (isLowerAlphaNumericCode(code)) {
+      if (pendingSeparator && normalized) {
+        normalized += ' '
+      }
+
+      normalized += char
+      pendingSeparator = false
+    } else if (normalized) {
+      pendingSeparator = true
+    }
+  }
+
+  const result = normalized.trim()
+  return result ? result : undefined
 }
 
 export const parseDateLike = (value: unknown): Date | null => {
@@ -144,11 +167,22 @@ export const toNumber = (value: unknown): number | undefined => {
   }
 
   if (typeof value === 'string') {
-    const sanitized = value.replace(/[^0-9.-]+/g, '')
-    if (sanitized) {
-      const parsed = Number(sanitized)
-      if (Number.isFinite(parsed)) {
-        return parsed
+    const trimmed = value.trim()
+    if (trimmed) {
+      let numeric = ''
+
+      for (let index = 0; index < trimmed.length; index += 1) {
+        const char = trimmed.charAt(index)
+        if ((char >= '0' && char <= '9') || char === '.' || char === '-') {
+          numeric += char
+        }
+      }
+
+      if (numeric) {
+        const parsed = Number(numeric)
+        if (Number.isFinite(parsed)) {
+          return parsed
+        }
       }
     }
   }
@@ -351,11 +385,31 @@ export const isLikelyGuid = (value: unknown): boolean => {
     return false
   }
 
-  if (!/^[0-9a-f-]+$/i.test(trimmed)) {
-    return false
+  let hasHyphen = false
+  let hasHexLetter = false
+
+  for (let index = 0; index < trimmed.length; index += 1) {
+    const code = trimmed.charCodeAt(index)
+
+    if (code === 45) {
+      hasHyphen = true
+      continue
+    }
+
+    const isDigit = code >= 48 && code <= 57
+    const isUpperHex = code >= 65 && code <= 70
+    const isLowerHex = code >= 97 && code <= 102
+
+    if (!isDigit && !isUpperHex && !isLowerHex) {
+      return false
+    }
+
+    if (isUpperHex || isLowerHex) {
+      hasHexLetter = true
+    }
   }
 
-  return trimmed.includes('-') || /[a-f]/i.test(trimmed)
+  return hasHyphen || hasHexLetter
 }
 
 const ORDER_GUID_KEYS = [
