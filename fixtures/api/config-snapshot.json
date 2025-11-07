@@ -1,0 +1,429 @@
+{
+  "updatedAt": "2000-01-01T00:00:00.000Z",
+  "ttlSeconds": 3600,
+  "data": {
+    "diningOptions": [
+      {
+        "guid": "00000000-0000-0000-0000-000000000001",
+        "entityType": "DiningOption",
+        "externalId": null,
+        "name": "DoorDash - Takeout",
+        "behavior": "TAKE_OUT",
+        "curbside": false
+      },
+      {
+        "guid": "00000000-0000-0000-0000-000000000002",
+        "entityType": "DiningOption",
+        "externalId": null,
+        "name": "Online Ordering - Takeout",
+        "behavior": "TAKE_OUT",
+        "curbside": false
+      },
+      {
+        "guid": "00000000-0000-0000-0000-000000000003",
+        "entityType": "DiningOption",
+        "externalId": null,
+        "name": "Take Out",
+        "behavior": "TAKE_OUT",
+        "curbside": false
+      },
+      {
+        "guid": "00000000-0000-0000-0000-000000000004",
+        "entityType": "DiningOption",
+        "externalId": null,
+        "name": "DoorDash - Delivery",
+        "behavior": "DELIVERY",
+        "curbside": false
+      },
+      {
+        "guid": "00000000-0000-0000-0000-000000000005",
+        "entityType": "DiningOption",
+        "externalId": null,
+        "name": "Delivery",
+        "behavior": "DELIVERY",
+        "curbside": false
+      },
+      {
+        "guid": "00000000-0000-0000-0000-000000000006",
+        "entityType": "DiningOption",
+        "externalId": null,
+        "name": "Curbside",
+        "behavior": "TAKE_OUT",
+        "curbside": true
+      },
+      {
+        "guid": "00000000-0000-0000-0000-000000000007",
+        "entityType": "DiningOption",
+        "externalId": null,
+        "name": "Dine In",
+        "behavior": "DINE_IN",
+        "curbside": false
+      },
+      {
+        "guid": "00000000-0000-0000-0000-000000000008",
+        "entityType": "DiningOption",
+        "externalId": null,
+        "name": "Toast Delivery Services",
+        "behavior": "DELIVERY",
+        "curbside": false
+      },
+      {
+        "guid": "00000000-0000-0000-0000-000000000009",
+        "entityType": "DiningOption",
+        "externalId": null,
+        "name": "Catering",
+        "behavior": null,
+        "curbside": false
+      },
+      {
+        "guid": "00000000-0000-0000-0000-00000000000a",
+        "entityType": "DiningOption",
+        "externalId": null,
+        "name": "Online Ordering - Delivery",
+        "behavior": "DELIVERY",
+        "curbside": false
+      }
+    ],
+    "orderTypes": null,
+    "revenueCenters": [
+      {
+        "guid": "00000000-0000-0000-0000-00000000000b",
+        "entityType": "RevenueCenter",
+        "name": "Patio",
+        "description": null
+      },
+      {
+        "guid": "00000000-0000-0000-0000-00000000000c",
+        "entityType": "RevenueCenter",
+        "name": "Online Ordering",
+        "description": "Default online ordering revenue center"
+      },
+      {
+        "guid": "00000000-0000-0000-0000-00000000000d",
+        "entityType": "RevenueCenter",
+        "name": "Dining Room",
+        "description": null
+      },
+      {
+        "guid": "00000000-0000-0000-0000-00000000000e",
+        "entityType": "RevenueCenter",
+        "name": "Bar",
+        "description": null
+      }
+    ],
+    "serviceAreas": [
+      {
+        "guid": "00000000-0000-0000-0000-00000000000f",
+        "entityType": "ServiceArea",
+        "name": "Patio",
+        "revenueCenter": {
+          "guid": "00000000-0000-0000-0000-00000000000b",
+          "entityType": "RevenueCenter",
+          "externalId": null
+        }
+      },
+      {
+        "guid": "00000000-0000-0000-0000-000000000010",
+        "entityType": "ServiceArea",
+        "name": "Bar",
+        "revenueCenter": {
+          "guid": "00000000-0000-0000-0000-00000000000e",
+          "entityType": "RevenueCenter",
+          "externalId": null
+        }
+      },
+      {
+        "guid": "00000000-0000-0000-0000-000000000011",
+        "entityType": "ServiceArea",
+        "name": "Dining Room",
+        "revenueCenter": {
+          "guid": "00000000-0000-0000-0000-00000000000d",
+          "entityType": "RevenueCenter",
+          "externalId": null
+        }
+      }
+    ],
+    "taxRates": [
+      {
+        "guid": "00000000-0000-0000-0000-000000000012",
+        "entityType": "TaxRate",
+        "isDefault": false,
+        "conditionalTaxRates": [],
+        "taxTable": [],
+        "rate": null,
+        "roundingType": null,
+        "name": "Marketplace Facilitator Taxes Paid",
+        "type": "EXTERNAL"
+      },
+      {
+        "guid": "00000000-0000-0000-0000-000000000013",
+        "entityType": "TaxRate",
+        "isDefault": false,
+        "conditionalTaxRates": [],
+        "taxTable": [],
+        "rate": null,
+        "roundingType": null,
+        "name": "Marketplace Facilitator Taxes Not Paid",
+        "type": "EXTERNAL"
+      },
+      {
+        "guid": "00000000-0000-0000-0000-000000000014",
+        "entityType": "TaxRate",
+        "isDefault": true,
+        "conditionalTaxRates": [],
+        "taxTable": [],
+        "rate": 0.06,
+        "roundingType": "HALF_EVEN",
+        "name": "PA STATE TAX",
+        "type": "PERCENT"
+      },
+      {
+        "guid": "00000000-0000-0000-0000-000000000015",
+        "entityType": "TaxRate",
+        "isDefault": false,
+        "conditionalTaxRates": [],
+        "taxTable": [],
+        "rate": null,
+        "roundingType": null,
+        "name": "Toast Marketplace Facilitator Taxes",
+        "type": "EXTERNAL"
+      }
+    ],
+    "discounts": [
+      {
+        "guid": "00000000-0000-0000-0000-000000000016",
+        "entityType": "Discount",
+        "amount": null,
+        "selectionType": "CHECK",
+        "nonExclusive": false,
+        "percentage": 100,
+        "name": "Bold Gold Media - Gift Card",
+        "active": true,
+        "itemPickingPriority": "FIRST",
+        "type": "PERCENT",
+        "fixedTotal": null
+      },
+      {
+        "guid": "00000000-0000-0000-0000-000000000017",
+        "entityType": "Discount",
+        "amount": null,
+        "selectionType": "ITEM",
+        "nonExclusive": false,
+        "percentage": 100,
+        "name": "Manager Comp - Item",
+        "active": true,
+        "itemPickingPriority": "FIRST",
+        "type": "PERCENT",
+        "fixedTotal": null
+      },
+      {
+        "guid": "00000000-0000-0000-0000-000000000018",
+        "entityType": "Discount",
+        "amount": null,
+        "selectionType": "CHECK",
+        "nonExclusive": false,
+        "percentage": null,
+        "name": "Open $ Check",
+        "active": true,
+        "itemPickingPriority": "FIRST",
+        "type": "OPEN_FIXED",
+        "fixedTotal": null
+      },
+      {
+        "guid": "00000000-0000-0000-0000-000000000019",
+        "entityType": "Discount",
+        "amount": null,
+        "selectionType": "CHECK",
+        "nonExclusive": false,
+        "percentage": null,
+        "name": "Open % Check",
+        "active": true,
+        "itemPickingPriority": "FIRST",
+        "type": "OPEN_PERCENT",
+        "fixedTotal": null
+      },
+      {
+        "guid": "00000000-0000-0000-0000-00000000001a",
+        "entityType": "Discount",
+        "amount": 2.25,
+        "selectionType": "ITEM",
+        "nonExclusive": false,
+        "percentage": null,
+        "name": "Doughnut Day - Free Doughnut",
+        "active": true,
+        "itemPickingPriority": "LEAST_EXPENSIVE",
+        "type": "FIXED",
+        "fixedTotal": null
+      },
+      {
+        "guid": "00000000-0000-0000-0000-00000000001b",
+        "entityType": "Discount",
+        "amount": null,
+        "selectionType": "CHECK",
+        "nonExclusive": false,
+        "percentage": null,
+        "name": "Employee Discount - Check",
+        "active": true,
+        "itemPickingPriority": "FIRST",
+        "type": "OPEN_PERCENT",
+        "fixedTotal": null
+      },
+      {
+        "guid": "00000000-0000-0000-0000-00000000001c",
+        "entityType": "Discount",
+        "amount": null,
+        "selectionType": "ITEM",
+        "nonExclusive": false,
+        "percentage": null,
+        "name": "Open % Item",
+        "active": true,
+        "itemPickingPriority": "FIRST",
+        "type": "OPEN_PERCENT",
+        "fixedTotal": null
+      },
+      {
+        "guid": "00000000-0000-0000-0000-00000000001d",
+        "entityType": "Discount",
+        "amount": 3,
+        "selectionType": "CHECK",
+        "nonExclusive": true,
+        "percentage": null,
+        "name": "Dozen Discount",
+        "active": true,
+        "itemPickingPriority": "LEAST_EXPENSIVE",
+        "type": "FIXED_TOTAL",
+        "fixedTotal": 23
+      },
+      {
+        "guid": "00000000-0000-0000-0000-00000000001e",
+        "entityType": "Discount",
+        "amount": null,
+        "selectionType": "CHECK",
+        "nonExclusive": false,
+        "percentage": 10,
+        "name": "Save 10%",
+        "active": true,
+        "itemPickingPriority": "FIRST",
+        "type": "PERCENT",
+        "fixedTotal": null
+      },
+      {
+        "guid": "00000000-0000-0000-0000-00000000001f",
+        "entityType": "Discount",
+        "amount": null,
+        "selectionType": "ITEM",
+        "nonExclusive": false,
+        "percentage": 100,
+        "name": "Spillage/Food Quality - Item",
+        "active": true,
+        "itemPickingPriority": "FIRST",
+        "type": "PERCENT",
+        "fixedTotal": null
+      },
+      {
+        "guid": "00000000-0000-0000-0000-000000000020",
+        "entityType": "Discount",
+        "amount": 0,
+        "selectionType": "CHECK",
+        "nonExclusive": true,
+        "percentage": null,
+        "name": "Rewards Card",
+        "active": true,
+        "itemPickingPriority": "FIRST",
+        "type": "OPEN_FIXED",
+        "fixedTotal": null
+      },
+      {
+        "guid": "00000000-0000-0000-0000-000000000021",
+        "entityType": "Discount",
+        "amount": null,
+        "selectionType": "ITEM",
+        "nonExclusive": false,
+        "percentage": null,
+        "name": "Open $ Item",
+        "active": true,
+        "itemPickingPriority": "FIRST",
+        "type": "OPEN_FIXED",
+        "fixedTotal": null
+      },
+      {
+        "guid": "00000000-0000-0000-0000-000000000022",
+        "entityType": "Discount",
+        "amount": null,
+        "selectionType": "ITEM",
+        "nonExclusive": false,
+        "percentage": 100,
+        "name": "Waste",
+        "active": true,
+        "itemPickingPriority": "LEAST_EXPENSIVE",
+        "type": "PERCENT",
+        "fixedTotal": null
+      },
+      {
+        "guid": "00000000-0000-0000-0000-000000000023",
+        "entityType": "Discount",
+        "amount": null,
+        "selectionType": "ITEM",
+        "nonExclusive": false,
+        "percentage": null,
+        "name": "Employee Discount - Item",
+        "active": true,
+        "itemPickingPriority": "FIRST",
+        "type": "OPEN_PERCENT",
+        "fixedTotal": null
+      },
+      {
+        "guid": "00000000-0000-0000-0000-000000000024",
+        "entityType": "Discount",
+        "amount": null,
+        "selectionType": "CHECK",
+        "nonExclusive": false,
+        "percentage": null,
+        "name": "Nuggy Special",
+        "active": true,
+        "itemPickingPriority": "LEAST_EXPENSIVE",
+        "type": "FIXED_TOTAL",
+        "fixedTotal": 5
+      },
+      {
+        "guid": "00000000-0000-0000-0000-000000000025",
+        "entityType": "Discount",
+        "amount": null,
+        "selectionType": "CHECK",
+        "nonExclusive": false,
+        "percentage": 100,
+        "name": "Manager Comp - Check",
+        "active": true,
+        "itemPickingPriority": "FIRST",
+        "type": "PERCENT",
+        "fixedTotal": null
+      },
+      {
+        "guid": "00000000-0000-0000-0000-000000000026",
+        "entityType": "Discount",
+        "amount": null,
+        "selectionType": "CHECK",
+        "nonExclusive": false,
+        "percentage": null,
+        "name": "St Patty's Combo",
+        "active": true,
+        "itemPickingPriority": "LEAST_EXPENSIVE",
+        "type": "FIXED_TOTAL",
+        "fixedTotal": 6
+      },
+      {
+        "guid": "00000000-0000-0000-0000-000000000027",
+        "entityType": "Discount",
+        "amount": 3,
+        "selectionType": "CHECK",
+        "nonExclusive": true,
+        "percentage": null,
+        "name": "Half-Dozen Discount",
+        "active": true,
+        "itemPickingPriority": "LEAST_EXPENSIVE",
+        "type": "FIXED_TOTAL",
+        "fixedTotal": 12
+      }
+    ]
+  }
+}
