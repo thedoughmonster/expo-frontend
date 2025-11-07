@@ -156,10 +156,41 @@ export const formatElapsedIsoDuration = (start, end = new Date()) => {
   return `P${datePart}${timePart || 'T0S'}`
 }
 
-export const statusToClassName = (status) => {
-  if (!status) {
+const isAlphaNumeric = (char) => {
+  const code = char.charCodeAt(0)
+  return (code >= 48 && code <= 57) || (code >= 97 && code <= 122)
+}
+
+const toStatusSlug = (value) => {
+  const trimmed = value.trim().toLowerCase()
+  if (!trimmed) {
     return ''
   }
 
-  return `order-status--${status.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`
+  let slug = ''
+  let pendingSeparator = false
+
+  for (const char of trimmed) {
+    if (isAlphaNumeric(char)) {
+      if (pendingSeparator && slug) {
+        slug += '-'
+      }
+
+      slug += char
+      pendingSeparator = false
+    } else if (slug) {
+      pendingSeparator = true
+    }
+  }
+
+  return slug
+}
+
+export const statusToClassName = (status) => {
+  if (typeof status !== 'string') {
+    return ''
+  }
+
+  const slug = toStatusSlug(status)
+  return slug ? `order-status--${slug}` : ''
 }
