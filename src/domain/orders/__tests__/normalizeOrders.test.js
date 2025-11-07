@@ -6,79 +6,100 @@ import {
   resolveOrderDiningOption,
   extractOrdersFromPayload,
 } from '../normalizeOrders'
-import { buildDiningOptionLookup, buildMenuItemLookup } from '../../menus/menuLookup'
+import {
+  buildDiningOptionLookup,
+  buildMenuItemLookup,
+  buildModifierMetadataLookup,
+} from '../../menus/menuLookup'
 
-const createMenuLookup = () =>
-  new Map([
-    [
-      'mod-1-option',
+const menuFixture = {
+  menu: {
+    menus: [
       {
-        kitchenName: 'Sausage',
-        posName: 'Sausage',
-        displayName: 'DM Pork Sausage',
-        fallbackName: 'Sausage',
+        name: 'Breakfast',
+        menuItems: [
+          {
+            guid: 'menu-item-1',
+            name: 'Bagel',
+            kitchenName: 'Bagel',
+            multiLocationId: 'ml-1',
+            modifierGroupReferences: [],
+            prepStations: ['station-bake'],
+          },
+          {
+            guid: 'menu-item-2',
+            name: 'Toast',
+            kitchenName: 'Toast',
+            multiLocationId: 'ml-2',
+            modifierGroupReferences: [],
+            prepStations: ['station-oven'],
+          },
+          {
+            guid: 'selection-1',
+            name: 'Build-A-Brekky',
+            kitchenName: 'Build-A-Brekky',
+            multiLocationId: 'selection-1',
+            modifierGroupReferences: [100, 101],
+            prepStations: ['station-hot'],
+          },
+        ],
       },
     ],
-    [
-      'mod-2-option',
-      {
-        kitchenName: 'Cheese',
-        posName: 'Cheese',
-        displayName: 'American Cheese',
-        fallbackName: 'Cheese',
+    modifierGroupReferences: {
+      100: {
+        referenceId: 100,
+        guid: 'protein-group',
+        name: 'Proteins',
+        modifierOptionReferences: [200],
       },
-    ],
-    [
-      'selection-1',
-      {
-        kitchenName: 'Build-A-Brekky',
-        displayName: 'Build-A-Brekky',
-        fallbackName: 'Build-A-Brekky',
+      101: {
+        referenceId: 101,
+        guid: 'cheese-group',
+        name: 'Cheese',
+        modifierOptionReferences: [201],
       },
-    ],
-  ])
-
-const createModifierMetadataLookup = () =>
-  new Map([
-    [
-      'mod-1-option',
-      {
-        groupName: 'Proteins',
-        groupId: 'protein-group',
-        groupOrder: 0,
-        optionOrder: 1,
-        optionName: 'Sausage',
-      },
-    ],
-    [
-      'mod-2-option',
-      {
-        groupName: 'Cheese',
-        groupId: 'cheese-group',
-        groupOrder: 1,
-        optionOrder: 0,
-        optionName: 'Cheese',
-      },
-    ],
-  ])
-
-const createDiningOptionLookup = () =>
-  buildDiningOptionLookup({
-    data: {
-      diningOptions: [
-        {
-          guid: 'dine-in-guid',
-          displayName: 'Dine In',
-          code: 'DINEIN',
-        },
-        {
-          guid: 'takeout-guid',
-          displayName: 'Take Out',
-          code: 'TAKEOUT',
-        },
-      ],
     },
-  })
+    modifierOptionReferences: {
+      200: {
+        referenceId: 200,
+        guid: 'mod-1-option',
+        name: 'Sausage',
+      },
+      201: {
+        referenceId: 201,
+        guid: 'mod-2-option',
+        name: 'American Cheese',
+      },
+    },
+  },
+}
+
+const configFixture = {
+  updatedAt: '2025-01-01T00:00:00Z',
+  ttlSeconds: 300,
+  data: {
+    diningOptions: [
+      {
+        guid: 'dine-in-guid',
+        name: 'Dine In',
+        externalId: 'DINING_ROOM',
+        behavior: 'DINE_IN',
+      },
+      {
+        guid: 'takeout-guid',
+        name: 'Take Out',
+        externalId: 'TAKEOUT',
+        behavior: 'TAKE_OUT',
+      },
+    ],
+  },
+}
+
+const createMenuLookup = () => buildMenuItemLookup(menuFixture)
+
+const createModifierMetadataLookup = () => buildModifierMetadataLookup(menuFixture)
+
+const createDiningOptionLookup = () => buildDiningOptionLookup(configFixture)
 
 const createCanonicalOrder = () => ({
   guid: 'order-1',
@@ -216,19 +237,19 @@ describe('normalizeItemModifiers', () => {
         groupName: 'Proteins',
         groupId: 'protein-group',
         groupOrder: 0,
-        optionOrder: 1,
+        optionOrder: 0,
         optionName: 'Sausage',
       },
       {
         id: 'mod-2-option',
         identifier: 'mod-2-option',
-        name: 'Cheese',
+        name: 'American Cheese',
         quantity: 3,
         groupName: 'Cheese',
         groupId: 'cheese-group',
         groupOrder: 1,
         optionOrder: 0,
-        optionName: 'Cheese',
+        optionName: 'American Cheese',
       },
     ])
   })
@@ -452,8 +473,8 @@ describe('normalizeOrders', () => {
           price: 6.25,
           currency: undefined,
           notes: undefined,
-          menuOrderIndex: undefined,
-          prepStations: undefined,
+          menuOrderIndex: 2,
+          prepStations: ['station-hot'],
           fulfillmentStatus: 'READY',
           modifiers: [
             {
@@ -464,24 +485,24 @@ describe('normalizeOrders', () => {
               groupName: 'Proteins',
               groupId: 'protein-group',
               groupOrder: 0,
-              optionOrder: 1,
+              optionOrder: 0,
               optionName: 'Sausage',
             },
             {
               id: 'mod-2-option',
               identifier: 'mod-2-option',
-              name: 'Cheese',
+              name: 'American Cheese',
               quantity: 3,
               groupName: 'Cheese',
               groupId: 'cheese-group',
               groupOrder: 1,
               optionOrder: 0,
-              optionName: 'Cheese',
+              optionName: 'American Cheese',
             },
           ],
         },
       ],
-      prepStationGuids: undefined,
+      prepStationGuids: ['station-hot'],
     })
   })
 
