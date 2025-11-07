@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 import { execFile } from 'node:child_process'
-import { mkdir, writeFile } from 'node:fs/promises'
+import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import OpenAPIResponseValidatorModule from 'openapi-response-validator'
@@ -17,6 +17,11 @@ setGlobalDispatcher(
 
 const OPENAPI_DOC_URL =
   'https://doughmonster-worker.thedoughmonster.workers.dev/api/docs/openapi.json'
+
+const MODES = {
+  VERIFY: 'verify',
+  RECORD: 'record',
+}
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const ROOT_DIR = path.join(__dirname, '..')
@@ -176,6 +181,149 @@ const writeJsonFile = async (filePath, data) => {
   await writeFile(filePath, `${JSON.stringify(data, null, 2)}\n`, 'utf8')
 }
 
+const loadJsonFile = async (filePath) => {
+  const contents = await readFile(filePath, 'utf8')
+  return JSON.parse(contents)
+}
+
+const canonicalizeValue = (value) => {
+  if (Array.isArray(value)) {
+    const variants = []
+    const seen = new Set()
+
+    for (const entry of value) {
+      const canonicalEntry = canonicalizeValue(entry)
+      const signature = JSON.stringify(canonicalEntry)
+      if (!seen.has(signature)) {
+        seen.add(signature)
+        variants.push(canonicalEntry)
+      }
+    }
+
+    variants.sort((left, right) =>
+      JSON.stringify(left).localeCompare(JSON.stringify(right)),
+    )
+
+    return {
+      type: 'array',
+      variants,
+    }
+  }
+
+  if (value && typeof value === 'object') {
+    const entries = Object.entries(value)
+      .sort(([left], [right]) => left.localeCompare(right))
+      .map(([key, entry]) => [key, canonicalizeValue(entry)])
+
+    return {
+      type: 'object',
+      entries,
+    }
+  }
+
+  if (value === null) {
+    return { type: 'null' }
+  }
+
+  const valueType = typeof value
+  if (valueType === 'string' || valueType === 'number' || valueType === 'boolean') {
+    return { type: valueType }
+  }
+
+  return { type: 'unknown' }
+}
+
+const isStructureSubset = (fixture, payload) => {
+  if (fixture.type !== payload.type) {
+    if (fixture.type === 'null' || payload.type === 'null') {
+      return true
+    }
+
+    return false
+  }
+
+  if (fixture.type === 'object') {
+    const fixtureMap = new Map(fixture.entries)
+    return payload.entries.every(([key, payloadEntry]) => {
+      const fixtureEntry = fixtureMap.get(key)
+      if (!fixtureEntry) {
+        return false
+      }
+
+      return isStructureSubset(fixtureEntry, payloadEntry)
+    })
+  }
+
+  if (fixture.type === 'array') {
+    if (fixture.variants.length === 0) {
+      return payload.variants.length === 0
+    }
+
+    return payload.variants.every((payloadVariant) =>
+      fixture.variants.some((fixtureVariant) =>
+        isStructureSubset(fixtureVariant, payloadVariant),
+      ),
+    )
+  }
+
+  return true
+}
+
+const assertStructureMatchesFixture = async (
+  relativePath,
+  payload,
+  openApiDoc,
+  pathKey,
+) => {
+  const fixturePath = path.join(FIXTURE_DIR, relativePath)
+
+  let fixture
+  try {
+    fixture = await loadJsonFile(fixturePath)
+  } catch (error) {
+    throw new Error(
+      `Unable to load fixture ${relativePath}. Run ` +
+        '`pnpm verify:schema -- --mode=record` to capture fresh snapshots.',
+      { cause: error },
+    )
+  }
+
+  validateResponse(openApiDoc, pathKey, 'get', 200, fixture)
+
+  const canonicalFixture = canonicalizeValue(fixture)
+  const canonicalPayload = canonicalizeValue(payload)
+
+  if (!isStructureSubset(canonicalFixture, canonicalPayload)) {
+    throw new Error(
+      `Live response for ${relativePath} does not match the canonical structure ` +
+        'of the committed fixture. If the schema legitimately changed, rerun ' +
+        '`pnpm verify:schema -- --mode=record` and commit the refreshed fixtures.',
+    )
+  }
+}
+
+const parseMode = (argv) => {
+  const modeFlag = argv.find((arg) => arg.startsWith('--mode'))
+  if (!modeFlag) {
+    return MODES.VERIFY
+  }
+
+  if (modeFlag === '--mode') {
+    const value = argv[argv.indexOf(modeFlag) + 1]
+    if (!value) {
+      throw new Error('Expected a mode value after --mode flag')
+    }
+    return value
+  }
+
+  const [, value] = modeFlag.split('=')
+  if (!value) {
+    throw new Error('Expected a mode value for --mode flag')
+  }
+
+  return value
+}
+
 const fetchWithCurl = async (url) => {
   const args = [
     '-sSL',
@@ -296,7 +444,7 @@ const loadOpenApiDocument = async () => {
   return body
 }
 
-const captureOrdersLatest = async (openApiDoc) => {
+const captureOrdersLatest = async (openApiDoc, mode) => {
   const url = new URL(appSettings.ordersEndpoint)
   url.searchParams.set('limit', String(appSettings.pollLimit))
   url.searchParams.set('detail', 'ids')
@@ -307,7 +455,18 @@ const captureOrdersLatest = async (openApiDoc) => {
 
   validateResponse(openApiDoc, '/api/orders', 'get', status, body)
 
-  await writeJsonFile(path.join(FIXTURE_DIR, 'orders-latest.json'), sanitizeJson(body))
+  const sanitized = sanitizeJson(body)
+
+  if (mode === MODES.RECORD) {
+    await writeJsonFile(path.join(FIXTURE_DIR, 'orders-latest.json'), sanitized)
+  } else {
+    await assertStructureMatchesFixture(
+      'orders-latest.json',
+      sanitized,
+      openApiDoc,
+      '/api/orders',
+    )
+  }
 
   if (!body || !Array.isArray(body.orders) || body.orders.length === 0) {
     return undefined
@@ -321,67 +480,117 @@ const captureOrdersLatest = async (openApiDoc) => {
   return firstOrder
 }
 
-const captureOrderByGuid = async (openApiDoc, guid) => {
+const captureOrderByGuid = async (openApiDoc, guid, mode) => {
   const url = `${appSettings.ordersEndpoint}/${encodeURIComponent(guid)}`
   const { status, body } = await fetchJson(url)
 
   validateResponse(openApiDoc, '/api/orders/{guid}', 'get', status, body)
 
-  await writeJsonFile(path.join(FIXTURE_DIR, 'order-by-guid.json'), sanitizeJson(body))
+  const sanitized = sanitizeJson(body)
+
+  if (mode === MODES.RECORD) {
+    await writeJsonFile(path.join(FIXTURE_DIR, 'order-by-guid.json'), sanitized)
+  } else {
+    await assertStructureMatchesFixture(
+      'order-by-guid.json',
+      sanitized,
+      openApiDoc,
+      '/api/orders/{guid}',
+    )
+  }
 }
 
-const captureMenus = async (openApiDoc) => {
+const captureMenus = async (openApiDoc, mode) => {
   const { status, body } = await fetchJson(appSettings.menusEndpoint)
 
   validateResponse(openApiDoc, '/api/menus', 'get', status, body)
 
-  await writeJsonFile(path.join(FIXTURE_DIR, 'menus.json'), sanitizeJson(body))
+  const sanitized = sanitizeJson(body)
+
+  if (mode === MODES.RECORD) {
+    await writeJsonFile(path.join(FIXTURE_DIR, 'menus.json'), sanitized)
+  } else {
+    await assertStructureMatchesFixture('menus.json', sanitized, openApiDoc, '/api/menus')
+  }
 }
 
-const captureConfigSnapshot = async (openApiDoc) => {
+const captureConfigSnapshot = async (openApiDoc, mode) => {
   const { status, body } = await fetchJson(appSettings.configSnapshotEndpoint)
 
   validateResponse(openApiDoc, '/api/config/snapshot', 'get', status, body)
 
-  await writeJsonFile(path.join(FIXTURE_DIR, 'config-snapshot.json'), sanitizeJson(body))
+  const sanitized = sanitizeJson(body)
+
+  if (mode === MODES.RECORD) {
+    await writeJsonFile(path.join(FIXTURE_DIR, 'config-snapshot.json'), sanitized)
+  } else {
+    await assertStructureMatchesFixture(
+      'config-snapshot.json',
+      sanitized,
+      openApiDoc,
+      '/api/config/snapshot',
+    )
+  }
 }
 
-const captureKitchenPrepStations = async (openApiDoc) => {
+const captureKitchenPrepStations = async (openApiDoc, mode) => {
   const endpoint = 'https://doughmonster-worker.thedoughmonster.workers.dev/api/kitchen/prep-stations'
   const { status, body } = await fetchJson(endpoint)
 
   validateResponse(openApiDoc, '/api/kitchen/prep-stations', 'get', status, body)
 
-  await writeJsonFile(
-    path.join(FIXTURE_DIR, 'kitchen-prep-stations.json'),
-    sanitizeJson(body),
-  )
+  const sanitized = sanitizeJson(body)
+
+  if (mode === MODES.RECORD) {
+    await writeJsonFile(
+      path.join(FIXTURE_DIR, 'kitchen-prep-stations.json'),
+      sanitized,
+    )
+  } else {
+    await assertStructureMatchesFixture(
+      'kitchen-prep-stations.json',
+      sanitized,
+      openApiDoc,
+      '/api/kitchen/prep-stations',
+    )
+  }
 }
 
 const main = async () => {
+  const mode = parseMode(process.argv.slice(2))
+  if (mode !== MODES.VERIFY && mode !== MODES.RECORD) {
+    throw new Error(`Unsupported mode "${mode}". Use "verify" or "record".`)
+  }
+
+  console.log(`Running schema verifier in ${mode} mode…`)
+
   console.log('Downloading OpenAPI document…')
   const openApiDoc = await loadOpenApiDocument()
 
   console.log('Capturing latest orders (detail=ids)…')
-  const latestOrderGuid = await captureOrdersLatest(openApiDoc)
+  const latestOrderGuid = await captureOrdersLatest(openApiDoc, mode)
 
   if (latestOrderGuid) {
     console.log(`Capturing order ${latestOrderGuid}…`)
-    await captureOrderByGuid(openApiDoc, latestOrderGuid)
+    await captureOrderByGuid(openApiDoc, latestOrderGuid, mode)
   } else {
     console.warn('No orders were returned; skipping order-by-guid capture.')
   }
 
   console.log('Capturing menus…')
-  await captureMenus(openApiDoc)
+  await captureMenus(openApiDoc, mode)
 
   console.log('Capturing config snapshot…')
-  await captureConfigSnapshot(openApiDoc)
+  await captureConfigSnapshot(openApiDoc, mode)
 
   console.log('Capturing kitchen prep stations…')
-  await captureKitchenPrepStations(openApiDoc)
+  await captureKitchenPrepStations(openApiDoc, mode)
 
-  console.log(`Fixtures written to ${path.relative(ROOT_DIR, FIXTURE_DIR)}`)
+  if (mode === MODES.RECORD) {
+    console.log(`Fixtures written to ${path.relative(ROOT_DIR, FIXTURE_DIR)}`)
+  } else {
+    console.log('Fixture structures match committed snapshots.')
+  }
 }
 
 main().catch((error) => {

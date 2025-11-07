@@ -9,6 +9,7 @@
     "lint": "eslint .",
     "policy:check": "node scripts/policy-check.mjs",
     "verify:schema": "node scripts/verify-schema.mjs",
+    "verify:schema:record": "node scripts/verify-schema.mjs --mode=record",
     "preview": "vite preview",
     "test": "vitest"
   },
