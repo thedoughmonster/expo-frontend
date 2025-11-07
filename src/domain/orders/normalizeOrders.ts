@@ -412,38 +412,26 @@ export const isLikelyGuid = (value: unknown): boolean => {
   return hasHyphen || hasHexLetter
 }
 
-const ORDER_GUID_KEYS = [
-  'guid',
-  'id',
-  'uuid',
-  'orderGuid',
-  'order_guid',
-  'orderId',
-  'order_id',
-  'order.guid',
-  'order.id',
-  'order.uuid',
-  'data.guid',
-  'data.id',
-  'data.uuid',
-  'payload.guid',
-  'payload.id',
-  'payload.uuid',
-]
-
 export const extractOrderGuid = (order: unknown): string | undefined => {
   if (!order || typeof order !== 'object') {
     return undefined
   }
 
-  for (const key of ORDER_GUID_KEYS) {
-    const candidate = toStringValue(pickValue(order, [key]))
-    if (candidate && isLikelyGuid(candidate)) {
-      return candidate
-    }
+  const guidValue = toStringValue((order as Record<string, unknown>).guid)
+  if (!guidValue) {
+    return undefined
   }
 
-  return undefined
+  const trimmed = guidValue.trim()
+  if (!trimmed) {
+    return undefined
+  }
+
+  if (!isLikelyGuid(trimmed)) {
+    return undefined
+  }
+
+  return trimmed
 }
 
 const ORDER_TIMESTAMP_FIELDS: (keyof ToastOrder)[] = [

@@ -22,9 +22,10 @@ describe('normalizeOrders utilities', () => {
     expect(isLikelyGuid('invalid-guid')).toBe(false)
   })
 
-  it('extracts order GUIDs from canonical fields', () => {
+  it('extracts order GUIDs exclusively from the documented guid field', () => {
     const guid = '123e4567-e89b-12d3-a456-426614174000'
     expect(extractOrderGuid({ guid })).toBe(guid)
+    expect(extractOrderGuid({ id: guid })).toBeUndefined()
     expect(extractOrderGuid({})).toBeUndefined()
   })
 })

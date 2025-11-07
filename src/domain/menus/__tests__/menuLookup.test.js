@@ -9,8 +9,8 @@ describe('extractUnfulfilledOrderGuids', () => {
   it('captures outstanding orders without regex heuristics', () => {
     const payload = {
       outstandingOrders: [
-        { orderGuid: FIRST_GUID, fulfilled: false },
-        { orderGuid: SECOND_GUID, fulfilled: true },
+        { guid: FIRST_GUID, fulfilled: false },
+        { guid: SECOND_GUID, fulfilled: true },
         { guid: THIRD_GUID, status: 'IN_PROGRESS' },
       ],
       TicketQueue: [THIRD_GUID, 'not-a-guid'],
