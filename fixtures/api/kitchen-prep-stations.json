@@ -1,0 +1,112 @@
+{
+  "ok": true,
+  "route": "/api/kitchen/prep-stations",
+  "count": 4,
+  "prepStations": [
+    {
+      "entityType": "PrepStation",
+      "connectedPrepStations": [],
+      "printingMode": "ON",
+      "includeWithExpediter": true,
+      "expoRouting": "SEND_TO_EXPO",
+      "name": "Beverages",
+      "kitchenPrinter": {
+        "entityType": "Printer",
+        "guid": "00000000-0000-0000-0000-000000000001"
+      },
+      "guid": "00000000-0000-0000-0000-000000000002"
+    },
+    {
+      "entityType": "PrepStation",
+      "connectedPrepStations": [],
+      "printingMode": "OFFLINE_ONLY",
+      "includeWithExpediter": true,
+      "expoRouting": "SEND_TO_EXPO",
+      "name": "No Print",
+      "kitchenPrinter": null,
+      "guid": "00000000-0000-0000-0000-000000000003"
+    },
+    {
+      "entityType": "PrepStation",
+      "connectedPrepStations": [],
+      "printingMode": "ON",
+      "includeWithExpediter": true,
+      "expoRouting": "SEND_TO_EXPO",
+      "name": "Flat Top",
+      "kitchenPrinter": {
+        "entityType": "Printer",
+        "guid": "00000000-0000-0000-0000-000000000004"
+      },
+      "guid": "00000000-0000-0000-0000-000000000005"
+    },
+    {
+      "entityType": "PrepStation",
+      "connectedPrepStations": [],
+      "printingMode": "ON",
+      "includeWithExpediter": true,
+      "expoRouting": "SEND_TO_EXPO",
+      "name": "Doughnuts",
+      "kitchenPrinter": {
+        "entityType": "Printer",
+        "guid": "00000000-0000-0000-0000-000000000006"
+      },
+      "guid": "00000000-0000-0000-0000-000000000007"
+    }
+  ],
+  "nextPageToken": null,
+  "request": {
+    "pageToken": null,
+    "lastModified": null
+  },
+  "raw": [
+    {
+      "entityType": "PrepStation",
+      "connectedPrepStations": [],
+      "printingMode": "ON",
+      "includeWithExpediter": true,
+      "expoRouting": "SEND_TO_EXPO",
+      "name": "Beverages",
+      "kitchenPrinter": {
+        "entityType": "Printer",
+        "guid": "00000000-0000-0000-0000-000000000001"
+      },
+      "guid": "00000000-0000-0000-0000-000000000002"
+    },
+    {
+      "entityType": "PrepStation",
+      "connectedPrepStations": [],
+      "printingMode": "OFFLINE_ONLY",
+      "includeWithExpediter": true,
+      "expoRouting": "SEND_TO_EXPO",
+      "name": "No Print",
+      "kitchenPrinter": null,
+      "guid": "00000000-0000-0000-0000-000000000003"
+    },
+    {
+      "entityType": "PrepStation",
+      "connectedPrepStations": [],
+      "printingMode": "ON",
+      "includeWithExpediter": true,
+      "expoRouting": "SEND_TO_EXPO",
+      "name": "Flat Top",
+      "kitchenPrinter": {
+        "entityType": "Printer",
+        "guid": "00000000-0000-0000-0000-000000000004"
+      },
+      "guid": "00000000-0000-0000-0000-000000000005"
+    },
+    {
+      "entityType": "PrepStation",
+      "connectedPrepStations": [],
+      "printingMode": "ON",
+      "includeWithExpediter": true,
+      "expoRouting": "SEND_TO_EXPO",
+      "name": "Doughnuts",
+      "kitchenPrinter": {
+        "entityType": "Printer",
+        "guid": "00000000-0000-0000-0000-000000000006"
+      },
+      "guid": "00000000-0000-0000-0000-000000000007"
+    }
+  ]
+}
