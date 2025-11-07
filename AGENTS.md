@@ -2,6 +2,9 @@
 - Always fetch the latest schema documentation from the worker before beginning any task so the available API surface, field definitions, and enumerated values remain accurate. To retrieve the raw JSON document directly, use `https://doughmonster-worker.thedoughmonster.workers.dev/api/docs/openapi.json`.
 - Consult the remotely hosted schema whenever touching data normalization or API-driven features so field names (e.g., `displayNumber`) and optional fields stay aligned with the worker payloads. Cross-check field availability against the OpenAPI definitions instead of relying on assumptions.
 - Do not rely on local copies of schema docs; they are intentionally absent.
+- Never parse API payloads with regular expressions—use the typed schema as the single source of truth for response handling logic.
+- Never guess at field names or shape changes that are not documented in the published schema, and do not mutate the payload schema without explicit documentation updates.
+- Always run the schema verification suite and confirm its success before editing or committing changes to any code that consumes API responses.
 - For any changes affecting the frontend, always capture and share a screenshot of the rendered UI to accompany your summary.
 - When taking screenshots with Playwright, always wait for the UI data to hydrate first—prefer waiting on a reliable selector or state that indicates content is loaded, but in all cases wait at least 3 seconds before capturing the image.
 - When investigating order regressions, capture both the normalized and raw diffs using the debug diff tooling so we can compare transformations accurately.
