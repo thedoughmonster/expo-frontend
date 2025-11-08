@@ -5,6 +5,10 @@ import { clearOrdersCache } from '../../domain/orders/ordersCache'
 import { clearMenuCache } from '../../domain/menus/menuCache'
 import { clearConfigCache } from '../../domain/config/configCache'
 import { normalizeOrders } from '../../domain/orders/normalizeOrders'
+import {
+  DashboardDiagnosticsProvider,
+  useDashboardDiagnostics,
+} from '../../viewContext/DashboardDiagnosticsContext'
 
 vi.mock('idb-keyval', () => ({
   get: vi.fn(async () => undefined),
@@ -21,6 +25,10 @@ const CONFIG_SNAPSHOT_ENDPOINT =
 const originalFetch = globalThis.fetch
 
 const NoStrictModeWrapper = ({ children }) => <>{children}</>
+
+const DiagnosticsWrapper = ({ children }) => (
+  <DashboardDiagnosticsProvider>{children}</DashboardDiagnosticsProvider>
+)
 
 const createFetchResponse = (
   payload,
@@ -144,7 +152,7 @@ describe('useOrdersData', () => {
 
     globalThis.fetch = fetchMock
 
-    const { result } = renderHook(() => useOrdersData(), { wrapper: NoStrictModeWrapper })
+    const { result } = renderHook(() => useOrdersData(), { wrapper: DiagnosticsWrapper })
 
     await waitFor(() => {
       expect(result.current.orders).toHaveLength(1)
@@ -218,7 +226,7 @@ describe('useOrdersData', () => {
 
     globalThis.fetch = fetchMock
 
-    const { result } = renderHook(() => useOrdersData(), { wrapper: NoStrictModeWrapper })
+    const { result } = renderHook(() => useOrdersData(), { wrapper: DiagnosticsWrapper })
 
     await waitFor(() => {
       expect(result.current.orders).toHaveLength(1)
@@ -281,7 +289,7 @@ describe('useOrdersData', () => {
 
     globalThis.fetch = fetchMock
 
-    const { result, unmount } = renderHook(() => useOrdersData(), { wrapper: NoStrictModeWrapper })
+    const { result, unmount } = renderHook(() => useOrdersData(), { wrapper: DiagnosticsWrapper })
 
     await act(async () => {
       await result.current.refresh({ silent: false })
@@ -411,7 +419,7 @@ describe('useOrdersData', () => {
 
     globalThis.fetch = fetchMock
 
-    const { result } = renderHook(() => useOrdersData(), { wrapper: NoStrictModeWrapper })
+    const { result } = renderHook(() => useOrdersData(), { wrapper: DiagnosticsWrapper })
 
     await waitFor(() => {
       const guids = result.current.orders.map((order) => order.guid)
@@ -537,7 +545,7 @@ describe('useOrdersData', () => {
 
     globalThis.fetch = fetchMock
 
-    const { result } = renderHook(() => useOrdersData(), { wrapper: NoStrictModeWrapper })
+    const { result } = renderHook(() => useOrdersData(), { wrapper: DiagnosticsWrapper })
 
     await waitFor(() => {
       expect(result.current.orders).toHaveLength(1)
@@ -568,7 +576,7 @@ describe('useOrdersData', () => {
 
     globalThis.fetch = fetchMock
 
-    const { result } = renderHook(() => useOrdersData(), { wrapper: NoStrictModeWrapper })
+    const { result } = renderHook(() => useOrdersData(), { wrapper: DiagnosticsWrapper })
 
     await waitFor(() => {
       expect(result.current.isLoading).toBe(false)
@@ -576,5 +584,45 @@ describe('useOrdersData', () => {
 
     expect(result.current.orders).toHaveLength(0)
     expect(result.current.error).toBeInstanceOf(Error)
+  })
+
+  it('logs diagnostics events for refresh failures', async () => {
+    const failure = new Error('Orders offline')
+    const consoleInfo = vi.spyOn(console, 'info').mockImplementation(() => {})
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {})
+
+    const failingFetch = vi.fn(async () => {
+      throw failure
+    })
+
+    globalThis.fetch = failingFetch
+
+    const { result } = renderHook(
+      () => ({
+        data: useOrdersData(),
+        diagnostics: useDashboardDiagnostics(),
+      }),
+      { wrapper: DiagnosticsWrapper },
+    )
+
+    await act(async () => {
+      await result.current.data.refresh({ silent: false })
+    })
+
+    expect(result.current.data.error).toBeInstanceOf(Error)
+
+    const timeline = result.current.diagnostics.timeline
+    const errorEvent = timeline.find((event) => event.type === 'orders.refresh.error')
+    expect(errorEvent).toBeDefined()
+    expect(errorEvent?.payload).toMatchObject({ message: 'Orders offline', silent: false })
+
+    expect(consoleInfo).toHaveBeenCalledWith(
+      '[DashboardDiagnostics]',
+      expect.objectContaining({ type: 'orders.refresh.started' }),
+    )
+    expect(consoleError).toHaveBeenCalledWith(
+      '[DashboardDiagnostics]',
+      expect.objectContaining({ type: 'orders.refresh.error' }),
+    )
   })
 })

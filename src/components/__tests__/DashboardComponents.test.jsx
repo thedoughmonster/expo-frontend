@@ -8,6 +8,7 @@ import OrdersAreaContainer from '../OrdersArea/OrdersAreaContainer'
 import SettingsModalContainer from '../SettingsModal/SettingsModalContainer'
 import DashboardProviders from '../../viewContext/DashboardProviders'
 import { useSettingsModal } from '../SettingsModal/SettingsModalContext'
+import { DashboardDiagnosticsProvider } from '../../viewContext/DashboardDiagnosticsContext'
 
 describe('Dashboard UI components', () => {
   it('renders DashboardLayout slots', () => {
@@ -61,16 +62,18 @@ describe('Dashboard UI components', () => {
 
   it('renders OrdersAreaContainer empty state', () => {
     render(
-      <OrdersAreaContainer
-        orders={[]}
-        visibleOrders={[]}
-        isLoading={false}
-        isHydrating={false}
-        error={null}
-        emptyStateMessage="Nothing to show"
-        activeOrderIds={new Set()}
-        toggleOrderActive={vi.fn()}
-      />, 
+      <DashboardDiagnosticsProvider>
+        <OrdersAreaContainer
+          orders={[]}
+          visibleOrders={[]}
+          isLoading={false}
+          isHydrating={false}
+          error={null}
+          emptyStateMessage="Nothing to show"
+          activeOrderIds={new Set()}
+          toggleOrderActive={vi.fn()}
+        />
+      </DashboardDiagnosticsProvider>,
     )
 
     expect(screen.getByText('Nothing to show')).toBeTruthy()

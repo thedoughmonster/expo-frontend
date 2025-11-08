@@ -1,6 +1,7 @@
 /* eslint-disable react-refresh/only-export-components */
 import { createContext, useCallback, useContext, useMemo, useState } from 'react'
 import { FULFILLMENT_FILTERS } from '../domain/status/fulfillmentFilters'
+import { useDashboardDiagnostics } from './DashboardDiagnosticsContext'
 
 const OrdersViewContext = createContext(null)
 
@@ -15,6 +16,7 @@ const useOrdersViewContext = () => {
 }
 
 export function OrdersViewProvider({ children }) {
+  const { recordDiagnostic } = useDashboardDiagnostics()
   const [activeFulfillmentFilters, setActiveFulfillmentFilters] = useState(
     () => new Set(FULFILLMENT_FILTERS.map(({ key }) => key)),
   )
@@ -24,171 +26,348 @@ export function OrdersViewProvider({ children }) {
   const [isDebugPanelEnabled, setIsDebugPanelEnabled] = useState(false)
   const [isDebugPanelOpen, setIsDebugPanelOpen] = useState(false)
 
-  const toggleFulfillmentFilter = useCallback((key) => {
-    setActiveFulfillmentFilters((previous) => {
-      const next = new Set(previous)
-
-      if (next.has(key)) {
-        next.delete(key)
-      } else {
-        next.add(key)
+  const toggleFulfillmentFilter = useCallback(
+    (key) => {
+      const normalizedKey = typeof key === 'string' ? key.trim() : ''
+      if (!normalizedKey) {
+        return
       }
 
-      return next
-    })
-  }, [])
+      let change = null
+      let nextFilters = null
 
-  const toggleOrderActive = useCallback((orderId) => {
-    setActiveOrderIds((previous) => {
-      const next = new Set(previous)
+      setActiveFulfillmentFilters((previous) => {
+        const next = new Set(previous)
 
-      if (next.has(orderId)) {
-        next.delete(orderId)
-      } else {
-        next.add(orderId)
+        if (next.has(normalizedKey)) {
+          next.delete(normalizedKey)
+          change = { state: 'deactivated', isActive: false }
+        } else {
+          next.add(normalizedKey)
+          change = { state: 'activated', isActive: true }
+        }
+
+        if (!change) {
+          return previous
+        }
+
+        nextFilters = next
+        return next
+      })
+
+      if (change && nextFilters) {
+        recordDiagnostic({
+          type: 'orders.filters.toggle',
+          payload: {
+            key: normalizedKey,
+            action: change.state,
+            isActive: change.isActive,
+            activeCount: nextFilters.size,
+            activeKeys: Array.from(nextFilters),
+          },
+        })
+      }
+    },
+    [recordDiagnostic],
+  )
+
+  const toggleOrderActive = useCallback(
+    (orderId) => {
+      const normalizedId = typeof orderId === 'string' ? orderId.trim() : ''
+      if (!normalizedId) {
+        return
       }
 
-      return next
-    })
-  }, [])
+      let isActive = false
+      let activeCount = 0
+
+      setActiveOrderIds((previous) => {
+        const next = new Set(previous)
+
+        if (next.has(normalizedId)) {
+          next.delete(normalizedId)
+          isActive = false
+        } else {
+          next.add(normalizedId)
+          isActive = true
+        }
+
+        activeCount = next.size
+
+        return next
+      })
+
+      recordDiagnostic({
+        type: 'orders.selection.toggle',
+        payload: {
+          orderId: normalizedId,
+          isActive,
+          activeCount,
+        },
+      })
+    },
+    [recordDiagnostic],
+  )
 
   const clearSelection = useCallback(() => {
+    let clearedCount = 0
+
     setActiveOrderIds((previous) => {
       if (previous.size === 0) {
         return previous
       }
 
+      clearedCount = previous.size
       return new Set()
     })
-  }, [])
 
-  const dismissOrders = useCallback((orderIds) => {
-    if (!orderIds || orderIds.length === 0) {
-      return
-    }
-
-    setDismissedOrderIds((previous) => {
-      const ids = Array.isArray(orderIds) ? orderIds : Array.from(orderIds)
-
-      let didChange = false
-      const next = new Set(previous)
-
-      ids.forEach((id) => {
-        if (typeof id !== 'string') {
-          return
-        }
-
-        const trimmed = id.trim()
-        if (!trimmed) {
-          return
-        }
-
-        if (!next.has(trimmed)) {
-          next.add(trimmed)
-          didChange = true
-        }
+    if (clearedCount > 0) {
+      recordDiagnostic({
+        type: 'orders.selection.cleared',
+        payload: {
+          clearedCount,
+        },
       })
+    }
+  }, [recordDiagnostic])
 
-      if (!didChange) {
-        return previous
+  const dismissOrders = useCallback(
+    (orderIds) => {
+      if (!orderIds || (Array.isArray(orderIds) && orderIds.length === 0)) {
+        return
       }
 
-      return next
-    })
-  }, [])
+      const ids = Array.isArray(orderIds) ? orderIds : Array.from(orderIds ?? [])
+      const normalized = ids
+        .map((id) => (typeof id === 'string' ? id.trim() : ''))
+        .filter((id) => id.length > 0)
 
-  const restoreOrders = useCallback((orderIds) => {
-    if (!orderIds || orderIds.length === 0) {
-      return
-    }
-
-    setDismissedOrderIds((previous) => {
-      const ids = Array.isArray(orderIds) ? orderIds : Array.from(orderIds)
-
-      let didChange = false
-      const next = new Set(previous)
-
-      ids.forEach((id) => {
-        if (typeof id !== 'string') {
-          return
-        }
-
-        const trimmed = id.trim()
-
-        if (!next.has(trimmed)) {
-          return
-        }
-
-        next.delete(trimmed)
-        didChange = true
-      })
-
-      if (!didChange) {
-        return previous
+      if (normalized.length === 0) {
+        return
       }
 
-      return next
-    })
-  }, [])
+      let added = []
+      let totalDismissed = 0
 
-  const selectPrepStation = useCallback(
-    (prepStationId) => {
-      setActivePrepStationId((previous) => {
-        if (prepStationId === previous) {
+      setDismissedOrderIds((previous) => {
+        const next = new Set(previous)
+
+        normalized.forEach((id) => {
+          if (!next.has(id)) {
+            next.add(id)
+            added.push(id)
+          }
+        })
+
+        if (added.length === 0) {
           return previous
         }
 
-        return prepStationId ?? null
+        totalDismissed = next.size
+        return next
       })
+
+      if (added.length > 0) {
+        recordDiagnostic({
+          type: 'orders.dismissed',
+          payload: {
+            orderIds: added,
+            addedCount: added.length,
+            totalDismissed,
+          },
+        })
+      }
     },
-    [setActivePrepStationId],
+    [recordDiagnostic],
+  )
+
+  const restoreOrders = useCallback(
+    (orderIds) => {
+      if (!orderIds || (Array.isArray(orderIds) && orderIds.length === 0)) {
+        return
+      }
+
+      const ids = Array.isArray(orderIds) ? orderIds : Array.from(orderIds ?? [])
+      const normalized = ids
+        .map((id) => (typeof id === 'string' ? id.trim() : ''))
+        .filter((id) => id.length > 0)
+
+      if (normalized.length === 0) {
+        return
+      }
+
+      let restored = []
+      let remaining = 0
+
+      setDismissedOrderIds((previous) => {
+        const next = new Set(previous)
+
+        normalized.forEach((id) => {
+          if (next.has(id)) {
+            next.delete(id)
+            restored.push(id)
+          }
+        })
+
+        if (restored.length === 0) {
+          return previous
+        }
+
+        remaining = next.size
+        return next
+      })
+
+      if (restored.length > 0) {
+        recordDiagnostic({
+          type: 'orders.restored',
+          payload: {
+            orderIds: restored,
+            restoredCount: restored.length,
+            remainingDismissed: remaining,
+          },
+        })
+      }
+    },
+    [recordDiagnostic],
+  )
+
+  const selectPrepStation = useCallback(
+    (prepStationId) => {
+      const normalized = typeof prepStationId === 'string' ? prepStationId.trim() : null
+      setActivePrepStationId((previous) => {
+        const nextId = normalized ?? null
+        if (nextId === previous) {
+          return previous
+        }
+
+        return nextId
+      })
+
+      const nextId = normalized ?? null
+      if (activePrepStationId !== nextId) {
+        recordDiagnostic({
+          type: 'orders.prep-station.selected',
+          payload: {
+            prepStationId: normalized,
+          },
+        })
+      }
+    },
+    [activePrepStationId, recordDiagnostic],
   )
 
   const clearPrepStation = useCallback(() => {
+    let wasCleared = false
+
     setActivePrepStationId((previous) => {
       if (previous === null) {
         return previous
       }
 
+      wasCleared = true
       return null
     })
-  }, [setActivePrepStationId])
 
-  const setDebugPanelEnabled = useCallback((enabled) => {
-    setIsDebugPanelEnabled((previous) => {
-      if (previous === enabled) {
-        return previous
+    if (wasCleared) {
+      recordDiagnostic({
+        type: 'orders.prep-station.cleared',
+      })
+    }
+  }, [recordDiagnostic])
+
+  const setDebugPanelEnabled = useCallback(
+    (enabled) => {
+      let didChange = false
+
+      setIsDebugPanelEnabled((previous) => {
+        if (previous === enabled) {
+          return previous
+        }
+
+        didChange = true
+
+        if (!enabled) {
+          setIsDebugPanelOpen(false)
+        }
+
+        return enabled
+      })
+
+      if (didChange) {
+        recordDiagnostic({
+          type: 'orders.debug-panel.enabled',
+          payload: {
+            isEnabled: Boolean(enabled),
+          },
+        })
       }
-
-      if (!enabled) {
-        setIsDebugPanelOpen(false)
-      }
-
-      return enabled
-    })
-  }, [])
+    },
+    [recordDiagnostic],
+  )
 
   const openDebugPanel = useCallback(() => {
     if (!isDebugPanelEnabled) {
       return
     }
 
-    setIsDebugPanelOpen(true)
-  }, [isDebugPanelEnabled])
+    let didOpen = false
+
+    setIsDebugPanelOpen((previous) => {
+      if (previous) {
+        return previous
+      }
+
+      didOpen = true
+      return true
+    })
+
+    if (didOpen) {
+      recordDiagnostic({
+        type: 'orders.debug-panel.opened',
+      })
+    }
+  }, [isDebugPanelEnabled, recordDiagnostic])
 
   const closeDebugPanel = useCallback(() => {
-    setIsDebugPanelOpen(false)
-  }, [])
+    let didClose = false
+
+    setIsDebugPanelOpen((previous) => {
+      if (!previous) {
+        return previous
+      }
+
+      didClose = true
+      return false
+    })
+
+    if (didClose) {
+      recordDiagnostic({
+        type: 'orders.debug-panel.closed',
+      })
+    }
+  }, [recordDiagnostic])
 
   const toggleDebugPanel = useCallback(() => {
+    let nextState = false
+
     setIsDebugPanelOpen((previous) => {
       if (!isDebugPanelEnabled) {
+        nextState = false
         return false
       }
 
-      return !previous
+      nextState = !previous
+      return nextState
     })
-  }, [isDebugPanelEnabled])
+
+    recordDiagnostic({
+      type: 'orders.debug-panel.toggled',
+      payload: {
+        isEnabled: isDebugPanelEnabled,
+        isOpen: nextState,
+      },
+    })
+  }, [isDebugPanelEnabled, recordDiagnostic])
 
   const value = useMemo(
     () => ({

@@ -1,5 +1,6 @@
 import { useMemo } from 'react'
 import { OrdersViewProvider } from './OrdersViewContext'
+import { DashboardDiagnosticsProvider } from './DashboardDiagnosticsContext'
 import { SettingsModalProvider } from '../components/SettingsModal/SettingsModalContext'
 import KitchenSettingsTab from '../components/SettingsModal/KitchenSettingsTab'
 import GeneralSettingsTab from '../components/SettingsModal/GeneralSettingsTab'
@@ -30,9 +31,11 @@ const DashboardProviders = ({ children }) => {
   const settingsTabs = useMemo(() => DASHBOARD_SETTINGS_TABS, [])
 
   return (
-    <OrdersViewProvider>
-      <SettingsModalProvider tabs={settingsTabs}>{children}</SettingsModalProvider>
-    </OrdersViewProvider>
+    <DashboardDiagnosticsProvider>
+      <OrdersViewProvider>
+        <SettingsModalProvider tabs={settingsTabs}>{children}</SettingsModalProvider>
+      </OrdersViewProvider>
+    </DashboardDiagnosticsProvider>
   )
 }
 

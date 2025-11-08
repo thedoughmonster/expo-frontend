@@ -8,6 +8,7 @@ import {
   usePrepStationFilter,
   useSelectionState,
 } from '../viewContext/OrdersViewContext'
+import { useDashboardDiagnostics } from '../viewContext/DashboardDiagnosticsContext'
 
 const DASHBOARD_TITLE = 'Order Dashboard'
 const SETTINGS_MODAL_TITLE = 'Dashboard Settings'
@@ -25,6 +26,8 @@ const useDashboardView = () => {
     configSnapshot,
     lookupsVersion,
   } = useOrdersData()
+  const { timeline: diagnosticsTimeline, lastErrorEvent, recordDiagnostic } =
+    useDashboardDiagnostics()
   const { activeFulfillmentFilters } = useFulfillmentFilters()
   const { activeOrderIds, toggleOrderActive } = useSelectionState()
   const { dismissedOrderIds } = useDismissedOrders()
@@ -273,8 +276,16 @@ const useDashboardView = () => {
   }, [activeOrderIds, toggleOrderActive, visibleOrders])
 
   const handleRefresh = useCallback(() => {
+    recordDiagnostic({
+      type: 'dashboard.refresh.requested',
+      payload: {
+        hasExistingOrders,
+        silent: hasExistingOrders,
+      },
+    })
+
     refresh({ silent: hasExistingOrders })
-  }, [hasExistingOrders, refresh])
+  }, [hasExistingOrders, recordDiagnostic, refresh])
 
   const handleToggleDebugPanel = useCallback(() => {
     toggleDebugPanel()
@@ -324,13 +335,17 @@ const useDashboardView = () => {
       configSnapshot,
       lookupsVersion,
       filterContext: debugFilterContext,
+      diagnosticsTimeline,
+      lastErrorEvent,
     }),
     [
       closeDebugPanel,
       configSnapshot,
+      diagnosticsTimeline,
       debugFilterContext,
       isDebugPanelEnabled,
       isDebugPanelOpen,
+      lastErrorEvent,
       rawOrders,
       lookupsVersion,
       menuSnapshot,
