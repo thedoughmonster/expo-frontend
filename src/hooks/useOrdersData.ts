@@ -559,6 +559,7 @@ const useOrdersData = () => {
     async (guids: string[], signal: AbortSignal, now: number) => {
       const seen = new Set<string>()
       const fetchedOrders: ToastOrder[] = []
+      let cacheChanged = false
 
       if (guids.length === 0) {
         return { seen, orders: fetchedOrders }
@@ -593,7 +594,12 @@ const useOrdersData = () => {
 
         results.forEach(({ guid, order }) => {
           if (order === null) {
-            orderCacheRef.current.delete(guid)
+            cacheChanged = orderCacheRef.current.delete(guid) || cacheChanged
+            return
+          }
+
+          if (order?.voided === true) {
+            cacheChanged = orderCacheRef.current.delete(guid) || cacheChanged
             return
           }
 
@@ -601,11 +607,12 @@ const useOrdersData = () => {
             seen.add(guid)
             fetchedOrders.push(order)
             applyRawOrder(order, now)
+            cacheChanged = true
           }
         })
       }
 
-      if (fetchedOrders.length > 0) {
+      if (cacheChanged) {
         publishOrders()
       }
 
