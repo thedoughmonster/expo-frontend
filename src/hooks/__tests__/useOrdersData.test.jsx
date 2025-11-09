@@ -5,6 +5,7 @@ import { clearOrdersCache } from '../../domain/orders/ordersCache'
 import { clearMenuCache } from '../../domain/menus/menuCache'
 import { clearConfigCache } from '../../domain/config/configCache'
 import { normalizeOrders } from '../../domain/orders/normalizeOrders'
+import { APP_SETTINGS } from '../../config/appSettings'
 import {
   DashboardDiagnosticsProvider,
   useDashboardDiagnostics,
@@ -71,7 +72,7 @@ const baseOrder = {
 const createOrdersIdsPayload = (overrides = {}) => ({
   ok: true,
   route: '/api/orders',
-  limit: 50,
+  limit: APP_SETTINGS.pollLimit,
   detail: 'ids',
   minutes: 30,
   window: {
@@ -129,7 +130,7 @@ describe('useOrdersData', () => {
 
       if (url.startsWith(`${ORDERS_ENDPOINT}?`)) {
         expect(url).toContain('detail=ids')
-        expect(url).toContain('limit=50')
+        expect(url).toContain(`limit=${APP_SETTINGS.pollLimit}`)
         return createFetchResponse(createOrdersIdsPayload({ data: [baseOrder] }))
       }
 
@@ -302,7 +303,7 @@ describe('useOrdersData', () => {
     const callCountAfterInitialLoad = fetchMock.mock.calls.length
 
     await act(async () => {
-      vi.advanceTimersByTime(5_000)
+      vi.advanceTimersByTime(APP_SETTINGS.pollIntervalMs)
       await Promise.resolve()
       await Promise.resolve()
     })
@@ -450,6 +451,91 @@ describe('useOrdersData', () => {
 
     consoleWarnSpy.mockRestore()
   })
+
+  it.each([
+    { label: 'null response', removalType: 'null' },
+    { label: 'voided payload', removalType: 'voided' },
+  ])(
+    'removes cached orders when targeted refresh returns a %s',
+    async ({ removalType }) => {
+      let ordersPollCount = 0
+      let targetedCallCount = 0
+
+      const fetchMock = vi.fn(async (input) => {
+        const url = typeof input === 'string' ? input : input.url
+
+        if (url.startsWith(`${ORDERS_ENDPOINT}?`)) {
+          ordersPollCount += 1
+          expect(url).toContain('detail=ids')
+
+          if (ordersPollCount <= 2) {
+            return createFetchResponse(createOrdersIdsPayload())
+          }
+
+          return createFetchResponse(
+            createOrdersIdsPayload({ count: 0, ids: [], orders: [], data: [] }),
+          )
+        }
+
+        if (url === MENUS_ENDPOINT) {
+          return createFetchResponse(menusPayload, {
+            headers: { 'cache-control': 'max-age=300' },
+          })
+        }
+
+        if (url === CONFIG_SNAPSHOT_ENDPOINT) {
+          return createFetchResponse(configPayload)
+        }
+
+        if (url === `${ORDERS_ENDPOINT}/${baseOrder.guid}`) {
+          targetedCallCount += 1
+
+          if (targetedCallCount <= 2) {
+            return createFetchResponse({
+              ok: true,
+              route: `${ORDERS_ENDPOINT}/${baseOrder.guid}`,
+              guid: baseOrder.guid,
+              order: baseOrder,
+            })
+          }
+
+          if (removalType === 'null') {
+            return createFetchResponse(null, { ok: false, status: 404 })
+          }
+
+          return createFetchResponse({
+            ok: true,
+            route: `${ORDERS_ENDPOINT}/${baseOrder.guid}`,
+            guid: baseOrder.guid,
+            order: { ...baseOrder, voided: true },
+          })
+        }
+
+        throw new Error(`Unexpected fetch to ${url}`)
+      })
+
+      globalThis.fetch = fetchMock
+
+      const { result } = renderHook(() => useOrdersData(), { wrapper: DiagnosticsWrapper })
+
+      await waitFor(() => {
+        expect(result.current.orders).toHaveLength(1)
+      })
+
+      await act(async () => {
+        await result.current.refresh({ silent: true })
+      })
+
+      await waitFor(() => {
+        expect(result.current.orders).toHaveLength(0)
+      })
+
+      expect(
+        result.current.orders.find((order) => order.guid === baseOrder.guid),
+      ).toBeUndefined()
+      expect(targetedCallCount).toBeGreaterThanOrEqual(2)
+    },
+  )
 
   it('treats orders with any non-ready items as not ready', () => {
     const mixedOrder = {
