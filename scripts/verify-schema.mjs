@@ -248,6 +248,54 @@ const sanitizeJson = (payload) => {
   return sanitizeValue(payload)
 }
 
+const mergeSanitizedPayloads = (target, source) => {
+  if (target === undefined) {
+    return source
+  }
+
+  if (source === undefined) {
+    return target
+  }
+
+  if (target === null) {
+    return source
+  }
+
+  if (source === null) {
+    return target
+  }
+
+  if (Array.isArray(target) && Array.isArray(source)) {
+    const result = []
+    const seen = new Set()
+
+    const append = (entry) => {
+      const key = JSON.stringify(entry)
+      if (seen.has(key)) {
+        return
+      }
+
+      seen.add(key)
+      result.push(entry)
+    }
+
+    target.forEach(append)
+    source.forEach(append)
+
+    return result
+  }
+
+  if (target && typeof target === 'object' && source && typeof source === 'object') {
+    const result = { ...target }
+    for (const [key, sourceValue] of Object.entries(source)) {
+      result[key] = mergeSanitizedPayloads(result[key], sourceValue)
+    }
+    return result
+  }
+
+  return target
+}
+
 const removeNullishDeep = (value) => {
   if (Array.isArray(value)) {
     return value.map((entry) => removeNullishDeep(entry))
@@ -574,6 +622,8 @@ const loadOpenApiDocument = async () => {
   return body
 }
 
+const MAX_RECORD_ORDER_SAMPLES = 5
+
 const captureOrdersLatest = async (openApiDoc, mode) => {
   const url = new URL(appSettings.ordersEndpoint)
   url.searchParams.set('limit', String(appSettings.pollLimit))
@@ -599,34 +649,53 @@ const captureOrdersLatest = async (openApiDoc, mode) => {
   }
 
   if (!body || !Array.isArray(body.orders) || body.orders.length === 0) {
-    return undefined
+    return []
   }
 
-  const [firstOrder] = body.orders
-  if (typeof firstOrder !== 'string' || !firstOrder) {
-    return undefined
-  }
-
-  return firstOrder
+  return body.orders.filter((entry) => typeof entry === 'string' && entry)
 }
 
-const captureOrderByGuid = async (openApiDoc, guid, mode) => {
-  const url = `${appSettings.ordersEndpoint}/${encodeURIComponent(guid)}`
-  const { status, body } = await fetchJson(url)
+const captureOrderByGuid = async (openApiDoc, guids, mode) => {
+  const validGuids = Array.isArray(guids)
+    ? guids.filter((entry) => typeof entry === 'string' && entry)
+    : []
 
-  validateResponse(openApiDoc, '/api/orders/{guid}', 'get', status, body)
+  if (validGuids.length === 0) {
+    return
+  }
 
-  const sanitized = sanitizeJson(body)
+  const sampleCount =
+    mode === MODES.RECORD ? Math.min(validGuids.length, MAX_RECORD_ORDER_SAMPLES) : 1
+  let mergedPayload
 
-  if (mode === MODES.RECORD) {
-    await writeJsonFile(path.join(FIXTURE_DIR, 'order-by-guid.json'), sanitized)
-  } else {
+  for (let index = 0; index < sampleCount; index += 1) {
+    const guid = validGuids[index]
+    console.log(`Capturing order ${guid}…`)
+
+    const url = `${appSettings.ordersEndpoint}/${encodeURIComponent(guid)}`
+    const { status, body } = await fetchJson(url)
+
+    validateResponse(openApiDoc, '/api/orders/{guid}', 'get', status, body)
+
+    const sanitized = sanitizeJson(body)
+
+    if (mode === MODES.RECORD) {
+      mergedPayload = mergedPayload
+        ? mergeSanitizedPayloads(mergedPayload, sanitized)
+        : sanitized
+      continue
+    }
+
     await assertStructureMatchesFixture(
       'order-by-guid.json',
       sanitized,
       openApiDoc,
       '/api/orders/{guid}',
     )
+  }
+
+  if (mode === MODES.RECORD && mergedPayload) {
+    await writeJsonFile(path.join(FIXTURE_DIR, 'order-by-guid.json'), mergedPayload)
   }
 }
 
@@ -698,11 +767,10 @@ const main = async () => {
   const openApiDoc = await loadOpenApiDocument()
 
   console.log('Capturing latest orders (detail=ids)…')
-  const latestOrderGuid = await captureOrdersLatest(openApiDoc, mode)
+  const latestOrderGuids = await captureOrdersLatest(openApiDoc, mode)
 
-  if (latestOrderGuid) {
-    console.log(`Capturing order ${latestOrderGuid}…`)
-    await captureOrderByGuid(openApiDoc, latestOrderGuid, mode)
+  if (latestOrderGuids.length > 0) {
+    await captureOrderByGuid(openApiDoc, latestOrderGuids, mode)
   } else {
     console.warn('No orders were returned; skipping order-by-guid capture.')
   }
