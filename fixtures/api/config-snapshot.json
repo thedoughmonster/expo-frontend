@@ -55,12 +55,20 @@
         "guid": "00000000-0000-0000-0000-000000000007",
         "entityType": "DiningOption",
         "externalId": null,
+        "name": "E-Gift Cards",
+        "behavior": null,
+        "curbside": false
+      },
+      {
+        "guid": "00000000-0000-0000-0000-000000000008",
+        "entityType": "DiningOption",
+        "externalId": null,
         "name": "Dine In",
         "behavior": "DINE_IN",
         "curbside": false
       },
       {
-        "guid": "00000000-0000-0000-0000-000000000008",
+        "guid": "00000000-0000-0000-0000-000000000009",
         "entityType": "DiningOption",
         "externalId": null,
         "name": "Toast Delivery Services",
@@ -68,7 +76,7 @@
         "curbside": false
       },
       {
-        "guid": "00000000-0000-0000-0000-000000000009",
+        "guid": "00000000-0000-0000-0000-00000000000a",
         "entityType": "DiningOption",
         "externalId": null,
         "name": "Catering",
@@ -76,7 +84,7 @@
         "curbside": false
       },
       {
-        "guid": "00000000-0000-0000-0000-00000000000a",
+        "guid": "00000000-0000-0000-0000-00000000000b",
         "entityType": "DiningOption",
         "externalId": null,
         "name": "Online Ordering - Delivery",
@@ -87,25 +95,25 @@
     "orderTypes": null,
     "revenueCenters": [
       {
-        "guid": "00000000-0000-0000-0000-00000000000b",
+        "guid": "00000000-0000-0000-0000-00000000000c",
         "entityType": "RevenueCenter",
         "name": "Patio",
         "description": null
       },
       {
-        "guid": "00000000-0000-0000-0000-00000000000c",
+        "guid": "00000000-0000-0000-0000-00000000000d",
         "entityType": "RevenueCenter",
         "name": "Online Ordering",
         "description": "Default online ordering revenue center"
       },
       {
-        "guid": "00000000-0000-0000-0000-00000000000d",
+        "guid": "00000000-0000-0000-0000-00000000000e",
         "entityType": "RevenueCenter",
         "name": "Dining Room",
         "description": null
       },
       {
-        "guid": "00000000-0000-0000-0000-00000000000e",
+        "guid": "00000000-0000-0000-0000-00000000000f",
         "entityType": "RevenueCenter",
         "name": "Bar",
         "description": null
@@ -113,21 +121,11 @@
     ],
     "serviceAreas": [
       {
-        "guid": "00000000-0000-0000-0000-00000000000f",
+        "guid": "00000000-0000-0000-0000-000000000010",
         "entityType": "ServiceArea",
         "name": "Patio",
         "revenueCenter": {
-          "guid": "00000000-0000-0000-0000-00000000000b",
-          "entityType": "RevenueCenter",
-          "externalId": null
-        }
-      },
-      {
-        "guid": "00000000-0000-0000-0000-000000000010",
-        "entityType": "ServiceArea",
-        "name": "Bar",
-        "revenueCenter": {
-          "guid": "00000000-0000-0000-0000-00000000000e",
+          "guid": "00000000-0000-0000-0000-00000000000c",
           "entityType": "RevenueCenter",
           "externalId": null
         }
@@ -135,9 +133,19 @@
       {
         "guid": "00000000-0000-0000-0000-000000000011",
         "entityType": "ServiceArea",
+        "name": "Bar",
+        "revenueCenter": {
+          "guid": "00000000-0000-0000-0000-00000000000f",
+          "entityType": "RevenueCenter",
+          "externalId": null
+        }
+      },
+      {
+        "guid": "00000000-0000-0000-0000-000000000012",
+        "entityType": "ServiceArea",
         "name": "Dining Room",
         "revenueCenter": {
-          "guid": "00000000-0000-0000-0000-00000000000d",
+          "guid": "00000000-0000-0000-0000-00000000000e",
           "entityType": "RevenueCenter",
           "externalId": null
         }
@@ -145,7 +153,7 @@
     ],
     "taxRates": [
       {
-        "guid": "00000000-0000-0000-0000-000000000012",
+        "guid": "00000000-0000-0000-0000-000000000013",
         "entityType": "TaxRate",
         "isDefault": false,
         "conditionalTaxRates": [],
@@ -156,7 +164,7 @@
         "type": "EXTERNAL"
       },
       {
-        "guid": "00000000-0000-0000-0000-000000000013",
+        "guid": "00000000-0000-0000-0000-000000000014",
         "entityType": "TaxRate",
         "isDefault": false,
         "conditionalTaxRates": [],
@@ -167,7 +175,7 @@
         "type": "EXTERNAL"
       },
       {
-        "guid": "00000000-0000-0000-0000-000000000014",
+        "guid": "00000000-0000-0000-0000-000000000015",
         "entityType": "TaxRate",
         "isDefault": true,
         "conditionalTaxRates": [],
@@ -178,7 +186,7 @@
         "type": "PERCENT"
       },
       {
-        "guid": "00000000-0000-0000-0000-000000000015",
+        "guid": "00000000-0000-0000-0000-000000000016",
         "entityType": "TaxRate",
         "isDefault": false,
         "conditionalTaxRates": [],
@@ -191,7 +199,7 @@
     ],
     "discounts": [
       {
-        "guid": "00000000-0000-0000-0000-000000000016",
+        "guid": "00000000-0000-0000-0000-000000000017",
         "entityType": "Discount",
         "amount": null,
         "selectionType": "CHECK",
@@ -204,7 +212,7 @@
         "fixedTotal": null
       },
       {
-        "guid": "00000000-0000-0000-0000-000000000017",
+        "guid": "00000000-0000-0000-0000-000000000018",
         "entityType": "Discount",
         "amount": null,
         "selectionType": "ITEM",
@@ -217,7 +225,7 @@
         "fixedTotal": null
       },
       {
-        "guid": "00000000-0000-0000-0000-000000000018",
+        "guid": "00000000-0000-0000-0000-000000000019",
         "entityType": "Discount",
         "amount": null,
         "selectionType": "CHECK",
@@ -230,7 +238,7 @@
         "fixedTotal": null
       },
       {
-        "guid": "00000000-0000-0000-0000-000000000019",
+        "guid": "00000000-0000-0000-0000-00000000001a",
         "entityType": "Discount",
         "amount": null,
         "selectionType": "CHECK",
@@ -243,7 +251,7 @@
         "fixedTotal": null
       },
       {
-        "guid": "00000000-0000-0000-0000-00000000001a",
+        "guid": "00000000-0000-0000-0000-00000000001b",
         "entityType": "Discount",
         "amount": 2.25,
         "selectionType": "ITEM",
@@ -256,7 +264,7 @@
         "fixedTotal": null
       },
       {
-        "guid": "00000000-0000-0000-0000-00000000001b",
+        "guid": "00000000-0000-0000-0000-00000000001c",
         "entityType": "Discount",
         "amount": null,
         "selectionType": "CHECK",
@@ -269,7 +277,7 @@
         "fixedTotal": null
       },
       {
-        "guid": "00000000-0000-0000-0000-00000000001c",
+        "guid": "00000000-0000-0000-0000-00000000001d",
         "entityType": "Discount",
         "amount": null,
         "selectionType": "ITEM",
@@ -282,7 +290,7 @@
         "fixedTotal": null
       },
       {
-        "guid": "00000000-0000-0000-0000-00000000001d",
+        "guid": "00000000-0000-0000-0000-00000000001e",
         "entityType": "Discount",
         "amount": 3,
         "selectionType": "CHECK",
@@ -295,7 +303,7 @@
         "fixedTotal": 23
       },
       {
-        "guid": "00000000-0000-0000-0000-00000000001e",
+        "guid": "00000000-0000-0000-0000-00000000001f",
         "entityType": "Discount",
         "amount": null,
         "selectionType": "CHECK",
@@ -308,7 +316,7 @@
         "fixedTotal": null
       },
       {
-        "guid": "00000000-0000-0000-0000-00000000001f",
+        "guid": "00000000-0000-0000-0000-000000000020",
         "entityType": "Discount",
         "amount": null,
         "selectionType": "ITEM",
@@ -321,7 +329,7 @@
         "fixedTotal": null
       },
       {
-        "guid": "00000000-0000-0000-0000-000000000020",
+        "guid": "00000000-0000-0000-0000-000000000021",
         "entityType": "Discount",
         "amount": 0,
         "selectionType": "CHECK",
@@ -334,7 +342,7 @@
         "fixedTotal": null
       },
       {
-        "guid": "00000000-0000-0000-0000-000000000021",
+        "guid": "00000000-0000-0000-0000-000000000022",
         "entityType": "Discount",
         "amount": null,
         "selectionType": "ITEM",
@@ -347,7 +355,7 @@
         "fixedTotal": null
       },
       {
-        "guid": "00000000-0000-0000-0000-000000000022",
+        "guid": "00000000-0000-0000-0000-000000000023",
         "entityType": "Discount",
         "amount": null,
         "selectionType": "ITEM",
@@ -360,7 +368,7 @@
         "fixedTotal": null
       },
       {
-        "guid": "00000000-0000-0000-0000-000000000023",
+        "guid": "00000000-0000-0000-0000-000000000024",
         "entityType": "Discount",
         "amount": null,
         "selectionType": "ITEM",
@@ -373,7 +381,7 @@
         "fixedTotal": null
       },
       {
-        "guid": "00000000-0000-0000-0000-000000000024",
+        "guid": "00000000-0000-0000-0000-000000000025",
         "entityType": "Discount",
         "amount": null,
         "selectionType": "CHECK",
@@ -386,7 +394,7 @@
         "fixedTotal": 5
       },
       {
-        "guid": "00000000-0000-0000-0000-000000000025",
+        "guid": "00000000-0000-0000-0000-000000000026",
         "entityType": "Discount",
         "amount": null,
         "selectionType": "CHECK",
@@ -399,7 +407,7 @@
         "fixedTotal": null
       },
       {
-        "guid": "00000000-0000-0000-0000-000000000026",
+        "guid": "00000000-0000-0000-0000-000000000027",
         "entityType": "Discount",
         "amount": null,
         "selectionType": "CHECK",
@@ -412,7 +420,7 @@
         "fixedTotal": 6
       },
       {
-        "guid": "00000000-0000-0000-0000-000000000027",
+        "guid": "00000000-0000-0000-0000-000000000028",
         "entityType": "Discount",
         "amount": 3,
         "selectionType": "CHECK",

@@ -1,14 +1,14 @@
 {
   "ok": true,
-  "route": "/api/orders/1e8d2b3b-75f3-4eaf-b2cc-eeaf0dd27b6c",
+  "route": "/api/orders/c4664d68-1e86-4354-ade1-1b33a2ebba51",
   "guid": "00000000-0000-0000-0000-000000000001",
   "order": {
     "guid": "00000000-0000-0000-0000-000000000001",
     "entityType": "Order",
     "externalId": null,
     "revenueCenter": null,
-    "displayNumber": "34",
-    "source": "In Store",
+    "displayNumber": "49",
+    "source": "Kiosk",
     "voidDate": null,
     "paidDate": "2000-01-01T00:00:00.000+00:00",
     "restaurantService": {
@@ -25,7 +25,7 @@
         "guid": "00000000-0000-0000-0000-000000000003",
         "entityType": "Check",
         "externalId": null,
-        "displayNumber": "34",
+        "displayNumber": "49",
         "payments": [
           {
             "guid": "00000000-0000-0000-0000-000000000004",
@@ -40,11 +40,11 @@
             "paidDate": "2000-01-01T00:03:00.000+00:00",
             "mcaRepaymentAmount": null,
             "createdDevice": {
-              "id": "89790e309199c2a8"
+              "id": "a73f44e543641c14"
             },
             "tenderTransactionGuid": null,
-            "paidBusinessDate": 20251107,
-            "last4Digits": "7931",
+            "paidBusinessDate": 20251109,
+            "last4Digits": "7007",
             "refund": null,
             "server": {
               "guid": "00000000-0000-0000-0000-000000000005",
@@ -53,7 +53,7 @@
             },
             "surchargeAmount": null,
             "lastModifiedDevice": {
-              "id": "89790e309199c2a8"
+              "id": "a73f44e543641c14"
             },
             "refundStatus": "NONE",
             "otherPayment": null,
@@ -61,144 +61,46 @@
             "paymentMethodId": null,
             "cardEntryMode": "EMV_CHIP_SIGN",
             "paymentStatus": "AUTHORIZED",
-            "amount": 12.72,
-            "tipAmount": 2.97,
+            "amount": 10.08,
+            "tipAmount": 1.71,
             "amountTendered": 0,
             "cardType": "VISA",
             "houseAccount": null,
             "cardProcessorType": null
           }
         ],
-        "appliedDiscounts": [
-          {
-            "guid": "00000000-0000-0000-0000-000000000006",
-            "entityType": "MultiItemAppliedDiscount",
-            "externalId": null,
-            "approver": {
-              "guid": "00000000-0000-0000-0000-000000000005",
-              "entityType": "RestaurantUser",
-              "externalId": null
-            },
-            "loyaltyDetails": null,
-            "discountPercent": null,
-            "appliedDiscountReason": null,
-            "comboItems": [
-              {
-                "guid": "00000000-0000-0000-0000-000000000007",
-                "entityType": "MenuItemSelection",
-                "externalId": null
-              },
-              {
-                "guid": "00000000-0000-0000-0000-000000000008",
-                "entityType": "MenuItemSelection",
-                "externalId": null
-              },
-              {
-                "guid": "00000000-0000-0000-0000-000000000009",
-                "entityType": "MenuItemSelection",
-                "externalId": null
-              },
-              {
-                "guid": "00000000-0000-0000-0000-00000000000a",
-                "entityType": "MenuItemSelection",
-                "externalId": null
-              },
-              {
-                "guid": "00000000-0000-0000-0000-00000000000b",
-                "entityType": "MenuItemSelection",
-                "externalId": null
-              },
-              {
-                "guid": "00000000-0000-0000-0000-00000000000c",
-                "entityType": "MenuItemSelection",
-                "externalId": null
-              }
-            ],
-            "discountAmount": 1.5,
-            "discount": {
-              "guid": "00000000-0000-0000-0000-00000000000d",
-              "entityType": "Discount"
-            },
-            "triggers": [
-              {
-                "selection": {
-                  "guid": "00000000-0000-0000-0000-000000000007",
-                  "entityType": "MenuItemSelection",
-                  "externalId": null
-                },
-                "quantity": 1
-              },
-              {
-                "selection": {
-                  "guid": "00000000-0000-0000-0000-00000000000a",
-                  "entityType": "MenuItemSelection",
-                  "externalId": null
-                },
-                "quantity": 1
-              },
-              {
-                "selection": {
-                  "guid": "00000000-0000-0000-0000-000000000009",
-                  "entityType": "MenuItemSelection",
-                  "externalId": null
-                },
-                "quantity": 1
-              },
-              {
-                "selection": {
-                  "guid": "00000000-0000-0000-0000-000000000008",
-                  "entityType": "MenuItemSelection",
-                  "externalId": null
-                },
-                "quantity": 1
-              },
-              {
-                "selection": {
-                  "guid": "00000000-0000-0000-0000-00000000000c",
-                  "entityType": "MenuItemSelection",
-                  "externalId": null
-                },
-                "quantity": 1
-              },
-              {
-                "selection": {
-                  "guid": "00000000-0000-0000-0000-00000000000b",
-                  "entityType": "MenuItemSelection",
-                  "externalId": null
-                },
-                "quantity": 1
-              }
-            ],
-            "appliedPromoCode": null,
-            "processingState": null,
-            "name": "Half-Dozen Discount",
-            "nonTaxDiscountAmount": 1.5,
-            "discountType": "FIXED_TOTAL"
-          }
-        ],
+        "appliedDiscounts": [],
         "lastModifiedDevice": {
           "id": "58541a489069a736"
         },
         "voidDate": null,
-        "duration": 10,
+        "duration": 0,
         "openedBy": {
           "guid": "00000000-0000-0000-0000-000000000005",
           "entityType": "RestaurantUser",
           "externalId": null
         },
-        "paidDate": "2000-01-01T00:00:00.000+00:00",
-        "appliedLoyaltyInfo": null,
+        "paidDate": "2000-01-01T00:04:00.000+00:00",
+        "appliedLoyaltyInfo": {
+          "guid": "00000000-0000-0000-0000-000000000006",
+          "entityType": "AppliedLoyaltyInfo",
+          "accrualFamilyGuid": null,
+          "vendor": "TOAST",
+          "accrualText": null,
+          "maskedLoyaltyIdentifier": "16b0fa",
+          "loyaltyIdentifier": "00000000-0000-0000-0000-000000000007"
+        },
         "voided": false,
         "paymentStatus": "CLOSED",
-        "amount": 12,
-        "tabName": ".",
+        "amount": 9.5,
+        "tabName": "Mike",
         "taxExempt": false,
         "taxExemptionAccount": null,
         "openedDate": "2000-01-01T00:04:00.000+00:00",
-        "totalAmount": 15.69,
+        "totalAmount": 11.79,
         "selections": [
           {
-            "guid": "00000000-0000-0000-0000-000000000007",
+            "guid": "00000000-0000-0000-0000-000000000008",
             "entityType": "MenuItemSelection",
             "externalId": null,
             "voidReason": null,
@@ -206,20 +108,20 @@
             "fulfillmentStatus": "READY",
             "optionGroupPricingMode": null,
             "salesCategory": {
-              "guid": "00000000-0000-0000-0000-00000000000e",
+              "guid": "00000000-0000-0000-0000-000000000009",
               "entityType": "SalesCategory",
               "externalId": null,
               "multiLocationId": "1200000002763962211"
             },
             "selectionType": "NONE",
-            "price": 2,
+            "price": 2.25,
             "voided": false,
             "appliedTaxes": [
               {
-                "guid": "00000000-0000-0000-0000-00000000000f",
+                "guid": "00000000-0000-0000-0000-00000000000a",
                 "entityType": "AppliedTaxRate",
                 "taxRate": {
-                  "guid": "00000000-0000-0000-0000-000000000010",
+                  "guid": "00000000-0000-0000-0000-00000000000b",
                   "entityType": "TaxRate"
                 },
                 "rate": 0.06,
@@ -227,33 +129,33 @@
                 "displayName": null,
                 "jurisdiction": null,
                 "name": "PA STATE TAX",
-                "taxAmount": 0.12,
+                "taxAmount": 0.14,
                 "type": "PERCENT",
                 "facilitatorCollectAndRemitTax": false
               }
             ],
             "storedValueTransactionId": null,
             "itemGroup": {
-              "guid": "00000000-0000-0000-0000-000000000011",
+              "guid": "00000000-0000-0000-0000-00000000000c",
               "entityType": "MenuGroup",
               "externalId": null,
               "multiLocationId": "1200000002877398055"
             },
             "item": {
-              "guid": "00000000-0000-0000-0000-000000000012",
+              "guid": "00000000-0000-0000-0000-00000000000d",
               "entityType": "MenuItem",
               "externalId": null,
-              "multiLocationId": "1200000001515140729"
+              "multiLocationId": "1200000002849964744"
             },
             "unitOfMeasure": "NONE",
             "refundDetails": null,
             "toastGiftCard": null,
-            "tax": 0.12,
+            "tax": 0.14,
             "modifiedDate": "2000-01-01T00:05:00.000+00:00",
             "deferred": false,
             "preDiscountPrice": 2.25,
             "optionGroup": null,
-            "displayName": "Chocolate Iced Doughnut",
+            "displayName": "Raspberry Iced Doughnut w/Sprinkles",
             "appliedDiscounts": [],
             "modifiers": [],
             "seatNumber": -1,
@@ -263,7 +165,7 @@
             "quantity": 1,
             "receiptLinePrice": 2.25,
             "diningOption": {
-              "guid": "00000000-0000-0000-0000-000000000013",
+              "guid": "00000000-0000-0000-0000-00000000000e",
               "entityType": "DiningOption",
               "externalId": null
             },
@@ -274,7 +176,7 @@
             "fulfillment": null
           },
           {
-            "guid": "00000000-0000-0000-0000-00000000000c",
+            "guid": "00000000-0000-0000-0000-00000000000f",
             "entityType": "MenuItemSelection",
             "externalId": null,
             "voidReason": null,
@@ -282,20 +184,20 @@
             "fulfillmentStatus": "READY",
             "optionGroupPricingMode": null,
             "salesCategory": {
-              "guid": "00000000-0000-0000-0000-00000000000e",
+              "guid": "00000000-0000-0000-0000-000000000009",
               "entityType": "SalesCategory",
               "externalId": null,
               "multiLocationId": "1200000002763962211"
             },
             "selectionType": "NONE",
-            "price": 2,
+            "price": 2.25,
             "voided": false,
             "appliedTaxes": [
               {
-                "guid": "00000000-0000-0000-0000-000000000014",
+                "guid": "00000000-0000-0000-0000-000000000010",
                 "entityType": "AppliedTaxRate",
                 "taxRate": {
-                  "guid": "00000000-0000-0000-0000-000000000010",
+                  "guid": "00000000-0000-0000-0000-00000000000b",
                   "entityType": "TaxRate"
                 },
                 "rate": 0.06,
@@ -303,20 +205,20 @@
                 "displayName": null,
                 "jurisdiction": null,
                 "name": "PA STATE TAX",
-                "taxAmount": 0.12,
+                "taxAmount": 0.14,
                 "type": "PERCENT",
                 "facilitatorCollectAndRemitTax": false
               }
             ],
             "storedValueTransactionId": null,
             "itemGroup": {
-              "guid": "00000000-0000-0000-0000-000000000011",
+              "guid": "00000000-0000-0000-0000-00000000000c",
               "entityType": "MenuGroup",
               "externalId": null,
               "multiLocationId": "1200000002877398055"
             },
             "item": {
-              "guid": "00000000-0000-0000-0000-000000000015",
+              "guid": "00000000-0000-0000-0000-000000000011",
               "entityType": "MenuItem",
               "externalId": null,
               "multiLocationId": "1200000003233997316"
@@ -324,7 +226,7 @@
             "unitOfMeasure": "NONE",
             "refundDetails": null,
             "toastGiftCard": null,
-            "tax": 0.12,
+            "tax": 0.14,
             "modifiedDate": "2000-01-01T00:07:00.000+00:00",
             "deferred": false,
             "preDiscountPrice": 2.25,
@@ -339,7 +241,7 @@
             "quantity": 1,
             "receiptLinePrice": 2.25,
             "diningOption": {
-              "guid": "00000000-0000-0000-0000-000000000013",
+              "guid": "00000000-0000-0000-0000-00000000000e",
               "entityType": "DiningOption",
               "externalId": null
             },
@@ -350,7 +252,7 @@
             "fulfillment": null
           },
           {
-            "guid": "00000000-0000-0000-0000-00000000000a",
+            "guid": "00000000-0000-0000-0000-000000000012",
             "entityType": "MenuItemSelection",
             "externalId": null,
             "voidReason": null,
@@ -358,20 +260,20 @@
             "fulfillmentStatus": "READY",
             "optionGroupPricingMode": null,
             "salesCategory": {
-              "guid": "00000000-0000-0000-0000-00000000000e",
+              "guid": "00000000-0000-0000-0000-000000000013",
               "entityType": "SalesCategory",
               "externalId": null,
-              "multiLocationId": "1200000002763962211"
+              "multiLocationId": "1200000002763962215"
             },
             "selectionType": "NONE",
-            "price": 2,
+            "price": 5,
             "voided": false,
             "appliedTaxes": [
               {
-                "guid": "00000000-0000-0000-0000-000000000016",
+                "guid": "00000000-0000-0000-0000-000000000014",
                 "entityType": "AppliedTaxRate",
                 "taxRate": {
-                  "guid": "00000000-0000-0000-0000-000000000010",
+                  "guid": "00000000-0000-0000-0000-00000000000b",
                   "entityType": "TaxRate"
                 },
                 "rate": 0.06,
@@ -379,119 +281,98 @@
                 "displayName": null,
                 "jurisdiction": null,
                 "name": "PA STATE TAX",
-                "taxAmount": 0.12,
+                "taxAmount": 0.3,
                 "type": "PERCENT",
                 "facilitatorCollectAndRemitTax": false
               }
             ],
             "storedValueTransactionId": null,
             "itemGroup": {
-              "guid": "00000000-0000-0000-0000-000000000011",
+              "guid": "00000000-0000-0000-0000-000000000015",
               "entityType": "MenuGroup",
               "externalId": null,
-              "multiLocationId": "1200000002877398055"
+              "multiLocationId": "1200000006972521776"
             },
             "item": {
-              "guid": "00000000-0000-0000-0000-000000000017",
+              "guid": "00000000-0000-0000-0000-000000000016",
               "entityType": "MenuItem",
               "externalId": null,
-              "multiLocationId": "1200000003233994442"
+              "multiLocationId": "1200000006972630695"
             },
             "unitOfMeasure": "NONE",
             "refundDetails": null,
             "toastGiftCard": null,
-            "tax": 0.12,
+            "tax": 0.3,
             "modifiedDate": "2000-01-01T00:09:00.000+00:00",
             "deferred": false,
-            "preDiscountPrice": 2.25,
+            "preDiscountPrice": 5,
             "optionGroup": null,
-            "displayName": "Vanilla Iced",
+            "displayName": "Hot Toasted Marshmallow Latte",
             "appliedDiscounts": [],
-            "modifiers": [],
-            "seatNumber": -1,
-            "giftCardSelectionInfo": null,
-            "splitOrigin": null,
-            "taxInclusion": "NOT_INCLUDED",
-            "quantity": 1,
-            "receiptLinePrice": 2.25,
-            "diningOption": {
-              "guid": "00000000-0000-0000-0000-000000000013",
-              "entityType": "DiningOption",
-              "externalId": null
-            },
-            "voidBusinessDate": null,
-            "createdDate": "2000-01-01T00:10:00.000+00:00",
-            "preModifier": null,
-            "plu": null,
-            "fulfillment": null
-          },
-          {
-            "guid": "00000000-0000-0000-0000-00000000000b",
-            "entityType": "MenuItemSelection",
-            "externalId": null,
-            "voidReason": null,
-            "voidDate": null,
-            "fulfillmentStatus": "READY",
-            "optionGroupPricingMode": null,
-            "salesCategory": {
-              "guid": "00000000-0000-0000-0000-00000000000e",
-              "entityType": "SalesCategory",
-              "externalId": null,
-              "multiLocationId": "1200000002763962211"
-            },
-            "selectionType": "NONE",
-            "price": 2,
-            "voided": false,
-            "appliedTaxes": [
+            "modifiers": [
               {
-                "guid": "00000000-0000-0000-0000-000000000018",
-                "entityType": "AppliedTaxRate",
-                "taxRate": {
-                  "guid": "00000000-0000-0000-0000-000000000010",
-                  "entityType": "TaxRate"
+                "guid": "00000000-0000-0000-0000-000000000017",
+                "entityType": "MenuItemSelection",
+                "externalId": null,
+                "voidReason": null,
+                "voidDate": null,
+                "fulfillmentStatus": "READY",
+                "optionGroupPricingMode": "REPLACES_PRICE",
+                "salesCategory": null,
+                "selectionType": "NONE",
+                "price": 5,
+                "voided": false,
+                "appliedTaxes": [],
+                "storedValueTransactionId": null,
+                "itemGroup": null,
+                "item": {
+                  "guid": "00000000-0000-0000-0000-000000000018",
+                  "entityType": "MenuItem",
+                  "externalId": null,
+                  "multiLocationId": "1200000006972631903"
                 },
-                "rate": 0.06,
-                "jurisdictionType": null,
-                "displayName": null,
-                "jurisdiction": null,
-                "name": "PA STATE TAX",
-                "taxAmount": 0.12,
-                "type": "PERCENT",
-                "facilitatorCollectAndRemitTax": false
+                "unitOfMeasure": "NONE",
+                "refundDetails": null,
+                "toastGiftCard": null,
+                "tax": 0,
+                "modifiedDate": "2000-01-01T00:10:00.000+00:00",
+                "deferred": false,
+                "preDiscountPrice": 5,
+                "optionGroup": {
+                  "guid": "00000000-0000-0000-0000-000000000019",
+                  "entityType": "MenuOptionGroup",
+                  "externalId": null,
+                  "multiLocationId": "1200000006972630697"
+                },
+                "displayName": "16 oz",
+                "appliedDiscounts": [],
+                "modifiers": [],
+                "seatNumber": -1,
+                "giftCardSelectionInfo": null,
+                "splitOrigin": null,
+                "taxInclusion": "INHERITED",
+                "quantity": 1,
+                "receiptLinePrice": 0,
+                "diningOption": {
+                  "guid": "00000000-0000-0000-0000-00000000000e",
+                  "entityType": "DiningOption",
+                  "externalId": null
+                },
+                "voidBusinessDate": null,
+                "createdDate": "2000-01-01T00:11:00.000+00:00",
+                "preModifier": null,
+                "plu": null,
+                "fulfillment": null
               }
             ],
-            "storedValueTransactionId": null,
-            "itemGroup": {
-              "guid": "00000000-0000-0000-0000-000000000011",
-              "entityType": "MenuGroup",
-              "externalId": null,
-              "multiLocationId": "1200000002877398055"
-            },
-            "item": {
-              "guid": "00000000-0000-0000-0000-000000000019",
-              "entityType": "MenuItem",
-              "externalId": null,
-              "multiLocationId": "1200000001515140731"
-            },
-            "unitOfMeasure": "NONE",
-            "refundDetails": null,
-            "toastGiftCard": null,
-            "tax": 0.12,
-            "modifiedDate": "2000-01-01T00:11:00.000+00:00",
-            "deferred": false,
-            "preDiscountPrice": 2.25,
-            "optionGroup": null,
-            "displayName": "Strawberry Iced Doughnut",
-            "appliedDiscounts": [],
-            "modifiers": [],
             "seatNumber": -1,
             "giftCardSelectionInfo": null,
             "splitOrigin": null,
             "taxInclusion": "NOT_INCLUDED",
             "quantity": 1,
-            "receiptLinePrice": 2.25,
+            "receiptLinePrice": 5,
             "diningOption": {
-              "guid": "00000000-0000-0000-0000-000000000013",
+              "guid": "00000000-0000-0000-0000-00000000000e",
               "entityType": "DiningOption",
               "externalId": null
             },
@@ -500,179 +381,35 @@
             "preModifier": null,
             "plu": null,
             "fulfillment": null
-          },
-          {
-            "guid": "00000000-0000-0000-0000-000000000009",
-            "entityType": "MenuItemSelection",
-            "externalId": null,
-            "voidReason": null,
-            "voidDate": null,
-            "fulfillmentStatus": "READY",
-            "optionGroupPricingMode": null,
-            "salesCategory": {
-              "guid": "00000000-0000-0000-0000-00000000000e",
-              "entityType": "SalesCategory",
-              "externalId": null,
-              "multiLocationId": "1200000002763962211"
-            },
-            "selectionType": "NONE",
-            "price": 2,
-            "voided": false,
-            "appliedTaxes": [
-              {
-                "guid": "00000000-0000-0000-0000-00000000001a",
-                "entityType": "AppliedTaxRate",
-                "taxRate": {
-                  "guid": "00000000-0000-0000-0000-000000000010",
-                  "entityType": "TaxRate"
-                },
-                "rate": 0.06,
-                "jurisdictionType": null,
-                "displayName": null,
-                "jurisdiction": null,
-                "name": "PA STATE TAX",
-                "taxAmount": 0.12,
-                "type": "PERCENT",
-                "facilitatorCollectAndRemitTax": false
-              }
-            ],
-            "storedValueTransactionId": null,
-            "itemGroup": {
-              "guid": "00000000-0000-0000-0000-00000000001b",
-              "entityType": "MenuGroup",
-              "externalId": null,
-              "multiLocationId": "1200000006613097757"
-            },
-            "item": {
-              "guid": "00000000-0000-0000-0000-00000000001c",
-              "entityType": "MenuItem",
-              "externalId": null,
-              "multiLocationId": "1200000002589205071"
-            },
-            "unitOfMeasure": "NONE",
-            "refundDetails": null,
-            "toastGiftCard": null,
-            "tax": 0.12,
-            "modifiedDate": "2000-01-01T00:13:00.000+00:00",
-            "deferred": false,
-            "preDiscountPrice": 2.25,
-            "optionGroup": null,
-            "displayName": "Boston Creme",
-            "appliedDiscounts": [],
-            "modifiers": [],
-            "seatNumber": -1,
-            "giftCardSelectionInfo": null,
-            "splitOrigin": null,
-            "taxInclusion": "NOT_INCLUDED",
-            "quantity": 1,
-            "receiptLinePrice": 2.25,
-            "diningOption": {
-              "guid": "00000000-0000-0000-0000-000000000013",
-              "entityType": "DiningOption",
-              "externalId": null
-            },
-            "voidBusinessDate": null,
-            "createdDate": "2000-01-01T00:14:00.000+00:00",
-            "preModifier": null,
-            "plu": null,
-            "fulfillment": null
-          },
-          {
-            "guid": "00000000-0000-0000-0000-000000000008",
-            "entityType": "MenuItemSelection",
-            "externalId": null,
-            "voidReason": null,
-            "voidDate": null,
-            "fulfillmentStatus": "READY",
-            "optionGroupPricingMode": null,
-            "salesCategory": {
-              "guid": "00000000-0000-0000-0000-00000000000e",
-              "entityType": "SalesCategory",
-              "externalId": null,
-              "multiLocationId": "1200000002763962211"
-            },
-            "selectionType": "NONE",
-            "price": 2,
-            "voided": false,
-            "appliedTaxes": [
-              {
-                "guid": "00000000-0000-0000-0000-00000000001d",
-                "entityType": "AppliedTaxRate",
-                "taxRate": {
-                  "guid": "00000000-0000-0000-0000-000000000010",
-                  "entityType": "TaxRate"
-                },
-                "rate": 0.06,
-                "jurisdictionType": null,
-                "displayName": null,
-                "jurisdiction": null,
-                "name": "PA STATE TAX",
-                "taxAmount": 0.12,
-                "type": "PERCENT",
-                "facilitatorCollectAndRemitTax": false
-              }
-            ],
-            "storedValueTransactionId": null,
-            "itemGroup": {
-              "guid": "00000000-0000-0000-0000-00000000001b",
-              "entityType": "MenuGroup",
-              "externalId": null,
-              "multiLocationId": "1200000006613097757"
-            },
-            "item": {
-              "guid": "00000000-0000-0000-0000-00000000001e",
-              "entityType": "MenuItem",
-              "externalId": null,
-              "multiLocationId": "1200000003976104058"
-            },
-            "unitOfMeasure": "NONE",
-            "refundDetails": null,
-            "toastGiftCard": null,
-            "tax": 0.12,
-            "modifiedDate": "2000-01-01T00:15:00.000+00:00",
-            "deferred": false,
-            "preDiscountPrice": 2.25,
-            "optionGroup": null,
-            "displayName": "Bavarian Creme",
-            "appliedDiscounts": [],
-            "modifiers": [],
-            "seatNumber": -1,
-            "giftCardSelectionInfo": null,
-            "splitOrigin": null,
-            "taxInclusion": "NOT_INCLUDED",
-            "quantity": 1,
-            "receiptLinePrice": 2.25,
-            "diningOption": {
-              "guid": "00000000-0000-0000-0000-000000000013",
-              "entityType": "DiningOption",
-              "externalId": null
-            },
-            "voidBusinessDate": null,
-            "createdDate": "2000-01-01T00:16:00.000+00:00",
-            "preModifier": null,
-            "plu": null,
-            "fulfillment": null
           }
         ],
         "voidBusinessDate": null,
-        "createdDate": "2000-01-01T00:17:00.000+00:00",
+        "createdDate": "2000-01-01T00:13:00.000+00:00",
         "deleted": false,
         "createdDevice": {
-          "id": "89790e309199c2a8"
+          "id": "a73f44e543641c14"
         },
-        "closedDate": "2000-01-01T00:00:00.000+00:00",
-        "deletedDate": "2000-01-01T00:18:00.000+00:00",
-        "modifiedDate": "2000-01-01T00:19:00.000+00:00",
-        "taxAmount": 0.72,
+        "closedDate": "2000-01-01T00:04:00.000+00:00",
+        "deletedDate": "2000-01-01T00:14:00.000+00:00",
+        "modifiedDate": "2000-01-01T00:15:00.000+00:00",
+        "taxAmount": 0.58,
         "appliedServiceCharges": [],
-        "customer": null
+        "customer": {
+          "guid": "00000000-0000-0000-0000-00000000001a",
+          "entityType": "Customer",
+          "firstName": null,
+          "lastName": null,
+          "phoneCountryCode": "1",
+          "phone": "5703165667",
+          "email": null
+        }
       }
     ],
     "createdDevice": {
-      "id": "89790e309199c2a8"
+      "id": "a73f44e543641c14"
     },
-    "deletedDate": "2000-01-01T00:18:00.000+00:00",
-    "modifiedDate": "2000-01-01T00:20:00.000+00:00",
+    "deletedDate": "2000-01-01T00:14:00.000+00:00",
+    "modifiedDate": "2000-01-01T00:16:00.000+00:00",
     "promisedDate": null,
     "pricingFeatures": [
       "TAXESV2"
@@ -686,8 +423,8 @@
     "lastModifiedDevice": {
       "id": "58541a489069a736"
     },
-    "duration": 1639,
-    "businessDate": 20251107,
+    "duration": 160,
+    "businessDate": 20251109,
     "excessFood": false,
     "table": null,
     "approvalStatus": "APPROVED",
@@ -696,14 +433,14 @@
     "curbsidePickupInfo": null,
     "numberOfGuests": 1,
     "diningOption": {
-      "guid": "00000000-0000-0000-0000-000000000013",
+      "guid": "00000000-0000-0000-0000-00000000000e",
       "entityType": "DiningOption",
       "externalId": null
     },
     "appliedPackagingInfo": null,
     "voidBusinessDate": null,
     "deleted": false,
-    "createdDate": "2000-01-01T00:21:00.000+00:00",
+    "createdDate": "2000-01-01T00:17:00.000+00:00",
     "closedDate": "2000-01-01T00:00:00.000+00:00",
     "channelGuid": null
   }
