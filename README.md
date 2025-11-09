@@ -17,23 +17,35 @@ If you are developing a production application, we recommend using TypeScript wi
 
 ## Configuration
 
-Application polling and worker endpoints are now centralized in [`src/config/appSettings.json`](src/config/appSettings.json). The file is loaded at runtime by [`src/config/appSettings.ts`](src/config/appSettings.ts), which validates the expected shape and exports a typed `APP_SETTINGS` object for the rest of the app.
+Application polling and worker endpoints are centralized in [`src/config/appSettings.json`](src/config/appSettings.json). The file is loaded at runtime by [`src/config/appSettings.ts`](src/config/appSettings.ts), which validates the expected shape and exports a typed `APP_SETTINGS` object for the rest of the app.
 
-You can edit `appSettings.json` to change the default behavior:
+Each entry in `appSettings.json` is an object with a `value`, a human-readable `description`, and—when the setting represents a duration—a `unit` chosen from `milliseconds`, `seconds`, `minutes`, `hours`, or `days`. The validator normalizes these records so the rest of the codebase never hardcodes the settings.
 
-| Field | Description | Default |
-| --- | --- | --- |
-| `orderPollingWindowMinutes` | Number of minutes included when no cursor is available. Mirrors the previous `FALLBACK_MINUTES` constant in `useOrdersData`. | `30` |
-| `pollIntervalMs` | Delay between background refresh attempts (was `POLL_INTERVAL_MS`). | `5000` |
-| `pollLimit` | Maximum orders requested per poll (formerly `POLL_LIMIT`). | `50` |
-| `driftBufferMs` | Milliseconds subtracted from the cursor timestamp to account for clock drift (`DRIFT_BUFFER_MS`). | `120000` |
-| `staleActiveRetentionMs` | How long to retain active orders in memory before pruning (`STALE_ACTIVE_RETENTION_MS`). | `7200000` |
-| `staleReadyRetentionMs` | How long to retain ready orders before pruning (`STALE_READY_RETENTION_MS`). | `21600000` |
-| `targetedFetchConcurrency` | Parallel targeted fetches allowed (`TARGETED_CONCURRENCY`). | `3` |
-| `targetedFetchMaxRetries` | Retry attempts for targeted fetches (`TARGETED_MAX_RETRIES`). | `2` |
-| `targetedFetchBackoffMs` | Delay between targeted fetch retries (`TARGETED_BACKOFF_MS`). | `400` |
-| `ordersEndpoint` | Worker endpoint used for fetching orders. | `https://doughmonster-worker.thedoughmonster.workers.dev/api/orders` |
-| `menusEndpoint` | Worker endpoint used for fetching menu data. | `https://doughmonster-worker.thedoughmonster.workers.dev/api/menus` |
-| `configSnapshotEndpoint` | Worker endpoint used for fetching config snapshots. | `https://doughmonster-worker.thedoughmonster.workers.dev/api/config/snapshot` |
+```json
+{
+  "pollIntervalMs": {
+    "value": 5000,
+    "unit": "milliseconds",
+    "description": "Delay between successive polling requests for orders. Lower this value for faster updates at the cost of additional network load; raise it to reduce traffic."
+  }
+}
+```
+
+You can edit `appSettings.json` to change the default behavior. The table below summarizes the bundled defaults:
+
+| Setting | Default value | Unit (if applicable) | Description |
+| --- | --- | --- | --- |
+| `orderPollingWindowMinutes` | `180` | minutes | Controls how far back to request orders when no pagination cursor is available. Increase to capture more historical orders; decrease to limit queries to recent activity. |
+| `pollIntervalMs` | `5000` | milliseconds | Delay between successive polling requests for orders. Lower this value for faster updates at the cost of additional network load; raise it to reduce traffic. |
+| `pollLimit` | `50` | — | Maximum number of orders requested per poll. Increase to fetch more orders at once; decrease to shrink payload sizes. |
+| `driftBufferMs` | `120000` | milliseconds | Amount of time subtracted from the latest cursor to account for clock drift. Increase to guard against missed orders; decrease to minimize duplicate retrievals. |
+| `staleActiveRetentionMs` | `7200000` | milliseconds | Retention window for active orders kept in memory before pruning. Increase to keep orders visible longer; decrease to reclaim memory sooner. |
+| `staleReadyRetentionMs` | `21600000` | milliseconds | Retention window for ready orders before they are pruned. Increase to keep fulfilled orders available longer; decrease to clear them out more quickly. |
+| `targetedFetchConcurrency` | `3` | — | Number of targeted fetch requests that may run in parallel. Increase to fan out more aggressively; decrease to limit concurrent load. |
+| `targetedFetchMaxRetries` | `2` | — | Maximum retry attempts for targeted fetches when they fail. Increase to make the system more persistent; decrease to fail faster. |
+| `targetedFetchBackoffMs` | `400` | milliseconds | Delay applied between targeted fetch retry attempts. Increase for a gentler retry cadence; decrease to retry more rapidly. |
+| `ordersEndpoint` | `https://doughmonster-worker.thedoughmonster.workers.dev/api/orders` | — | Worker endpoint used for fetching orders. Point this to a different worker origin to change the orders source. |
+| `menusEndpoint` | `https://doughmonster-worker.thedoughmonster.workers.dev/api/menus` | — | Worker endpoint used for fetching menu data. Update this if the menus API location changes. |
+| `configSnapshotEndpoint` | `https://doughmonster-worker.thedoughmonster.workers.dev/api/config/snapshot` | — | Worker endpoint used for fetching configuration snapshots. Modify this when the configuration API location changes. |
 
 Changes to `appSettings.json` are picked up automatically by Vite during development; restart the dev server if you edit the file while a production build is running.
