@@ -7,7 +7,137 @@ import { fileURLToPath } from 'node:url'
 import OpenAPIResponseValidatorModule from 'openapi-response-validator'
 import { Agent, fetch as undiciFetch, setGlobalDispatcher } from 'undici'
 import { promisify } from 'node:util'
-import appSettings from '../src/config/appSettings.json' with { type: 'json' }
+import rawAppSettings from '../src/config/appSettings.json' with { type: 'json' }
+
+const TIME_UNIT_IN_MS = {
+  milliseconds: 1,
+  seconds: 1_000,
+  minutes: 60_000,
+  hours: 3_600_000,
+  days: 86_400_000,
+}
+
+const isRecord = (value) => Boolean(value) && typeof value === 'object'
+
+const ensureSettingRecord = (entry, key) => {
+  if (!isRecord(entry)) {
+    throw new Error(`App settings field "${key}" must be an object`)
+  }
+
+  return entry
+}
+
+const ensureDescription = (record, key) => {
+  const { description } = record
+  if (typeof description !== 'string' || !description.trim()) {
+    throw new Error(`App settings field "${key}" must include a non-empty description`)
+  }
+}
+
+const readNumericValue = (record, key) => {
+  const { value } = record
+  if (typeof value !== 'number' || !Number.isFinite(value)) {
+    throw new Error(`App settings field "${key}" must supply a finite numeric value`)
+  }
+
+  return value
+}
+
+const parseNumericSetting = (entry, key) => {
+  const record = ensureSettingRecord(entry, key)
+  ensureDescription(record, key)
+  return readNumericValue(record, key)
+}
+
+const parseStringSetting = (entry, key) => {
+  const record = ensureSettingRecord(entry, key)
+  ensureDescription(record, key)
+
+  const { value } = record
+  if (typeof value !== 'string' || !value) {
+    throw new Error(`App settings field "${key}" must supply a non-empty string value`)
+  }
+
+  return value
+}
+
+const parseTimeSetting = (entry, key, targetUnit) => {
+  const record = ensureSettingRecord(entry, key)
+  ensureDescription(record, key)
+
+  const { unit } = record
+  if (typeof unit !== 'string' || !(unit in TIME_UNIT_IN_MS)) {
+    throw new Error(
+      `App settings field "${key}" must declare a valid unit (milliseconds, seconds, minutes, hours, days)`,
+    )
+  }
+
+  const numericValue = readNumericValue(record, key)
+  const multiplier = TIME_UNIT_IN_MS[unit]
+  const valueInMs = numericValue * multiplier
+
+  if (!Number.isFinite(valueInMs)) {
+    throw new Error(`App settings field "${key}" resolves to an invalid time value`)
+  }
+
+  if (targetUnit === 'milliseconds') {
+    return valueInMs
+  }
+
+  if (targetUnit === 'minutes') {
+    return valueInMs / TIME_UNIT_IN_MS.minutes
+  }
+
+  throw new Error(`Unsupported target unit "${targetUnit}" for field "${key}"`)
+}
+
+const normalizeAppSettings = (value) => {
+  if (!isRecord(value)) {
+    throw new Error('App settings must be an object')
+  }
+
+  return {
+    orderPollingWindowMinutes: parseTimeSetting(
+      value.orderPollingWindowMinutes,
+      'orderPollingWindowMinutes',
+      'minutes',
+    ),
+    pollIntervalMs: parseTimeSetting(value.pollIntervalMs, 'pollIntervalMs', 'milliseconds'),
+    pollLimit: parseNumericSetting(value.pollLimit, 'pollLimit'),
+    driftBufferMs: parseTimeSetting(value.driftBufferMs, 'driftBufferMs', 'milliseconds'),
+    staleActiveRetentionMs: parseTimeSetting(
+      value.staleActiveRetentionMs,
+      'staleActiveRetentionMs',
+      'milliseconds',
+    ),
+    staleReadyRetentionMs: parseTimeSetting(
+      value.staleReadyRetentionMs,
+      'staleReadyRetentionMs',
+      'milliseconds',
+    ),
+    targetedFetchConcurrency: parseNumericSetting(
+      value.targetedFetchConcurrency,
+      'targetedFetchConcurrency',
+    ),
+    targetedFetchMaxRetries: parseNumericSetting(
+      value.targetedFetchMaxRetries,
+      'targetedFetchMaxRetries',
+    ),
+    targetedFetchBackoffMs: parseTimeSetting(
+      value.targetedFetchBackoffMs,
+      'targetedFetchBackoffMs',
+      'milliseconds',
+    ),
+    ordersEndpoint: parseStringSetting(value.ordersEndpoint, 'ordersEndpoint'),
+    menusEndpoint: parseStringSetting(value.menusEndpoint, 'menusEndpoint'),
+    configSnapshotEndpoint: parseStringSetting(
+      value.configSnapshotEndpoint,
+      'configSnapshotEndpoint',
+    ),
+  }
+}
+
+const appSettings = normalizeAppSettings(rawAppSettings)
 
 setGlobalDispatcher(
   new Agent({

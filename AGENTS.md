@@ -1,5 +1,6 @@
 # Agent Instructions
 - Always fetch the latest schema documentation from the worker before beginning any task so the available API surface, field definitions, and enumerated values remain accurate. To retrieve the raw JSON document directly, use `https://doughmonster-worker.thedoughmonster.workers.dev/api/docs/openapi.json`.
+- Treat `src/config/appSettings.json` as immutable runtime configuration unless the user explicitly directs otherwise. Never hardcode those settings in code; always source them through `src/config/appSettings.ts` so the JSON remains the single source of truth.
 - Consult the remotely hosted schema whenever touching data normalization or API-driven features so field names (e.g., `displayNumber`) and optional fields stay aligned with the worker payloads. Cross-check field availability against the OpenAPI definitions instead of relying on assumptions.
 - Do not rely on local copies of schema docs; they are intentionally absent.
 - Never parse API payloads with regular expressions—use the typed schema as the single source of truth for response handling logic.
