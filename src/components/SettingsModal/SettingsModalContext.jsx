@@ -1,9 +1,11 @@
 /* eslint-disable react-refresh/only-export-components */
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
+import { useDashboardDiagnostics } from '../../viewContext/DashboardDiagnosticsContext'
 
 const SettingsModalContext = createContext(null)
 
 export const SettingsModalProvider = ({ tabs = [], children }) => {
+  const { recordDiagnostic } = useDashboardDiagnostics()
   const [isOpen, setIsOpen] = useState(false)
   const [activeTabId, setActiveTabId] = useState(() => tabs[0]?.id ?? null)
 
@@ -20,16 +22,48 @@ export const SettingsModalProvider = ({ tabs = [], children }) => {
   }, [tabs, activeTabId])
 
   const open = useCallback(() => {
-    if (tabs[0]) {
-      setActiveTabId(tabs[0].id)
+    const defaultTabId = tabs[0]?.id ?? null
+    if (defaultTabId) {
+      setActiveTabId(defaultTabId)
     }
 
-    setIsOpen(true)
-  }, [tabs])
+    let didOpen = false
+    setIsOpen((previous) => {
+      if (previous) {
+        return previous
+      }
+
+      didOpen = true
+      return true
+    })
+
+    if (didOpen) {
+      recordDiagnostic({
+        type: 'settings.modal.opened',
+        payload: {
+          defaultTabId,
+          tabCount: tabs.length,
+        },
+      })
+    }
+  }, [recordDiagnostic, tabs])
 
   const close = useCallback(() => {
-    setIsOpen(false)
-  }, [])
+    let didClose = false
+
+    setIsOpen((previous) => {
+      if (!previous) {
+        return previous
+      }
+
+      didClose = true
+      return false
+    })
+
+    if (didClose) {
+      recordDiagnostic({ type: 'settings.modal.closed' })
+    }
+  }, [recordDiagnostic])
 
   const selectTab = useCallback(
     (tabId) => {
@@ -37,9 +71,27 @@ export const SettingsModalProvider = ({ tabs = [], children }) => {
         return
       }
 
-      setActiveTabId(tabId)
+      let didChange = false
+
+      setActiveTabId((previous) => {
+        if (previous === tabId) {
+          return previous
+        }
+
+        didChange = true
+        return tabId
+      })
+
+      if (didChange) {
+        recordDiagnostic({
+          type: 'settings.modal.tab-selected',
+          payload: {
+            tabId,
+          },
+        })
+      }
     },
-    [tabs],
+    [recordDiagnostic, tabs],
   )
 
   const value = useMemo(

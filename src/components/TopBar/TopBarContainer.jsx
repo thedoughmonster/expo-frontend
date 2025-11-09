@@ -8,6 +8,7 @@ import {
 } from '../../viewContext/OrdersViewContext'
 import { useSettingsModal } from '../SettingsModal/SettingsModalContext'
 import TopBarView from './TopBarView'
+import { useDashboardDiagnostics } from '../../viewContext/DashboardDiagnosticsContext'
 
 const TopBarContainer = ({
   title,
@@ -16,6 +17,7 @@ const TopBarContainer = ({
   refreshAriaLabel,
   canDismissSelectedOrders = false,
 }) => {
+  const { recordDiagnostic } = useDashboardDiagnostics()
   const { activeFulfillmentFilters, toggleFulfillmentFilter } = useFulfillmentFilters()
   const { activeOrderIds, clearSelection } = useSelectionState()
   const { dismissOrders } = useDismissedOrders()
@@ -27,35 +29,67 @@ const TopBarContainer = ({
 
   const handleToggleFilter = useCallback(
     (key) => {
+      recordDiagnostic({
+        type: 'ui.top-bar.filter-toggled',
+        payload: {
+          key,
+        },
+      })
       toggleFulfillmentFilter(key)
     },
-    [toggleFulfillmentFilter],
+    [recordDiagnostic, toggleFulfillmentFilter],
   )
 
   const handleClearSelection = useCallback(() => {
+    recordDiagnostic({
+      type: 'ui.top-bar.selection-cleared',
+      payload: {
+        clearedCount: activeOrderIds.size,
+      },
+    })
     clearSelection()
-  }, [clearSelection])
+  }, [activeOrderIds.size, clearSelection, recordDiagnostic])
 
   const handleRefresh = useCallback(() => {
+    recordDiagnostic({
+      type: 'ui.top-bar.refresh-clicked',
+      payload: {
+        isBusy,
+      },
+    })
     onRefresh?.()
-  }, [onRefresh])
+  }, [isBusy, onRefresh, recordDiagnostic])
 
   const handleOpenSettings = useCallback(() => {
+    recordDiagnostic({ type: 'ui.top-bar.settings-opened' })
     openSettings()
-  }, [openSettings])
+  }, [openSettings, recordDiagnostic])
 
   const handleDismissSelection = useCallback(() => {
     if (activeOrderIds.size === 0) {
       return
     }
 
+    recordDiagnostic({
+      type: 'ui.top-bar.selection-dismissed',
+      payload: {
+        dismissedIds: Array.from(activeOrderIds),
+      },
+    })
     dismissOrders(Array.from(activeOrderIds))
     clearSelection()
-  }, [activeOrderIds, clearSelection, dismissOrders])
+  }, [activeOrderIds, clearSelection, dismissOrders, recordDiagnostic])
 
   const handleToggleDebugPanel = useCallback(() => {
+    recordDiagnostic({
+      type: 'ui.top-bar.debug-toggle',
+      payload: {
+        isEnabled: isDebugPanelEnabled,
+        isOpen: isDebugPanelOpen,
+      },
+    })
     toggleDebugPanel()
-  }, [toggleDebugPanel])
+  }, [isDebugPanelEnabled, isDebugPanelOpen, recordDiagnostic, toggleDebugPanel])
 
   return (
     <TopBarView

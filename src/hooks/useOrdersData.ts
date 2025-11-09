@@ -37,6 +37,7 @@ import stableStringify from '../utils/stableStringify'
 import { fetchToastOrderByGuid, fetchToastOrders } from '../api/orders'
 import type { OrdersLatestQuery, ToastSelection } from '../api/orders'
 import { APP_SETTINGS } from '../config/appSettings'
+import { useDashboardDiagnostics } from '../viewContext/DashboardDiagnosticsContext'
 
 const {
   menusEndpoint: MENUS_ENDPOINT,
@@ -244,6 +245,7 @@ const collectOrderTimestamps = (orders: ToastOrder[]): number[] => {
 }
 
 const useOrdersData = () => {
+  const { recordDiagnostic } = useDashboardDiagnostics()
   const [orders, setOrders] = useState<NormalizedOrder[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const [isRefreshing, setIsRefreshing] = useState(false)
@@ -635,6 +637,14 @@ const useOrdersData = () => {
         return
       }
 
+      recordDiagnostic({
+        type: 'orders.refresh.started',
+        payload: {
+          silent,
+          cachedOrderCount: orderCacheRef.current.size,
+        },
+      })
+
       abortActiveRequest()
 
       const controller = new AbortController()
@@ -654,6 +664,10 @@ const useOrdersData = () => {
 
       setIsHydrating(true)
       setError(null)
+
+      let fetchedOrderCount = 0
+      let targetedRefreshCount = 0
+      let omissionCount = 0
 
       try {
         const now = Date.now()
@@ -711,6 +725,7 @@ const useOrdersData = () => {
               signal,
               now,
             )
+            fetchedOrderCount += fetchedOrders.length
             targetedExclusions = new Set(fetchedSeen)
             fetchedSeen.forEach((guid) => {
               seenGuids.add(guid)
@@ -746,6 +761,15 @@ const useOrdersData = () => {
           })
 
           if (cachedButMissing.length > 0) {
+            omissionCount += cachedButMissing.length
+            recordDiagnostic({
+              type: 'orders.refresh.omission-detected',
+              level: 'warn',
+              payload: {
+                guids: cachedButMissing,
+                count: cachedButMissing.length,
+              },
+            })
             console.warn(
               '[useOrdersData] Worker omitted cached orders; triggering targeted refresh',
               cachedButMissing,
@@ -756,6 +780,7 @@ const useOrdersData = () => {
               signal,
               now,
             )
+            fetchedOrderCount += omissionOrders.length
 
             if (omissionOrders.length > 0) {
               windowTimestamps.push(...collectOrderTimestamps(omissionOrders))
@@ -803,6 +828,7 @@ const useOrdersData = () => {
         lastFetchRef.current = now
 
         const targetedSeen = await refreshActiveOrders(signal, now, targetedExclusions)
+        targetedRefreshCount = targetedSeen.size
         targetedSeen.forEach((guid) => {
           seenGuids.add(guid)
         })
@@ -841,11 +867,34 @@ const useOrdersData = () => {
 
         removeStaleEntries(now, seenGuids)
         await persistOrdersCache()
+
+        recordDiagnostic({
+          type: 'orders.refresh.success',
+          payload: {
+            silent,
+            normalizedOrderCount: orderCacheRef.current.size,
+            fetchedOrderCount,
+            targetedRefreshCount,
+            omissionCount,
+            workerGuidListProvided,
+          },
+          clearLastError: true,
+        })
       } catch (fetchError) {
         if ((fetchError as Error)?.name === 'AbortError' || !isMountedRef.current) {
           return
         }
 
+        recordDiagnostic({
+          type: 'orders.refresh.error',
+          level: 'error',
+          payload: {
+            message: (fetchError as Error)?.message ?? 'Unknown error',
+            name: (fetchError as Error)?.name ?? 'Error',
+            silent,
+          },
+          error: fetchError as Error,
+        })
         setError(fetchError as Error)
         if (!silent) {
           setOrders([])
@@ -876,6 +925,7 @@ const useOrdersData = () => {
       applyOrdersBatch,
       fetchConfigWithCache,
       fetchMenusWithCache,
+      recordDiagnostic,
       persistOrdersCache,
       reNormalizeOrders,
       refreshActiveOrders,

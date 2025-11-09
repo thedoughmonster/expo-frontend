@@ -114,6 +114,7 @@ const OrdersDebugPanel = ({
   configSnapshot,
   lookupsVersion,
   filterContext,
+  diagnosticsTimeline = [],
 }) => {
   useEffect(() => {
     if (!isOpen) {
@@ -131,6 +132,96 @@ const OrdersDebugPanel = ({
       window.removeEventListener('keydown', handleKeyDown)
     }
   }, [isOpen, onClose])
+
+  const [levelFilter, setLevelFilter] = useState('all')
+  const [searchTerm, setSearchTerm] = useState('')
+
+  const timeline = useMemo(
+    () => (Array.isArray(diagnosticsTimeline) ? diagnosticsTimeline : []),
+    [diagnosticsTimeline],
+  )
+  const normalizedSearchTerm = searchTerm.trim().toLowerCase()
+
+  const filteredTimeline = useMemo(() => {
+    if (timeline.length === 0) {
+      return []
+    }
+
+    return timeline.filter((entry) => {
+      if (!entry || typeof entry !== 'object') {
+        return false
+      }
+
+      const rawLevel = typeof entry.level === 'string' ? entry.level.toLowerCase() : 'info'
+      const normalizedLevel = rawLevel === 'warning' ? 'warn' : rawLevel
+
+      if (levelFilter !== 'all' && normalizedLevel !== levelFilter) {
+        return false
+      }
+
+      if (!normalizedSearchTerm) {
+        return true
+      }
+
+      const serialized = stringify(entry).toLowerCase()
+      const haystack = [entry.type ?? '', entry.message ?? '', serialized]
+        .map((value) => (typeof value === 'string' ? value.toLowerCase() : String(value)))
+        .join(' ')
+
+      return haystack.includes(normalizedSearchTerm)
+    })
+  }, [timeline, levelFilter, normalizedSearchTerm])
+
+  const filteredTimelineJson = useMemo(() => stringify(filteredTimeline), [filteredTimeline])
+  const diagnosticsCount = timeline.length
+  const searchDisplay = searchTerm.trim()
+
+  const diagnosticsMeta = useMemo(() => {
+    const parts = []
+
+    parts.push(
+      levelFilter === 'all'
+        ? 'All levels'
+        : `Level: ${(levelFilter === 'warn' ? 'warning' : levelFilter).toUpperCase()}`,
+    )
+
+    if (searchDisplay) {
+      parts.push(`Search: “${searchDisplay}”`)
+    }
+
+    return parts.join(' • ')
+  }, [levelFilter, searchDisplay])
+
+  const timelineSummary = useMemo(() => {
+    const visibleCount = filteredTimeline.length
+    const totalLabel =
+      diagnosticsCount === 0
+        ? '0 events recorded'
+        : `${visibleCount} of ${diagnosticsCount} event${diagnosticsCount === 1 ? '' : 's'}`
+
+    return diagnosticsMeta ? `${totalLabel} • ${diagnosticsMeta}` : totalLabel
+  }, [diagnosticsCount, diagnosticsMeta, filteredTimeline.length])
+
+  const handleLevelFilterChange = useCallback((event) => {
+    setLevelFilter(event.target.value)
+  }, [])
+
+  const handleSearchChange = useCallback((event) => {
+    setSearchTerm(event.target.value)
+  }, [])
+
+  const resolveLevelBadgeClass = (level) => {
+    const normalized = typeof level === 'string' ? level.toLowerCase() : 'info'
+    if (normalized === 'error') {
+      return `${styles.timelineLevel} ${styles.timelineLevelError}`
+    }
+
+    if (normalized === 'warn' || normalized === 'warning') {
+      return `${styles.timelineLevel} ${styles.timelineLevelWarn}`
+    }
+
+    return `${styles.timelineLevel} ${styles.timelineLevelInfo}`
+  }
 
   const ordersJson = useMemo(() => {
     void lookupsVersion
@@ -200,6 +291,73 @@ const OrdersDebugPanel = ({
           </button>
         </div>
         <div className={styles.content}>
+          <section className={styles.section} aria-live="polite">
+            <div className={styles.sectionHeader}>
+              <div className={styles.sectionHeaderText}>
+                <h3 className={styles.sectionTitle}>Diagnostics timeline</h3>
+                <p className={styles.sectionMeta}>{timelineSummary}</p>
+              </div>
+              <CopyButton label="Copy events" getText={() => filteredTimelineJson} />
+            </div>
+            <div className={styles.timelineControls}>
+              <label className={styles.timelineControl}>
+                <span className={styles.timelineControlLabel}>Level</span>
+                <select
+                  value={levelFilter}
+                  onChange={handleLevelFilterChange}
+                  className={styles.timelineSelect}
+                >
+                  <option value="all">All</option>
+                  <option value="info">Info</option>
+                  <option value="warn">Warning</option>
+                  <option value="error">Error</option>
+                </select>
+              </label>
+              <label className={styles.timelineControl}>
+                <span className={styles.timelineControlLabel}>Search</span>
+                <input
+                  type="search"
+                  value={searchTerm}
+                  onChange={handleSearchChange}
+                  placeholder="Search events"
+                  className={styles.timelineInput}
+                />
+              </label>
+            </div>
+            {filteredTimeline.length === 0 ? (
+              <p className={styles.emptyState}>
+                {diagnosticsCount === 0
+                  ? 'No diagnostics events have been recorded yet.'
+                  : 'No diagnostics events match the current filters.'}
+              </p>
+            ) : (
+              <ul className={styles.timelineList}>
+                {filteredTimeline.map((entry, index) => {
+                  const entryKey = entry?.id ?? `${entry?.sequence ?? 'event'}-${index}`
+                  const levelClassName = resolveLevelBadgeClass(entry?.level)
+                  const levelLabel =
+                    typeof entry?.level === 'string' ? entry.level.toUpperCase() : 'INFO'
+                  const typeLabel = entry?.type ?? 'event'
+
+                  return (
+                    <li key={entryKey} className={styles.timelineEntry}>
+                      <div className={styles.timelineMeta}>
+                        <span className={styles.timelineTimestamp}>
+                          {formatTimestamp(entry?.timestamp)}
+                        </span>
+                        <span className={styles.timelineType}>{typeLabel}</span>
+                        <span className={levelClassName}>{levelLabel}</span>
+                      </div>
+                      {entry?.message ? (
+                        <p className={styles.timelineMessage}>{entry.message}</p>
+                      ) : null}
+                      <pre className={styles.codeBlock}>{stringify(entry)}</pre>
+                    </li>
+                  )
+                })}
+              </ul>
+            )}
+          </section>
           <section className={styles.section} aria-live="polite">
             <div className={styles.sectionHeader}>
               <div className={styles.sectionHeaderText}>
