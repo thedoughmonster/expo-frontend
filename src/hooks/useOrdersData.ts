@@ -35,7 +35,7 @@ import {
 } from '../domain/config/configCache'
 import stableStringify from '../utils/stableStringify'
 import { fetchToastOrderByGuid, fetchToastOrders } from '../api/orders'
-import type { OrdersLatestQuery, ToastSelection } from '../api/orders'
+import type { OrdersLatestQuery, OrdersLatestSuccess, ToastSelection } from '../api/orders'
 import { APP_SETTINGS } from '../config/appSettings'
 import { useDashboardDiagnostics } from '../viewContext/DashboardDiagnosticsContext'
 
@@ -72,6 +72,13 @@ type PollingIntervalHandle = ReturnType<typeof setInterval>
 
 type RefreshOptions = {
   silent?: boolean
+}
+
+type OrderLimitWarningMeta = {
+  limit?: number
+  count?: number
+  pagesWithNext?: number
+  totalPages?: number
 }
 
 type MenuFetchResult = {
@@ -169,6 +176,87 @@ const sortOrderEntries = (
   return list
 }
 
+const coerceFiniteNumber = (value: unknown): number | undefined => {
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return value
+  }
+
+  if (typeof value === 'string') {
+    const parsed = Number(value)
+    if (Number.isFinite(parsed)) {
+      return parsed
+    }
+  }
+
+  return undefined
+}
+
+const detectOrdersLimitWarning = (
+  payload: OrdersLatestSuccess,
+): { limitHit: boolean; meta: OrderLimitWarningMeta | null } => {
+  const rawCount = (payload as Record<string, unknown>).count
+  const rawLimit = (payload as Record<string, unknown>).limit
+  const countValue = coerceFiniteNumber(rawCount)
+  const limitValue = coerceFiniteNumber(rawLimit)
+
+  const meta: OrderLimitWarningMeta = {}
+  let limitHit = false
+
+  if (typeof countValue === 'number') {
+    meta.count = countValue
+  }
+
+  if (typeof limitValue === 'number') {
+    meta.limit = limitValue
+  }
+
+  if (
+    typeof countValue === 'number' &&
+    typeof limitValue === 'number' &&
+    limitValue > 0 &&
+    countValue >= limitValue
+  ) {
+    limitHit = true
+  }
+
+  const debugInfo = (payload as { debug?: unknown }).debug
+  let pagesWithNext: number | undefined
+  let totalPages: number | undefined
+
+  if (debugInfo && typeof debugInfo === 'object') {
+    const debugPages = (debugInfo as Record<string, unknown>).pages
+    if (Array.isArray(debugPages)) {
+      totalPages = debugPages.length
+      pagesWithNext = debugPages.reduce((count, page) => {
+        if (!page || typeof page !== 'object') {
+          return count
+        }
+
+        const nextPage = (page as Record<string, unknown>).nextPage
+        return nextPage !== null && nextPage !== undefined ? count + 1 : count
+      }, 0)
+
+      if (typeof pagesWithNext === 'number' && pagesWithNext > 0) {
+        limitHit = true
+      }
+    }
+  }
+
+  if (typeof pagesWithNext === 'number') {
+    meta.pagesWithNext = pagesWithNext
+  }
+
+  if (typeof totalPages === 'number') {
+    meta.totalPages = totalPages
+  }
+
+  if (!limitHit) {
+    return { limitHit: false, meta: null }
+  }
+
+  return { limitHit: true, meta }
+}
+
 const buildOrdersQuery = (cursorIso: string | undefined, now: number): OrdersLatestQuery => {
   let since: string | undefined
 
@@ -254,6 +342,8 @@ const useOrdersData = () => {
   const [menuDebugSnapshot, setMenuDebugSnapshot] = useState<MenuCacheSnapshot | undefined>(undefined)
   const [configDebugSnapshot, setConfigDebugSnapshot] = useState<ConfigCacheSnapshot | undefined>(undefined)
   const [rawOrders, setRawOrders] = useState<ToastOrder[]>([])
+  const [hasOrderLimitWarning, setHasOrderLimitWarning] = useState(false)
+  const [orderLimitWarning, setOrderLimitWarning] = useState<OrderLimitWarningMeta | null>(null)
 
   const isMountedRef = useRef(true)
   const activeControllerRef = useRef<AbortController | null>(null)
@@ -675,6 +765,8 @@ const useOrdersData = () => {
       let fetchedOrderCount = 0
       let targetedRefreshCount = 0
       let omissionCount = 0
+      let limitSaturated = false
+      let limitWarningMeta: OrderLimitWarningMeta | null = null
 
       try {
         const now = Date.now()
@@ -687,6 +779,32 @@ const useOrdersData = () => {
         const ordersPayload = await ordersPromise
         if (signal.aborted || !isMountedRef.current) {
           return
+        }
+
+        const limitWarning = detectOrdersLimitWarning(ordersPayload)
+        limitSaturated = limitWarning.limitHit
+        limitWarningMeta = limitWarning.meta
+
+        if (limitWarning.limitHit) {
+          if (isMountedRef.current) {
+            setHasOrderLimitWarning(true)
+            setOrderLimitWarning(limitWarning.meta)
+          }
+
+          recordDiagnostic({
+            type: 'orders.refresh.limit-saturated',
+            level: 'warn',
+            payload: {
+              silent,
+              limit: limitWarning.meta?.limit ?? null,
+              count: limitWarning.meta?.count ?? null,
+              pagesWithNext: limitWarning.meta?.pagesWithNext ?? 0,
+              totalPages: limitWarning.meta?.totalPages ?? null,
+            },
+          })
+        } else if (isMountedRef.current) {
+          setHasOrderLimitWarning(false)
+          setOrderLimitWarning(null)
         }
 
         const windowTimestamps: number[] = []
@@ -884,12 +1002,19 @@ const useOrdersData = () => {
             targetedRefreshCount,
             omissionCount,
             workerGuidListProvided,
+            limitSaturated,
+            limitWarning: limitWarningMeta,
           },
           clearLastError: true,
         })
       } catch (fetchError) {
         if ((fetchError as Error)?.name === 'AbortError' || !isMountedRef.current) {
           return
+        }
+
+        if (isMountedRef.current) {
+          setHasOrderLimitWarning(false)
+          setOrderLimitWarning(null)
         }
 
         recordDiagnostic({
@@ -1047,6 +1172,8 @@ const useOrdersData = () => {
     menuSnapshot: menuDebugSnapshot,
     configSnapshot: configDebugSnapshot,
     lookupsVersion,
+    hasOrderLimitWarning,
+    orderLimitWarning,
   }
 }
 

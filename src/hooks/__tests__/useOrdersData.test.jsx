@@ -672,6 +672,90 @@ describe('useOrdersData', () => {
     expect(result.current.error).toBeInstanceOf(Error)
   })
 
+  it('records diagnostics when the orders payload saturates the poll limit', async () => {
+    const limit = APP_SETTINGS.pollLimit
+    const ordersPayload = createOrdersIdsPayload({
+      count: limit,
+      debug: {
+        pages: [
+          { index: 0, nextPage: 'cursor-1' },
+          { index: 1, nextPage: null },
+        ],
+      },
+    })
+
+    const singleOrderPayload = {
+      ok: true,
+      route: `${ORDERS_ENDPOINT}/${baseOrder.guid}`,
+      guid: baseOrder.guid,
+      order: baseOrder,
+    }
+
+    const fetchMock = vi.fn(async (input) => {
+      const url = typeof input === 'string' ? input : input.url
+
+      if (url.startsWith(`${ORDERS_ENDPOINT}?`)) {
+        return createFetchResponse(ordersPayload)
+      }
+
+      if (url === MENUS_ENDPOINT) {
+        return createFetchResponse(menusPayload)
+      }
+
+      if (url === CONFIG_SNAPSHOT_ENDPOINT) {
+        return createFetchResponse(configPayload)
+      }
+
+      if (url === `${ORDERS_ENDPOINT}/${baseOrder.guid}`) {
+        return createFetchResponse(singleOrderPayload)
+      }
+
+      throw new Error(`Unexpected fetch to ${url}`)
+    })
+
+    globalThis.fetch = fetchMock
+
+    const { result } = renderHook(
+      () => ({ data: useOrdersData(), diagnostics: useDashboardDiagnostics() }),
+      { wrapper: DiagnosticsWrapper },
+    )
+
+    await waitFor(() => {
+      expect(result.current.data.orders).toHaveLength(1)
+      expect(result.current.data.hasOrderLimitWarning).toBe(true)
+    })
+
+    expect(result.current.data.orderLimitWarning).toEqual(
+      expect.objectContaining({
+        limit,
+        count: limit,
+        pagesWithNext: 1,
+        totalPages: 2,
+      }),
+    )
+
+    const timeline = result.current.diagnostics.timeline
+    const limitEvent = timeline.find((event) => event.type === 'orders.refresh.limit-saturated')
+    expect(limitEvent).toBeDefined()
+    expect(limitEvent?.level).toBe('warn')
+    expect(limitEvent?.payload).toEqual(
+      expect.objectContaining({
+        silent: false,
+        limit,
+        count: limit,
+        pagesWithNext: 1,
+        totalPages: 2,
+      }),
+    )
+
+    const successEvent = timeline.find((event) => event.type === 'orders.refresh.success')
+    expect(successEvent?.payload).toEqual(
+      expect.objectContaining({
+        limitSaturated: true,
+      }),
+    )
+  })
+
   it('logs diagnostics events for refresh failures', async () => {
     const failure = new Error('Orders offline')
     const consoleInfo = vi.spyOn(console, 'info').mockImplementation(() => {})

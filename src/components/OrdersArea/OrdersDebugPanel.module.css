@@ -190,11 +190,20 @@
   border: 1px solid rgba(96, 165, 250, 0.35);
 }
 
+.noticeWarning {
+  background: rgba(161, 98, 7, 0.32);
+  border-color: rgba(234, 179, 8, 0.6);
+}
+
 .noticeTitle {
   margin: 0 0 0.4rem;
   font-size: 0.78rem;
   font-weight: 600;
   color: #bfdbfe;
+}
+
+.noticeWarningTitle {
+  color: #facc15;
 }
 
 .noticeList {
