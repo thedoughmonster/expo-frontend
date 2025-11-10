@@ -282,6 +282,14 @@ const detectOrdersLimitWarning = (
   return { limitHit: true, meta }
 }
 
+const toMinutes = (durationMs: number | undefined): number => {
+  if (typeof durationMs !== 'number' || !Number.isFinite(durationMs) || durationMs <= 0) {
+    return 0
+  }
+
+  return Math.ceil(durationMs / 60_000)
+}
+
 const buildOrdersQuery = (cursorIso: string | undefined, now: number): OrdersLatestQuery => {
   let since: string | undefined
 
@@ -304,7 +312,13 @@ const buildOrdersQuery = (cursorIso: string | undefined, now: number): OrdersLat
   if (since) {
     query.since = since
   } else {
-    query.minutes = FALLBACK_MINUTES
+    const retentionWindowMinutes = Math.max(
+      FALLBACK_MINUTES,
+      toMinutes(STALE_ACTIVE_RETENTION_MS),
+      toMinutes(STALE_READY_RETENTION_MS),
+    )
+
+    query.minutes = retentionWindowMinutes > 0 ? retentionWindowMinutes : FALLBACK_MINUTES
   }
 
   return query
