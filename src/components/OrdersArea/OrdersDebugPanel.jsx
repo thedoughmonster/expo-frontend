@@ -115,6 +115,8 @@ const OrdersDebugPanel = ({
   lookupsVersion,
   filterContext,
   diagnosticsTimeline = [],
+  hasLimitWarning = false,
+  limitWarning = null,
 }) => {
   useEffect(() => {
     if (!isOpen) {
@@ -141,6 +143,54 @@ const OrdersDebugPanel = ({
     [diagnosticsTimeline],
   )
   const normalizedSearchTerm = searchTerm.trim().toLowerCase()
+
+  const limitWarningMessages = useMemo(() => {
+    if (!hasLimitWarning) {
+      return []
+    }
+
+    const details = typeof limitWarning === 'object' && limitWarning ? limitWarning : {}
+    const messages = []
+    const limitValue =
+      typeof details.limit === 'number' && Number.isFinite(details.limit)
+        ? details.limit
+        : undefined
+    const countValue =
+      typeof details.count === 'number' && Number.isFinite(details.count)
+        ? details.count
+        : undefined
+
+    if (typeof limitValue === 'number' && typeof countValue === 'number') {
+      messages.push(
+        `Bulk refresh returned ${countValue} of ${limitValue} requested records. Some orders may be omitted.`,
+      )
+    }
+
+    const pagesWithNext =
+      typeof details.pagesWithNext === 'number' && details.pagesWithNext > 0
+        ? Math.trunc(details.pagesWithNext)
+        : 0
+    const totalPages =
+      typeof details.totalPages === 'number' && details.totalPages > 0
+        ? Math.trunc(details.totalPages)
+        : undefined
+
+    if (pagesWithNext > 0) {
+      const pageNoun = pagesWithNext === 1 ? 'page' : 'pages'
+      const pageSummary = totalPages
+        ? `${pagesWithNext} ${pageNoun} with follow-up cursors out of ${totalPages}`
+        : `${pagesWithNext} ${pageNoun} with follow-up cursors`
+      messages.push(`Worker reported ${pageSummary}, indicating pagination beyond the configured limit.`)
+    }
+
+    if (messages.length === 0) {
+      messages.push('Worker indicated that additional orders exist beyond the configured polling limit.')
+    }
+
+    return messages
+  }, [hasLimitWarning, limitWarning])
+
+  const showLimitWarning = hasLimitWarning && limitWarningMessages.length > 0
 
   const filteredTimeline = useMemo(() => {
     if (timeline.length === 0) {
@@ -291,6 +341,18 @@ const OrdersDebugPanel = ({
           </button>
         </div>
         <div className={styles.content}>
+          {showLimitWarning ? (
+            <div className={`${styles.notice} ${styles.noticeWarning}`} role="alert">
+              <p className={`${styles.noticeTitle} ${styles.noticeWarningTitle}`}>
+                Orders limit warning
+              </p>
+              <ul className={styles.noticeList}>
+                {limitWarningMessages.map((message, index) => (
+                  <li key={message ?? index}>{message}</li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
           <section className={styles.section} aria-live="polite">
             <div className={styles.sectionHeader}>
               <div className={styles.sectionHeaderText}>

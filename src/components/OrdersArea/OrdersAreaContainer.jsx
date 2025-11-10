@@ -94,6 +94,8 @@ function OrdersAreaContainer({
       lookupsVersion={debugPanel.lookupsVersion}
       filterContext={debugPanel.filterContext}
       diagnosticsTimeline={debugPanel.diagnosticsTimeline}
+      hasLimitWarning={debugPanel.hasOrderLimitWarning}
+      limitWarning={debugPanel.orderLimitWarning}
     />
   ) : null
 

@@ -25,6 +25,8 @@ const useDashboardView = () => {
     menuSnapshot,
     configSnapshot,
     lookupsVersion,
+    hasOrderLimitWarning,
+    orderLimitWarning,
   } = useOrdersData()
   const { timeline: diagnosticsTimeline, lastErrorEvent, recordDiagnostic } =
     useDashboardDiagnostics()
@@ -337,6 +339,8 @@ const useDashboardView = () => {
       filterContext: debugFilterContext,
       diagnosticsTimeline,
       lastErrorEvent,
+      hasOrderLimitWarning,
+      orderLimitWarning,
     }),
     [
       closeDebugPanel,
@@ -346,6 +350,8 @@ const useDashboardView = () => {
       isDebugPanelEnabled,
       isDebugPanelOpen,
       lastErrorEvent,
+      hasOrderLimitWarning,
+      orderLimitWarning,
       rawOrders,
       lookupsVersion,
       menuSnapshot,
