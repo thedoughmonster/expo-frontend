@@ -1,7 +1,4 @@
 import stableStringify from '../../utils/stableStringify'
-import { safeDelete, safeGet, safeSet } from '../storage/safeIndexedDb'
-
-const CONFIG_CACHE_KEY = 'config-cache-v1'
 
 export type ConfigCacheSnapshot = {
   payload: unknown
@@ -25,19 +22,6 @@ const isExpired = (snapshot: ConfigCacheSnapshot | undefined, now = Date.now()):
   }
 
   return expiresAt <= now
-}
-
-export const loadConfigCache = async (): Promise<ConfigCacheSnapshot | undefined> => {
-  const snapshot = await safeGet<ConfigCacheSnapshot>(CONFIG_CACHE_KEY)
-  return snapshot ?? undefined
-}
-
-export const saveConfigCache = async (snapshot: ConfigCacheSnapshot): Promise<void> => {
-  await safeSet(CONFIG_CACHE_KEY, snapshot)
-}
-
-export const clearConfigCache = async (): Promise<void> => {
-  await safeDelete(CONFIG_CACHE_KEY)
 }
 
 export const prepareConfigCacheSnapshot = (
