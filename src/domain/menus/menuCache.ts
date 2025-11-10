@@ -1,7 +1,4 @@
 import stableStringify from '../../utils/stableStringify'
-import { safeDelete, safeGet, safeSet } from '../storage/safeIndexedDb'
-
-const MENU_CACHE_KEY = 'menus-cache-v1'
 
 export type MenuCacheSnapshot = {
   payload: unknown
@@ -25,19 +22,6 @@ const isExpired = (snapshot: MenuCacheSnapshot | undefined, now = Date.now()): b
   }
 
   return expiresAt <= now
-}
-
-export const loadMenuCache = async (): Promise<MenuCacheSnapshot | undefined> => {
-  const snapshot = await safeGet<MenuCacheSnapshot>(MENU_CACHE_KEY)
-  return snapshot ?? undefined
-}
-
-export const saveMenuCache = async (snapshot: MenuCacheSnapshot): Promise<void> => {
-  await safeSet(MENU_CACHE_KEY, snapshot)
-}
-
-export const clearMenuCache = async (): Promise<void> => {
-  await safeDelete(MENU_CACHE_KEY)
 }
 
 export const prepareMenuCacheSnapshot = (

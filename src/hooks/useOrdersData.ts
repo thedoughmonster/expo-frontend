@@ -10,29 +10,7 @@ import {
   extractOrderGuid,
   normalizeOrders,
 } from '../domain/orders/normalizeOrders'
-import {
-  clearOrdersCache,
-  computeOrderFingerprint,
-  loadOrdersCache,
-  saveOrdersCache,
-  type OrderCacheEntry,
-} from '../domain/orders/ordersCache'
-import {
-  clearMenuCache,
-  loadMenuCache,
-  menuCacheIsFresh,
-  prepareMenuCacheSnapshot,
-  saveMenuCache,
-  type MenuCacheSnapshot,
-} from '../domain/menus/menuCache'
-import {
-  clearConfigCache,
-  loadConfigCache,
-  configCacheIsFresh,
-  prepareConfigCacheSnapshot,
-  saveConfigCache,
-  type ConfigCacheSnapshot,
-} from '../domain/config/configCache'
+import { computeOrderFingerprint } from '../domain/orders/computeOrderFingerprint'
 import stableStringify from '../utils/stableStringify'
 import { fetchToastOrderByGuid, fetchToastOrders } from '../api/orders'
 import type { OrdersLatestQuery, OrdersLatestSuccess, ToastSelection } from '../api/orders'
@@ -81,6 +59,16 @@ type OrderLimitWarningMeta = {
   totalPages?: number
 }
 
+type CacheSnapshot = {
+  payload: unknown
+  fetchedAt: string
+  expiresAt?: string
+  signature: string
+}
+
+type MenuCacheSnapshot = CacheSnapshot
+type ConfigCacheSnapshot = CacheSnapshot
+
 type MenuFetchResult = {
   payload: unknown
   snapshot: MenuCacheSnapshot
@@ -99,6 +87,43 @@ const isFetchError = (value: unknown): value is FetchResultError =>
   Boolean(value && typeof value === 'object' && 'error' in value)
 
 const READY_STATUS = 'READY'
+
+const createCacheSnapshot = (
+  payload: unknown,
+  ttlMs?: number,
+  now = Date.now(),
+): CacheSnapshot => {
+  const fetchedAt = new Date(now).toISOString()
+  const expiresAt =
+    typeof ttlMs === 'number' && Number.isFinite(ttlMs) ? new Date(now + ttlMs).toISOString() : undefined
+
+  return {
+    payload,
+    fetchedAt,
+    expiresAt,
+    signature: stableStringify(payload ?? null),
+  }
+}
+
+const cacheSnapshotIsFresh = <TSnapshot extends CacheSnapshot | undefined>(
+  snapshot: TSnapshot,
+  now = Date.now(),
+): snapshot is Exclude<TSnapshot, undefined> => {
+  if (!snapshot) {
+    return false
+  }
+
+  if (!snapshot.expiresAt) {
+    return true
+  }
+
+  const expiresAt = Date.parse(snapshot.expiresAt)
+  if (Number.isNaN(expiresAt)) {
+    return true
+  }
+
+  return expiresAt > now
+}
 
 export const computeIsOrderReady = (order: NormalizedOrder | undefined): boolean => {
   if (!order) {
@@ -352,7 +377,6 @@ const useOrdersData = () => {
   const menuCacheRef = useRef<MenuCacheSnapshot | undefined>(undefined)
   const configCacheRef = useRef<ConfigCacheSnapshot | undefined>(undefined)
   const cursorRef = useRef<string | undefined>(undefined)
-  const lastFetchRef = useRef<number | undefined>(undefined)
   const pollIntervalRef = useRef<PollingIntervalHandle | null>(null)
 
   const lookupsRef = useRef({
@@ -549,7 +573,7 @@ const useOrdersData = () => {
       const now = Date.now()
       const cached = menuCacheRef.current
 
-      if (cached && menuCacheIsFresh(cached, now)) {
+      if (cacheSnapshotIsFresh(cached, now)) {
         assignMenuSnapshot(cached)
         return { payload: cached.payload, snapshot: cached }
       }
@@ -563,9 +587,8 @@ const useOrdersData = () => {
       const cacheControl = response.headers.get('cache-control')
       const maxAgeSeconds = parseCacheControlMaxAge(cacheControl)
       const ttlMs = maxAgeSeconds ? maxAgeSeconds * 1000 : undefined
-      const snapshot = prepareMenuCacheSnapshot(payload, ttlMs, now)
+      const snapshot = createCacheSnapshot(payload, ttlMs, now)
       assignMenuSnapshot(snapshot)
-      await saveMenuCache(snapshot)
 
       return { payload, snapshot }
     },
@@ -577,7 +600,7 @@ const useOrdersData = () => {
       const now = Date.now()
       const cached = configCacheRef.current
 
-      if (cached && configCacheIsFresh(cached, now)) {
+      if (cacheSnapshotIsFresh(cached, now)) {
         assignConfigSnapshot(cached)
         return { payload: cached.payload, snapshot: cached }
       }
@@ -590,9 +613,8 @@ const useOrdersData = () => {
       const payload = await response.json()
       const ttlSeconds = typeof payload?.ttlSeconds === 'number' ? payload.ttlSeconds : undefined
       const ttlMs = ttlSeconds ? ttlSeconds * 1000 : undefined
-      const snapshot = prepareConfigCacheSnapshot(payload, ttlMs, now)
+      const snapshot = createCacheSnapshot(payload, ttlMs, now)
       assignConfigSnapshot(snapshot)
-      await saveConfigCache(snapshot)
 
       return { payload, snapshot }
     },
@@ -625,25 +647,6 @@ const useOrdersData = () => {
     },
     [publishOrders],
   )
-
-  const persistOrdersCache = useCallback(async () => {
-    const snapshotEntries: OrderCacheEntry[] = Array.from(orderCacheRef.current.values()).map((entry) => ({
-      guid: entry.guid,
-      raw: entry.raw,
-      normalized: entry.normalized,
-      fingerprint: entry.fingerprint,
-      lastSeenAt: new Date(entry.lastSeenAtMs).toISOString(),
-      isReady: entry.isReady,
-    }))
-
-    await saveOrdersCache({
-      entries: snapshotEntries,
-      lastCursor: cursorRef.current,
-      lastFetchedAt: lastFetchRef.current
-        ? new Date(lastFetchRef.current).toISOString()
-        : undefined,
-    })
-  }, [])
 
   const fetchOrdersByGuidList = useCallback(
     async (guids: string[], signal: AbortSignal, now: number) => {
@@ -950,8 +953,6 @@ const useOrdersData = () => {
           cursorRef.current = new Date(latest).toISOString()
         }
 
-        lastFetchRef.current = now
-
         const targetedSeen = await refreshActiveOrders(signal, now, targetedExclusions)
         targetedRefreshCount = targetedSeen.size
         targetedSeen.forEach((guid) => {
@@ -991,7 +992,6 @@ const useOrdersData = () => {
         }
 
         removeStaleEntries(now, seenGuids)
-        await persistOrdersCache()
 
         recordDiagnostic({
           type: 'orders.refresh.success',
@@ -1058,90 +1058,11 @@ const useOrdersData = () => {
       fetchConfigWithCache,
       fetchMenusWithCache,
       recordDiagnostic,
-      persistOrdersCache,
       reNormalizeOrders,
       refreshActiveOrders,
       removeStaleEntries,
     ],
   )
-
-  useEffect(() => {
-    let cancelled = false
-
-    const bootstrap = async () => {
-      await Promise.all([clearOrdersCache(), clearMenuCache(), clearConfigCache()])
-
-      if (cancelled || !isMountedRef.current) {
-        return
-      }
-
-      const [ordersSnapshot, menuSnapshot, configSnapshot] = await Promise.all([
-        loadOrdersCache(),
-        loadMenuCache(),
-        loadConfigCache(),
-      ])
-
-      if (cancelled || !isMountedRef.current) {
-        return
-      }
-
-      if (menuSnapshot) {
-        assignMenuSnapshot(menuSnapshot)
-        applyLookupPayloads(menuSnapshot.payload)
-      } else {
-        assignMenuSnapshot(undefined)
-      }
-
-      if (configSnapshot) {
-        assignConfigSnapshot(configSnapshot)
-        applyLookupPayloads(undefined, configSnapshot.payload)
-      } else {
-        assignConfigSnapshot(undefined)
-      }
-
-      if (ordersSnapshot && Array.isArray(ordersSnapshot.entries)) {
-        cursorRef.current = ordersSnapshot.lastCursor
-        lastFetchRef.current = ordersSnapshot.lastFetchedAt
-          ? Date.parse(ordersSnapshot.lastFetchedAt)
-          : undefined
-
-        const version = lookupsRef.current.version - 1
-
-        ordersSnapshot.entries.forEach((entry) => {
-          const lastSeenMs = entry.lastSeenAt ? Date.parse(entry.lastSeenAt) : Date.now()
-          orderCacheRef.current.set(entry.guid, {
-            guid: entry.guid,
-            raw: entry.raw,
-            normalized: entry.normalized,
-            fingerprint: entry.fingerprint,
-            lastSeenAtMs: Number.isFinite(lastSeenMs) ? lastSeenMs : Date.now(),
-            isReady: computeIsOrderReady(entry.normalized),
-            normalizedVersion: Number.isFinite(version) ? version : -1,
-          })
-        })
-
-        publishOrders()
-        reNormalizeOrders()
-      }
-
-      if (!cancelled && isMountedRef.current) {
-        await refresh({ silent: false })
-      }
-    }
-
-    bootstrap()
-
-    return () => {
-      cancelled = true
-    }
-  }, [
-    applyLookupPayloads,
-    assignConfigSnapshot,
-    assignMenuSnapshot,
-    publishOrders,
-    reNormalizeOrders,
-    refresh,
-  ])
 
   useEffect(() => {
     clearPollingInterval()

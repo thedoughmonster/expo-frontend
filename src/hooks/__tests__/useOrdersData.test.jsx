@@ -1,21 +1,12 @@
 import { act, renderHook, waitFor } from '@testing-library/react'
-import { describe, expect, it, vi, afterEach, beforeEach } from 'vitest'
+import { describe, expect, it, vi, afterEach } from 'vitest'
 import useOrdersData, { computeIsOrderReady } from '../useOrdersData'
-import { clearOrdersCache } from '../../domain/orders/ordersCache'
-import { clearMenuCache } from '../../domain/menus/menuCache'
-import { clearConfigCache } from '../../domain/config/configCache'
 import { normalizeOrders } from '../../domain/orders/normalizeOrders'
 import { APP_SETTINGS } from '../../config/appSettings'
 import {
   DashboardDiagnosticsProvider,
   useDashboardDiagnostics,
 } from '../../viewContext/DashboardDiagnosticsContext'
-
-vi.mock('idb-keyval', () => ({
-  get: vi.fn(async () => undefined),
-  set: vi.fn(async () => undefined),
-  del: vi.fn(async () => undefined),
-}))
 
 const ORDERS_ENDPOINT =
   'https://doughmonster-worker.thedoughmonster.workers.dev/api/orders'
@@ -100,10 +91,6 @@ const configPayload = {
     ],
   },
 }
-
-beforeEach(async () => {
-  await Promise.all([clearOrdersCache(), clearMenuCache(), clearConfigCache()])
-})
 
 afterEach(() => {
   if (originalFetch) {
@@ -353,7 +340,7 @@ describe('useOrdersData', () => {
         ordersPollCount += 1
         expect(url).toContain('detail=ids')
 
-        if (ordersPollCount <= 2) {
+        if (ordersPollCount === 1) {
           return createFetchResponse(
             createOrdersIdsPayload({
               count: 2,
@@ -401,7 +388,7 @@ describe('useOrdersData', () => {
 
       if (url === `${ORDERS_ENDPOINT}/${missingOrder.guid}`) {
         targetedHydrations += 1
-        if (ordersPollCount <= 2) {
+        if (ordersPollCount < 2) {
           missingOrderResponses.push('hydrate')
           return createFetchResponse({
             ok: true,
@@ -468,7 +455,7 @@ describe('useOrdersData', () => {
           ordersPollCount += 1
           expect(url).toContain('detail=ids')
 
-          if (ordersPollCount <= 2) {
+          if (ordersPollCount === 1) {
             return createFetchResponse(createOrdersIdsPayload())
           }
 
@@ -490,7 +477,7 @@ describe('useOrdersData', () => {
         if (url === `${ORDERS_ENDPOINT}/${baseOrder.guid}`) {
           targetedCallCount += 1
 
-          if (targetedCallCount <= 2) {
+          if (targetedCallCount === 1) {
             return createFetchResponse({
               ok: true,
               route: `${ORDERS_ENDPOINT}/${baseOrder.guid}`,
