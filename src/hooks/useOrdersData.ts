@@ -267,6 +267,18 @@ const formatBusinessDate = (timestamp: number): string => {
   return `${year}${month}${day}`
 }
 
+const computeDayLookbackMinutes = (timestamp: number): number => {
+  const date = new Date(timestamp)
+  const startOfDayMs = Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate())
+
+  if (!Number.isFinite(startOfDayMs)) {
+    return FALLBACK_MINUTES
+  }
+
+  const elapsedMinutes = Math.ceil(Math.max(timestamp - startOfDayMs, 0) / 60_000)
+  return Math.max(elapsedMinutes, FALLBACK_MINUTES)
+}
+
 const buildOrdersQuery = (cursorIso: string | undefined, now: number): OrdersLatestQuery => {
   let since: string | undefined
 
@@ -290,7 +302,7 @@ const buildOrdersQuery = (cursorIso: string | undefined, now: number): OrdersLat
   if (since) {
     query.since = since
   } else {
-    query.minutes = FALLBACK_MINUTES
+    query.minutes = computeDayLookbackMinutes(now)
   }
 
   return query

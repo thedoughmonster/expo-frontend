@@ -125,12 +125,21 @@ describe('useOrdersData', () => {
       order: baseOrder,
     }
 
+    const nowMs = Date.now()
+    const nowDate = new Date(nowMs)
+    const startOfDay = Date.UTC(nowDate.getUTCFullYear(), nowDate.getUTCMonth(), nowDate.getUTCDate())
+    const expectedMinutes = Math.max(
+      Math.ceil(Math.max(nowMs - startOfDay, 0) / 60000),
+      APP_SETTINGS.orderPollingWindowMinutes,
+    )
+
     const fetchMock = vi.fn(async (input) => {
       const url = typeof input === 'string' ? input : input.url
 
       if (url.startsWith(`${ORDERS_ENDPOINT}?`)) {
         expect(url).toContain('detail=ids')
         expect(url).toContain(`limit=${APP_SETTINGS.pollLimit}`)
+        expect(url).toContain(`minutes=${expectedMinutes}`)
         return createFetchResponse(createOrdersIdsPayload({ data: [baseOrder] }))
       }
 
