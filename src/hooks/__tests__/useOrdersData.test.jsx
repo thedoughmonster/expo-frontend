@@ -192,12 +192,14 @@ describe('useOrdersData', () => {
       if (url.startsWith(`${ORDERS_ENDPOINT}?`)) {
         bulkCallCount += 1
         expect(url).toContain('detail=ids')
+        expect(url).toMatch(/businessDate=\d{8}/)
         if (bulkCallCount === 1) {
           return createFetchResponse(createOrdersIdsPayload())
         }
 
         expect(url).toContain('since=')
         expect(url).not.toContain('minutes=')
+        expect(url).toMatch(/businessDate=\d{8}/)
         return createFetchResponse(createOrdersIdsPayload({ minutes: null }))
       }
 
@@ -263,6 +265,7 @@ describe('useOrdersData', () => {
       if (url.startsWith(`${ORDERS_ENDPOINT}?`)) {
         bulkCallCount += 1
         expect(url).toContain('detail=ids')
+        expect(url).toMatch(/businessDate=\d{8}/)
         return createFetchResponse(createOrdersIdsPayload())
       }
 
